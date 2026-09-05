@@ -4,9 +4,12 @@ from sqlalchemy import text
 
 from app.core.database import engine
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
+from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.inventario.api.router import router as inventario_router
+from app.modules.roles.api.router import router as roles_router
 from app.modules.sucursales.api.router import router as sucursales_router
+from app.modules.usuarios.api.router import router as usuarios_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -30,6 +33,9 @@ app.include_router(catalogo_router)
 app.include_router(sucursales_router)
 app.include_router(inventario_router)
 app.include_router(auth_router)
+app.include_router(bitacora_router)
+app.include_router(roles_router)
+app.include_router(usuarios_router)
 
 
 @app.get("/")

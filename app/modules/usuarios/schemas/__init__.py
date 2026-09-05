@@ -1,0 +1,1 @@
+# Submodulo: esquemas Pydantic.
