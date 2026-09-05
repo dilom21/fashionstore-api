@@ -1,17 +1,32 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.database import engine
-from app.routers.auth import router as auth_router
-from app.routers.categorias import router as categorias_router
-from app.routers.inventario import router as inventario_router
-from app.routers.productos import router as productos_router
-from app.routers.sucursales import router as sucursales_router
+from app.modules.autenticacion_seguridad.api.router import router as auth_router
+from app.modules.catalogo.api.router import router as catalogo_router
+from app.modules.inventario.api.router import router as inventario_router
+from app.modules.sucursales.api.router import router as sucursales_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
-app.include_router(productos_router)
-app.include_router(categorias_router)
+# CORS habilitado unicamente para el frontend Angular en desarrollo.
+# La autenticacion usa JWT por header Authorization (sin cookies de sesion),
+# por lo que allow_credentials se mantiene en False.
+cors_origins = [
+    "http://localhost:4200",
+    "http://127.0.0.1:4200",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=cors_origins,
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(catalogo_router)
 app.include_router(sucursales_router)
 app.include_router(inventario_router)
 app.include_router(auth_router)
