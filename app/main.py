@@ -19,6 +19,7 @@ app = FastAPI(title="FashionStore API", version="1.0.0")
 cors_origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
+    "https://fashionstore-web-taupe.vercel.app",
 ]
 
 app.add_middleware(
