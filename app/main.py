@@ -9,6 +9,9 @@ from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.inventario.api.router import router as inventario_router
 from app.modules.roles.api.router import router as roles_router
 from app.modules.sucursales.api.router import router as sucursales_router
+from app.modules.temporadas_colecciones.api.router import (
+    router as temporadas_colecciones_router,
+)
 from app.modules.usuarios.api.router import router as usuarios_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
@@ -19,6 +22,7 @@ app = FastAPI(title="FashionStore API", version="1.0.0")
 cors_origins = [
     "http://localhost:4200",
     "http://127.0.0.1:4200",
+    "https://fashionstore-web-taupe.vercel.app",
 ]
 
 app.add_middleware(
@@ -36,6 +40,7 @@ app.include_router(auth_router)
 app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
+app.include_router(temporadas_colecciones_router)
 
 
 @app.get("/")
