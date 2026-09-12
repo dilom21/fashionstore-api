@@ -30,5 +30,19 @@ class InventarioService:
         return InventarioRepository.obtener_por_id(db, inventario_id)
 
     @staticmethod
-    def listar_disponibles_por_producto(db: Session, producto_id: int) -> list[Inventario]:
-        return InventarioRepository.listar_disponibles_por_producto(db, producto_id)
+    def listar_disponibles_por_producto(
+        db: Session,
+        producto_id: int,
+        sucursal_id: int | None = None,
+        talla_id: int | None = None,
+        color_id: int | None = None,
+        temporada_id: int | None = None,
+    ) -> list[Inventario]:
+        return InventarioRepository.listar_disponibles_por_producto(
+            db,
+            producto_id,
+            sucursal_id=sucursal_id,
+            talla_id=talla_id,
+            color_id=color_id,
+            temporada_id=temporada_id,
+        )

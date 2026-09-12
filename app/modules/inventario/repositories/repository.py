@@ -1,7 +1,7 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
-from app.modules.catalogo.models.models import Producto, VarianteProducto
+from app.modules.catalogo.models.models import Color, Producto, Talla, VarianteProducto
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
 
@@ -58,15 +58,43 @@ class InventarioRepository:
 
     @staticmethod
     def listar_disponibles_por_producto(
-        db: Session, producto_id: int
+        db: Session,
+        producto_id: int,
+        *,
+        sucursal_id: int | None = None,
+        talla_id: int | None = None,
+        color_id: int | None = None,
+        temporada_id: int | None = None,
     ) -> list[Inventario]:
+        """Disponibilidad publica CU09.
+
+        Devuelve unicamente stock disponible > 0 (stock_actual - stock_reservado)
+        de producto, sucursal, variante, talla y color activos.
+        """
         statement = (
             InventarioRepository._consulta_base()
             .join(Inventario.variante_producto)
+            .join(VarianteProducto.talla)
+            .join(VarianteProducto.color)
+            .join(Inventario.sucursal)
             .where(
                 VarianteProducto.producto_id == producto_id,
+                VarianteProducto.estado.is_(True),
+                Talla.estado.is_(True),
+                Color.estado.is_(True),
+                Sucursal.estado.is_(True),
                 Inventario.stock_actual - Inventario.stock_reservado > 0,
             )
-            .order_by(Inventario.sucursal_id, Inventario.variante_producto_id)
+        )
+        if sucursal_id is not None:
+            statement = statement.where(Inventario.sucursal_id == sucursal_id)
+        if talla_id is not None:
+            statement = statement.where(VarianteProducto.talla_id == talla_id)
+        if color_id is not None:
+            statement = statement.where(VarianteProducto.color_id == color_id)
+        if temporada_id is not None:
+            statement = statement.where(Inventario.temporada_id == temporada_id)
+        statement = statement.order_by(
+            Inventario.sucursal_id, Inventario.variante_producto_id
         )
         return list(db.scalars(statement).all())
