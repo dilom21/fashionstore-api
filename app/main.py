@@ -6,7 +6,10 @@ from app.core.database import engine
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.catalogo.api.router import router as catalogo_router
+from app.modules.compras.api.router import router as compras_router
 from app.modules.inventario.api.router import router as inventario_router
+from app.modules.promociones.api.router import router as promociones_router
+from app.modules.proveedores.api.router import router as proveedores_router
 from app.modules.roles.api.router import router as roles_router
 from app.modules.sucursales.api.router import router as sucursales_router
 from app.modules.temporadas_colecciones.api.router import (
@@ -41,6 +44,9 @@ app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
 app.include_router(temporadas_colecciones_router)
+app.include_router(promociones_router)
+app.include_router(proveedores_router)
+app.include_router(compras_router)
 
 
 @app.get("/")
