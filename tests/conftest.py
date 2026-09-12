@@ -1,3 +1,6 @@
+import uuid
+from datetime import date, datetime, timezone
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
@@ -6,7 +9,12 @@ from sqlalchemy.orm import sessionmaker
 from app.core.database import engine, get_db
 from app.core.security import create_access_token
 from app.main import app
-from app.modules.autenticacion_seguridad.models.models import Rol, Usuario
+from app.modules.autenticacion_seguridad.models.models import (
+    Empleado,
+    Rol,
+    Usuario,
+)
+from app.modules.sucursales.models.models import Sucursal
 
 
 @pytest.fixture()
@@ -79,6 +87,47 @@ def cajero_usuario(db_session) -> Usuario:
 
 
 @pytest.fixture()
+def encargado_usuario(db_session) -> Usuario:
+    """Crea temporalmente un usuario ENCARGADO_SUCURSAL para pruebas RBAC.
+
+    El usuario se crea dentro de la transaccion revertida del fixture
+    db_session, por lo que no deja residuos en la base de datos. Se asocia a
+    un empleado activo para poder validar el alcance por sucursal (CU12).
+    """
+    rol = db_session.scalar(
+        select(Rol).where(Rol.nombre == "ENCARGADO_SUCURSAL")
+    )
+    assert rol is not None, "No existe el rol ENCARGADO_SUCURSAL"
+    usuario = Usuario(
+        rol_id=rol.id,
+        correo=f"encargado.cu11.{uuid.uuid4().hex[:8]}@fashionstore.test",
+        password_hash="temporal",
+        fecha_creacion=datetime.now(timezone.utc),
+        estado=True,
+    )
+    db_session.add(usuario)
+    db_session.flush()
+
+    sucursal = db_session.scalar(
+        select(Sucursal).where(Sucursal.estado.is_(True)).order_by(Sucursal.id)
+    )
+    assert sucursal is not None, "No existe una sucursal activa"
+    empleado = Empleado(
+        usuario_id=usuario.id,
+        sucursal_id=sucursal.id,
+        nombres="Encargado",
+        apellidos="Prueba",
+        ci=f"CI{uuid.uuid4().hex[:10]}",
+        telefono=None,
+        fecha_contratacion=date.today(),
+        estado=True,
+    )
+    db_session.add(empleado)
+    db_session.flush()
+    return usuario
+
+
+@pytest.fixture()
 def admin_headers(admin_usuario) -> dict:
     return {"Authorization": f"Bearer {_token(admin_usuario)}"}
 
@@ -86,3 +135,8 @@ def admin_headers(admin_usuario) -> dict:
 @pytest.fixture()
 def cajero_headers(cajero_usuario) -> dict:
     return {"Authorization": f"Bearer {_token(cajero_usuario)}"}
+
+
+@pytest.fixture()
+def encargado_headers(encargado_usuario) -> dict:
+    return {"Authorization": f"Bearer {_token(encargado_usuario)}"}
