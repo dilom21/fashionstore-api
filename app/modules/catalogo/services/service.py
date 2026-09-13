@@ -1,6 +1,6 @@
 from decimal import Decimal
 
-from sqlalchemy import text
+from sqlalchemy import inspect as sa_inspect, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -26,6 +26,7 @@ from app.modules.catalogo.schemas.schemas import (
     CatalogoFiltrosResponse,
     CategoriaCreate,
     CategoriaEstadoUpdate,
+    CategoriaResumen,
     CategoriaUpdate,
     ColeccionFiltroResponse,
     ColorCreate,
@@ -37,6 +38,7 @@ from app.modules.catalogo.schemas.schemas import (
     FiltroOpcionResponse,
     ProductoCreate,
     ProductoEstadoUpdate,
+    ProductoResponse,
     ProductoUpdate,
     RecursoProductoCreate,
     RecursoProductoEstadoUpdate,
@@ -245,6 +247,37 @@ def _establecer_contexto_bitacora(db: Session, usuario_id: int) -> None:
     )
 
 
+def _imagen_principal_url(producto: Producto) -> str | None:
+    """Devuelve la URL del recurso principal general activo del producto.
+
+    Usa unicamente la coleccion ya cargada (eager load) para no disparar
+    consultas adicionales. Si la coleccion no fue cargada, retorna None.
+    """
+    if "recursos" in sa_inspect(producto).unloaded:
+        return None
+    for recurso in producto.recursos:
+        if (
+            recurso.estado
+            and recurso.es_principal
+            and recurso.color_id is None
+        ):
+            return recurso.url
+    return None
+
+
+def _serializar_producto_publico(producto: Producto) -> ProductoResponse:
+    return ProductoResponse(
+        id=producto.id,
+        nombre=producto.nombre,
+        descripcion=producto.descripcion,
+        precio=producto.precio,
+        estado=producto.estado,
+        categoria_id=producto.categoria_id,
+        categoria=CategoriaResumen.model_validate(producto.categoria),
+        imagen_principal_url=_imagen_principal_url(producto),
+    )
+
+
 # ---------------------------------------------------------------------------
 # Categorias
 # ---------------------------------------------------------------------------
@@ -420,9 +453,13 @@ class ProductoService:
         coleccion_id: int | None = None,
         sucursal_id: int | None = None,
         con_stock: bool | None = None,
-    ) -> list[Producto]:
-        """Contrato publico de catalogo CU09: productos activos filtrables."""
-        return ProductoRepository.listar(
+    ) -> list[ProductoResponse]:
+        """Contrato publico de catalogo CU09: productos activos filtrables.
+
+        Incluye imagen_principal_url a partir del recurso principal general
+        activo, cargado en una sola consulta adicional (sin N+1).
+        """
+        productos = ProductoRepository.listar(
             db,
             buscar=buscar,
             categoria_id=categoria_id,
@@ -433,6 +470,7 @@ class ProductoService:
             sucursal_id=sucursal_id,
             con_stock=con_stock,
         )
+        return [_serializar_producto_publico(producto) for producto in productos]
 
     @staticmethod
     def obtener_producto(db: Session, producto_id: int) -> Producto | None:

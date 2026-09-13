@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 from decimal import Decimal
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
 
 from app.modules.autenticacion_seguridad.models.models import Bitacora
@@ -143,7 +143,19 @@ class ProductoRepository:
         """
         statement = (
             select(Producto)
-            .options(joinedload(Producto.categoria))
+            .options(
+                joinedload(Producto.categoria),
+                selectinload(Producto.recursos),
+                with_loader_criteria(
+                    RecursoProducto,
+                    and_(
+                        RecursoProducto.estado.is_(True),
+                        RecursoProducto.es_principal.is_(True),
+                        RecursoProducto.color_id.is_(None),
+                    ),
+                    include_aliases=True,
+                ),
+            )
             .where(
                 Producto.estado.is_(True),
                 Producto.categoria.has(Categoria.estado.is_(True)),

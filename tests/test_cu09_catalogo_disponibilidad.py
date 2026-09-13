@@ -1,8 +1,10 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import event, select
 
+from app.core.database import engine
+from app.modules.catalogo.models.models import RecursoProducto
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
 
@@ -615,3 +617,168 @@ def test_disponibilidad_no_modifica_inventario(client, admin_headers, db_session
     actual = db_session.get(Inventario, inventario_id)
     assert actual is not None
     assert (actual.stock_actual, actual.stock_reservado) == antes
+
+
+# ---------------------------------------------------------------------------
+# Imagen principal del listado publico (CU09)
+# ---------------------------------------------------------------------------
+
+
+def _crear_recurso(
+    client,
+    headers,
+    producto_id,
+    *,
+    url,
+    es_principal=False,
+    color_id=None,
+    tipo="imagen",
+):
+    payload = {"tipo": tipo, "url": url, "es_principal": es_principal}
+    if color_id is not None:
+        payload["color_id"] = color_id
+    resp = client.post(
+        f"/productos/{producto_id}/recursos", json=payload, headers=headers
+    )
+    assert resp.status_code == 201, resp.text
+    return resp.json()
+
+
+def _producto_listado(client, producto_id):
+    resp = client.get("/productos")
+    assert resp.status_code == 200, resp.text
+    for item in resp.json():
+        if item["id"] == producto_id:
+            return item
+    raise AssertionError(f"Producto {producto_id} no aparece en el listado")
+
+
+def _recurso_principal_general(db_session, producto_id):
+    return db_session.scalar(
+        select(RecursoProducto).where(
+            RecursoProducto.producto_id == producto_id,
+            RecursoProducto.estado.is_(True),
+            RecursoProducto.es_principal.is_(True),
+            RecursoProducto.color_id.is_(None),
+        )
+    )
+
+
+def test_listado_producto_1_devuelve_imagen_principal_general(client, db_session):
+    recurso = _recurso_principal_general(db_session, 1)
+    assert recurso is not None
+
+    item = _producto_listado(client, 1)
+
+    assert item["imagen_principal_url"] == recurso.url
+    assert item["imagen_principal_url"].endswith("/general/model.webp")
+    assert "product.webp" not in item["imagen_principal_url"]
+
+
+def test_listado_sin_recurso_principal_devuelve_null(client, admin_headers):
+    categoria = _crear_categoria(client, admin_headers)
+    producto = _crear_producto(client, admin_headers, categoria["id"])
+
+    item = _producto_listado(client, producto["id"])
+
+    assert item["imagen_principal_url"] is None
+
+
+def test_listado_ignora_recurso_principal_inactivo(client, admin_headers):
+    categoria = _crear_categoria(client, admin_headers)
+    producto = _crear_producto(client, admin_headers, categoria["id"])
+    recurso = _crear_recurso(
+        client,
+        admin_headers,
+        producto["id"],
+        url="https://cdn.test/cu09/inactivo.webp",
+        es_principal=True,
+    )
+    resp = client.patch(
+        f"/recursos-producto/{recurso['id']}/estado",
+        json={"estado": False},
+        headers=admin_headers,
+    )
+    assert resp.status_code == 200, resp.text
+
+    item = _producto_listado(client, producto["id"])
+
+    assert item["imagen_principal_url"] is None
+
+
+def test_listado_ignora_recurso_no_principal(client, admin_headers):
+    categoria = _crear_categoria(client, admin_headers)
+    producto = _crear_producto(client, admin_headers, categoria["id"])
+    _crear_recurso(
+        client,
+        admin_headers,
+        producto["id"],
+        url="https://cdn.test/cu09/no_principal.webp",
+        es_principal=False,
+    )
+
+    item = _producto_listado(client, producto["id"])
+
+    assert item["imagen_principal_url"] is None
+
+
+def test_listado_principal_general_tiene_prioridad_sobre_color(
+    client, admin_headers
+):
+    categoria = _crear_categoria(client, admin_headers)
+    producto = _crear_producto(client, admin_headers, categoria["id"])
+    color = _crear_color(client, admin_headers)
+    general = _crear_recurso(
+        client,
+        admin_headers,
+        producto["id"],
+        url="https://cdn.test/cu09/general.webp",
+        es_principal=True,
+    )
+    _crear_recurso(
+        client,
+        admin_headers,
+        producto["id"],
+        url="https://cdn.test/cu09/por_color.webp",
+        es_principal=True,
+        color_id=color["id"],
+    )
+
+    item = _producto_listado(client, producto["id"])
+
+    assert item["imagen_principal_url"] == general["url"]
+
+
+def test_detalle_mantiene_recursos_completos(client):
+    resp = client.get("/productos/1")
+    assert resp.status_code == 200, resp.text
+    body = resp.json()
+
+    assert "recursos" in body
+    assert len(body["recursos"]) >= 2
+    urls = {recurso["url"] for recurso in body["recursos"]}
+    assert any(url.endswith("/general/model.webp") for url in urls)
+    assert any(url.endswith("/general/product.webp") for url in urls)
+    assert "variantes" in body
+
+
+def test_listado_no_n_plus_1(client):
+    consultas = []
+
+    def _contar(conn, cursor, statement, parameters, context, executemany):
+        consultas.append(statement)
+
+    event.listen(engine, "before_cursor_execute", _contar)
+    try:
+        resp = client.get("/productos")
+    finally:
+        event.remove(engine, "before_cursor_execute", _contar)
+
+    assert resp.status_code == 200, resp.text
+    assert len(resp.json()) >= 1
+
+    select_productos = [s for s in consultas if "FROM producto" in s]
+    select_recursos = [s for s in consultas if "FROM recurso_producto" in s]
+    assert len(select_productos) == 1
+    assert len(select_recursos) == 1
+    assert len(consultas) <= 3

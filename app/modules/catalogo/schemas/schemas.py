@@ -50,6 +50,7 @@ class ProductoResponse(BaseModel):
     estado: bool
     categoria_id: int
     categoria: CategoriaResumen
+    imagen_principal_url: str | None = None
 
     model_config = ConfigDict(from_attributes=True)
 
