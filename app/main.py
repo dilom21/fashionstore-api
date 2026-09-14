@@ -5,6 +5,7 @@ from sqlalchemy import text
 from app.core.database import engine
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.bitacora.api.router import router as bitacora_router
+from app.modules.carrito.api.router import router as carrito_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
 from app.modules.inventario.api.router import router as inventario_router
@@ -47,6 +48,7 @@ app.include_router(temporadas_colecciones_router)
 app.include_router(promociones_router)
 app.include_router(proveedores_router)
 app.include_router(compras_router)
+app.include_router(carrito_router)
 
 
 @app.get("/")

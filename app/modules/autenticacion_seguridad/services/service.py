@@ -71,3 +71,10 @@ class AuthService:
     @staticmethod
     def obtener_usuario_activo(db: Session, usuario_id: int) -> Usuario | None:
         return AuthRepository.obtener_usuario_activo_por_id(db, usuario_id)
+
+    @staticmethod
+    def obtener_cliente_activo(db: Session, usuario_id: int) -> Cliente | None:
+        """Perfil de cliente activo asociado al usuario autenticado."""
+        return AuthRepository.obtener_cliente_activo_por_usuario_id(
+            db, usuario_id
+        )

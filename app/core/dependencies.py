@@ -6,7 +6,7 @@ from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.core.security import decode_access_token
-from app.modules.autenticacion_seguridad.models.models import Usuario
+from app.modules.autenticacion_seguridad.models.models import Cliente, Usuario
 from app.modules.autenticacion_seguridad.services.service import AuthService
 from app.modules.roles.services.service import RolService
 
@@ -117,3 +117,28 @@ def require_permission(funcion: str, accion: str):
         return usuario
 
     return _verificador
+
+
+def get_current_cliente(
+    contexto: Annotated[str, Depends(get_current_auth_context)],
+    usuario: Annotated[Usuario, Depends(get_current_user)],
+    db: Session = Depends(get_db),
+) -> Cliente:
+    """Perfil de CLIENTE del usuario autenticado (CU15 y CUs de tienda).
+
+    Exige que el JWT se haya emitido con contexto "cliente" y que exista un
+    perfil de cliente activo. El personal (contexto "personal") queda excluido.
+    """
+    if contexto != "cliente":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado: se requiere sesion de cliente",
+        )
+
+    cliente = AuthService.obtener_cliente_activo(db, usuario.id)
+    if cliente is None:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="No autorizado: el usuario no tiene perfil de cliente activo",
+        )
+    return cliente
