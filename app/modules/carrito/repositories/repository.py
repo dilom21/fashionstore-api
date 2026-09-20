@@ -125,6 +125,12 @@ class CarritoRepository:
         db.flush()
 
     @staticmethod
+    def marcar_convertido(db: Session, carrito: Carrito) -> None:
+        """ACTIVO -> CONVERTIDO (lo usa CU19 al crear la venta digital)."""
+        carrito.estado = ESTADO_CONVERTIDO
+        db.flush()
+
+    @staticmethod
     def obtener_detalle(
         db: Session, carrito_id: int, detalle_id: int
     ) -> DetalleCarrito | None:

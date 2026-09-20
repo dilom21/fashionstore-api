@@ -9,6 +9,7 @@ from app.modules.carrito.api.router import router as carrito_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
 from app.modules.inventario.api.router import router as inventario_router
+from app.modules.pagos.api.router import router as pagos_router
 from app.modules.promociones.api.router import router as promociones_router
 from app.modules.proveedores.api.router import router as proveedores_router
 from app.modules.reservas.api.atencion_router import (
@@ -24,6 +25,7 @@ from app.modules.temporadas_colecciones.api.router import (
     router as temporadas_colecciones_router,
 )
 from app.modules.usuarios.api.router import router as usuarios_router
+from app.modules.ventas.api.router import router as ventas_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -59,6 +61,8 @@ app.include_router(carrito_router)
 app.include_router(reservas_router)
 app.include_router(reservas_sucursal_router)
 app.include_router(atencion_reservas_router)
+app.include_router(ventas_router)
+app.include_router(pagos_router)
 
 
 @app.get("/")

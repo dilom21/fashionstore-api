@@ -14,6 +14,13 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # CU22 - Pago electronico con Stripe (Test Mode).
+    # Los secretos se leen del entorno (.env local, no versionado). Si no estan
+    # configurados, el provider responde con un error de configuracion limpio.
+    stripe_secret_key: str | None = None
+    stripe_webhook_secret: str | None = None
+    stripe_currency: str = "bob"
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
