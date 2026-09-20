@@ -9,6 +9,7 @@ unicamente stock_reservado mediante sp_finalizar_reserva_sin_compra.
 
 import uuid
 from datetime import datetime, timedelta, timezone
+from decimal import Decimal
 
 from sqlalchemy import select
 
@@ -22,6 +23,7 @@ from app.modules.autenticacion_seguridad.models.models import (
 from app.modules.compras.models.models import MovimientoInventario
 from app.modules.inventario.models.models import Inventario
 from app.modules.reservas.models.models import Reserva
+from app.modules.ventas.models.models import Venta
 
 _UTC = timezone.utc
 
@@ -374,6 +376,31 @@ def _estado(db_session, reserva_id) -> str:
 
 def _ids(respuesta) -> set[int]:
     return {item["reserva_id"] for item in respuesta.json()["items"]}
+
+
+def _crear_venta_asociada(
+    db_session,
+    reserva,
+    *,
+    estado="PENDIENTE",
+    total="100.00",
+    canal="PRESENCIAL",
+) -> Venta:
+    """Venta (CU20) asociada a la reserva; no toca inventario ni la reserva."""
+    venta = Venta(
+        cliente_id=reserva["cliente"].id,
+        empleado_id=None,
+        sucursal_id=reserva["sucursal_id"],
+        reserva_id=reserva["reserva_id"],
+        fecha_hora=datetime.now(_UTC),
+        canal=canal,
+        estado=estado,
+        total=Decimal(total),
+        carrito_id=None,
+    )
+    db_session.add(venta)
+    db_session.flush()
+    return venta
 
 
 # ---------------------------------------------------------------------------
@@ -1454,3 +1481,141 @@ def test_bb_inconsistencia_rollback_total(client, admin_headers, db_session):
     assert _estado(db_session, reserva["reserva_id"]) == "CONFIRMADA"
     assert _stock(db_session, a) == stock_a_antes
     assert _stock(db_session, b)[1] == 1
+
+
+# ---------------------------------------------------------------------------
+# BC - Detalle CU18 sin venta: venta_asociada = null (backward-compatible)
+# ---------------------------------------------------------------------------
+
+
+def test_bc_detalle_sin_venta_expone_venta_asociada_null(
+    client, admin_headers, db_session
+):
+    mia = _sucursales_activas(db_session)[0]
+    _, encargado = _crear_personal(db_session, "ENCARGADO_SUCURSAL", mia, "enc1")
+    reserva = _reserva(client, admin_headers, db_session, mia, etiqueta="a")
+
+    resp = _detalle_atencion(client, encargado, reserva["reserva_id"])
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["venta_asociada"] is None
+
+
+# ---------------------------------------------------------------------------
+# BD - Detalle CU18 con venta: expone venta_id/estado/total/canal
+# ---------------------------------------------------------------------------
+
+
+def test_bd_detalle_con_venta_expone_venta_asociada(
+    client, admin_headers, db_session
+):
+    mia = _sucursales_activas(db_session)[0]
+    _, cajero = _crear_personal(db_session, "CAJERO", mia, "cajero1")
+    reserva = _reserva(client, admin_headers, db_session, mia, etiqueta="a")
+    venta = _crear_venta_asociada(
+        db_session, reserva, estado="PENDIENTE", total="569.70"
+    )
+
+    resp = _detalle_atencion(client, cajero, reserva["reserva_id"])
+    assert resp.status_code == 200, resp.text
+    asociada = resp.json()["venta_asociada"]
+    assert asociada is not None
+    assert asociada["venta_id"] == venta.id
+    assert asociada["estado"] == "PENDIENTE"
+    assert asociada["canal"] == "PRESENCIAL"
+    assert Decimal(str(asociada["total"])) == Decimal("569.70")
+    # La reserva sigue CONFIRMADA: CU20 no la modifica.
+    assert resp.json()["estado"] == "CONFIRMADA"
+
+
+# ---------------------------------------------------------------------------
+# BE/BF - CONFIRMADA + venta PENDIENTE: 409 sin modificar reserva ni inventario
+# ---------------------------------------------------------------------------
+
+
+def test_be_bf_finalizar_con_venta_pendiente_409_sin_efectos(
+    client, admin_headers, db_session
+):
+    mia = _sucursales_activas(db_session)[0]
+    _, encargado = _crear_personal(db_session, "ENCARGADO_SUCURSAL", mia, "enc1")
+    reserva = _reserva(
+        client, admin_headers, db_session, mia, etiqueta="a", cantidades=(2, 1)
+    )
+    a, b = reserva["inventarios"][0], reserva["inventarios"][1]
+    venta = _crear_venta_asociada(
+        db_session, reserva, estado="PENDIENTE", total="300.00"
+    )
+
+    stock_a_antes = _stock(db_session, a)
+    stock_b_antes = _stock(db_session, b)
+    liberaciones_a = _contar_liberaciones(db_session, a)
+    liberaciones_b = _contar_liberaciones(db_session, b)
+
+    resp = _finalizar_sin_compra(client, encargado, reserva["reserva_id"])
+    assert resp.status_code == 409, resp.text
+    assert "venta asociada" in resp.json()["detail"].lower()
+
+    # No cambia la reserva
+    assert _estado(db_session, reserva["reserva_id"]) == "CONFIRMADA"
+    # No libera inventario
+    assert _stock(db_session, a) == stock_a_antes
+    assert _stock(db_session, b) == stock_b_antes
+    assert _contar_liberaciones(db_session, a) == liberaciones_a
+    assert _contar_liberaciones(db_session, b) == liberaciones_b
+    # No cancela ni modifica la venta
+    db_session.expire_all()
+    assert db_session.get(Venta, venta.id).estado == "PENDIENTE"
+
+
+# ---------------------------------------------------------------------------
+# BG - Cualquier venta asociada bloquea finalizar sin compra (409)
+# ---------------------------------------------------------------------------
+
+
+def test_bg_venta_en_cualquier_estado_bloquea_finalizar(
+    client, admin_headers, db_session
+):
+    mia = _sucursales_activas(db_session)[0]
+    _, encargado = _crear_personal(db_session, "ENCARGADO_SUCURSAL", mia, "enc1")
+
+    for indice, estado in enumerate(
+        ("PENDIENTE", "PAGADA", "COMPLETADA", "CANCELADA", "REEMBOLSADA")
+    ):
+        reserva = _reserva(
+            client,
+            admin_headers,
+            db_session,
+            mia,
+            etiqueta=f"bg{indice}",
+            cantidades=(1,),
+        )
+        inventario_id = reserva["inventarios"][0]
+        _crear_venta_asociada(db_session, reserva, estado=estado)
+        liberaciones = _contar_liberaciones(db_session, inventario_id)
+
+        resp = _finalizar_sin_compra(client, encargado, reserva["reserva_id"])
+        assert resp.status_code == 409, (estado, resp.text)
+        assert _estado(db_session, reserva["reserva_id"]) == "CONFIRMADA"
+        assert _contar_liberaciones(db_session, inventario_id) == liberaciones
+
+
+# ---------------------------------------------------------------------------
+# BH - Regresion: CONFIRMADA sin venta sigue finalizando sin compra
+# ---------------------------------------------------------------------------
+
+
+def test_bh_finalizar_sin_venta_sigue_operativo(
+    client, admin_headers, db_session
+):
+    mia = _sucursales_activas(db_session)[0]
+    _, encargado = _crear_personal(db_session, "ENCARGADO_SUCURSAL", mia, "enc1")
+    reserva = _reserva(
+        client, admin_headers, db_session, mia, etiqueta="a", cantidades=(2,)
+    )
+    inventario_id = reserva["inventarios"][0]
+
+    resp = _finalizar_sin_compra(client, encargado, reserva["reserva_id"])
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["estado"] == "ATENDIDA"
+    assert resp.json()["venta_asociada"] is None
+    assert _estado(db_session, reserva["reserva_id"]) == "ATENDIDA"
+    assert _contar_liberaciones(db_session, inventario_id) == 1

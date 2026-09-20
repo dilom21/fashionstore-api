@@ -28,6 +28,7 @@ from app.modules.reservas.schemas.schemas import (
 from app.modules.reservas.services.atencion_service import (
     AtencionReservaScopeError,
     AtencionReservaService,
+    ReservaConVentaAsociadaError,
     RolAtencionReservaNoAutorizadoError,
     SeleccionVentaInvalidaError,
 )
@@ -80,6 +81,12 @@ def _map_error(exc: Exception) -> HTTPException:
     if isinstance(exc, ReservaEstadoInvalidoError):
         return _error(
             "La reserva no esta CONFIRMADA o ya fue atendida",
+            status.HTTP_409_CONFLICT,
+        )
+    if isinstance(exc, ReservaConVentaAsociadaError):
+        return _error(
+            "La reserva ya tiene una venta asociada y no puede finalizarse "
+            "sin compra.",
             status.HTTP_409_CONFLICT,
         )
     if isinstance(exc, SeleccionVentaInvalidaError):

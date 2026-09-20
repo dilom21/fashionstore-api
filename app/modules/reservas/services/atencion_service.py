@@ -35,6 +35,7 @@ from app.modules.reservas.schemas.schemas import (
     PrepararVentaItemResponse,
     PrepararVentaRequest,
     PrepararVentaResponse,
+    VentaAsociadaAtencionResponse,
 )
 from app.modules.reservas.services.gestion_service import (
     LIMITE_POR_DEFECTO,
@@ -47,6 +48,7 @@ from app.modules.reservas.services.service import (
     _resolver_imagenes,
     _traducir_error_bd,
 )
+from app.modules.ventas.repositories.repository import VentaRepository
 
 ROL_ADMINISTRADOR = "ADMINISTRADOR"
 ROL_ENCARGADO_SUCURSAL = "ENCARGADO_SUCURSAL"
@@ -67,6 +69,15 @@ class AtencionReservaScopeError(ReservaError):
 
 class SeleccionVentaInvalidaError(ReservaError):
     """Seleccion de compra invalida para la reserva (422)."""
+
+
+class ReservaConVentaAsociadaError(ReservaError):
+    """La reserva ya tiene una venta asociada (CU20): no admite sin compra.
+
+    Una vez que existe ``venta.reserva_id = reserva.id`` la atencion queda
+    comprometida con Venta/Pago: finalizar sin compra liberaria la reserva y
+    dejaria la venta PENDIENTE sin pago (estado invalido para CU21).
+    """
 
 
 def _item_atencion(
@@ -126,6 +137,17 @@ def _detalle_atencion(
         items.append(_item_atencion(detalle, imagen))
 
     cliente = reserva.cliente
+    venta = VentaRepository.obtener_por_reserva(db, reserva.id)
+    venta_asociada = (
+        VentaAsociadaAtencionResponse(
+            venta_id=int(venta.id),
+            estado=venta.estado,
+            total=venta.total,
+            canal=venta.canal,
+        )
+        if venta is not None
+        else None
+    )
     return AtencionReservaDetalleResponse(
         reserva_id=reserva.id,
         cliente_id=reserva.cliente_id,
@@ -140,6 +162,7 @@ def _detalle_atencion(
         observacion=reserva.observacion,
         items=items,
         cantidad_total_unidades=sum(item.cantidad_reservada for item in items),
+        venta_asociada=venta_asociada,
     )
 
 
@@ -347,6 +370,12 @@ class AtencionReservaService:
         reserva = AtencionReservaService._obtener_confirmada(
             db, usuario, reserva_id
         )
+
+        # Una reserva con venta asociada (CU20) queda comprometida con
+        # Venta/Pago: finalizar sin compra liberaria la reserva y dejaria la
+        # venta PENDIENTE sin pago. No se ejecuta el SP ni se toca inventario.
+        if VentaRepository.obtener_por_reserva(db, reserva.id) is not None:
+            raise ReservaConVentaAsociadaError()
 
         observacion = ((datos.observacion if datos else None) or "").strip() or None
         try:

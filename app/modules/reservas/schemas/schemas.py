@@ -1,4 +1,5 @@
 from datetime import datetime
+from decimal import Decimal
 from enum import Enum
 
 from pydantic import BaseModel, Field
@@ -189,6 +190,20 @@ class AtencionReservaListaResponse(BaseModel):
     offset: int
 
 
+class VentaAsociadaAtencionResponse(BaseModel):
+    """Venta ya asociada a la reserva (CU20), visible en el detalle CU18.
+
+    Permite que el frontend recupere la venta tras recargar o reabrir la
+    atencion y no vuelva a ofrecer FINALIZAR SIN COMPRA. Si no existe venta el
+    campo ``venta_asociada`` es null (contrato backward-compatible).
+    """
+
+    venta_id: int
+    estado: str
+    total: Decimal
+    canal: str
+
+
 class AtencionReservaDetalleResponse(BaseModel):
     reserva_id: int
     cliente_id: int
@@ -203,6 +218,7 @@ class AtencionReservaDetalleResponse(BaseModel):
     observacion: str | None
     items: list[AtencionReservaItemResponse]
     cantidad_total_unidades: int
+    venta_asociada: VentaAsociadaAtencionResponse | None = None
 
 
 class PrepararVentaItemRequest(BaseModel):
