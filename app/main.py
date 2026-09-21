@@ -3,6 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
 
 from app.core.database import engine
+from app.modules.asistencia_inteligente.api.router import (
+    router as asistencia_inteligente_router,
+)
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
@@ -47,6 +50,7 @@ app.add_middleware(
 )
 
 app.include_router(catalogo_router)
+app.include_router(asistencia_inteligente_router)
 app.include_router(sucursales_router)
 app.include_router(inventario_router)
 app.include_router(auth_router)

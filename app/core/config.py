@@ -21,6 +21,17 @@ class Settings(BaseSettings):
     stripe_webhook_secret: str | None = None
     stripe_currency: str = "bob"
 
+    # Asistencia Inteligente (recomendaciones con IA).
+    # Las claves viven UNICAMENTE en el backend (.env local, no versionado).
+    # La API arranca aunque la IA no este configurada: solo el endpoint de
+    # asistencia responde 503 cuando falta provider/model/api key.
+    ai_provider: str = "openai"
+    ai_model: str | None = None
+    openai_api_key: str | None = None
+    deepseek_api_key: str | None = None
+    deepseek_base_url: str = "https://api.deepseek.com"
+    ai_timeout_seconds: float = 20.0
+
     model_config = SettingsConfigDict(
         env_file=".env",
         env_file_encoding="utf-8",
