@@ -13,6 +13,7 @@ from app.modules.inventario.api.router import router as inventario_router
 from app.modules.pagos.api.router import router as pagos_router
 from app.modules.promociones.api.router import router as promociones_router
 from app.modules.proveedores.api.router import router as proveedores_router
+from app.modules.reportes.api.router import router as reportes_router
 from app.modules.reservas.api.atencion_router import (
     router as atencion_reservas_router,
 )
@@ -65,6 +66,7 @@ app.include_router(atencion_reservas_router)
 app.include_router(ventas_router)
 app.include_router(devoluciones_router)
 app.include_router(pagos_router)
+app.include_router(reportes_router)
 
 
 @app.get("/")

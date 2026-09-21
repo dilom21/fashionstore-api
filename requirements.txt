@@ -13,6 +13,7 @@ httptools==0.8.0
 idna==3.19
 Mako==1.4.1
 MarkupSafe==3.0.3
+openpyxl==3.1.5
 packaging==26.3
 psycopg==3.3.4
 psycopg-binary==3.3.4
@@ -23,6 +24,7 @@ PyJWT==2.13.0
 python-dotenv==1.2.3
 python-multipart==0.0.32
 PyYAML==6.0.3
+reportlab==5.0.1
 setuptools==83.0.0
 SQLAlchemy==2.0.52
 starlette==1.6.0
