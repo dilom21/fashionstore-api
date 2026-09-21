@@ -1,0 +1,103 @@
+96:            status.HTTP_403_FORBIDDEN,
+97:        )
+98:    if isinstance(
+99:        exc,
+100:        (
+101:            DetalleDevolucionDuplicadoError,
+102:            CantidadDevolucionInvalidaError,
+103:            RangoFechasDevolucionError,
+104:        ),
+105:    ):
+106:        return _error(
+107:            "Solicitud de devolucion invalida",
+108:            status.HTTP_422_UNPROCESSABLE_ENTITY,
+109:        )
+110:    if isinstance(exc, VentaNoDevolvibleError):
+111:        return _error(
+112:            "La venta no esta COMPLETADA: no admite devoluciones",
+113:            status.HTTP_409_CONFLICT,
+114:        )
+115:    if isinstance(exc, CantidadDevolucionNoDisponibleError):
+116:        return _error(
+117:            "No existe cantidad disponible suficiente para la devolucion",
+118:            status.HTTP_409_CONFLICT,
+119:        )
+120:    if isinstance(exc, EstadoDevolucionInvalidoError):
+121:        return _error(
+122:            "La devolucion no esta en un estado que permita esa operacion",
+123:            status.HTTP_409_CONFLICT,
+124:        )
+125:    if isinstance(exc, DevolucionSinItemsError):
+126:        return _error(
+127:            "La devolucion no tiene prendas",
+128:            status.HTTP_409_CONFLICT,
+129:        )
+130:    if isinstance(exc, ProcesamientoDevolucionError):
+131:        return _error(
+132:            "No fue posible procesar la devolucion",
+133:            status.HTTP_409_CONFLICT,
+134:        )
+135:    raise exc
+138:# ---------------------------------------------------------------------------
+139:# Consultas (GESTIONAR_DEVOLUCIONES / CONSULTAR)
+140:# ---------------------------------------------------------------------------
+143:@router.get("", response_model=DevolucionesListaResponse)
+144:def listar_devoluciones(
+145:    estado: EstadoDevolucionFiltro | None = Query(
+146:        default=None, description="Filtra por estado de la devolucion."
+147:    ),
+148:    sucursal_id: int | None = Query(
+149:        default=None,
+150:        ge=1,
+151:        description=(
+152:            "Solo ADMINISTRADOR: limita el listado a esa sucursal. "
+153:            "ENCARGADO_SUCURSAL siempre ve la suya (otra -> 403)."
+154:        ),
+155:    ),
+156:    fecha_desde: date | None = Query(
+157:        default=None, description="Incluye todo el dia indicado."
+158:    ),
+159:    fecha_hasta: date | None = Query(
+160:        default=None, description="Incluye todo el dia indicado."
+161:    ),
+162:    pagina: int = Query(default=PAGINA_POR_DEFECTO, ge=1),
+163:    tamano_pagina: int = Query(
+164:        default=TAMANO_PAGINA_POR_DEFECTO, ge=1, le=TAMANO_PAGINA_MAXIMO
+165:    ),
+166:    contexto: str = Depends(_contexto_personal),
+167:    usuario: Usuario = Depends(_permiso("CONSULTAR")),
+168:    db: Session = Depends(get_db),
+169:):
+170:    """CU25 - Listado paginado de devoluciones (mas reciente primero)."""
+171:    try:
+172:        return DevolucionService.listar_devoluciones(
+173:            db,
+174:            usuario,
+175:            estado=estado.value if estado is not None else None,
+176:            sucursal_id=sucursal_id,
+177:            fecha_desde=fecha_desde,
+178:            fecha_hasta=fecha_hasta,
+179:            pagina=pagina,
+180:            tamano_pagina=tamano_pagina,
+181:        )
+182:    except DevolucionError as exc:
+183:        raise _map_error(exc)
+186:@router.get(
+187:    "/ventas/{venta_id}/disponibilidad",
+188:    response_model=DisponibilidadVentaResponse,
+189:)
+190:def consultar_disponibilidad_venta(
+191:    venta_id: int,
+192:    contexto: str = Depends(_contexto_personal),
+193:    usuario: Usuario = Depends(_permiso("CONSULTAR")),
+194:    db: Session = Depends(get_db),
+195:):
+196:    """CU25 - Venta COMPLETADA con la cantidad disponible por linea.
+198:    404 si la venta no existe, 403 si esta fuera de la sucursal del usuario,
+199:    409 si la venta no esta COMPLETADA (PENDIENTE/PAGADA/CANCELADA/REEMBOLSADA).
+200:    """
+201:    try:
+202:        return DevolucionService.consultar_disponibilidad_venta(
+203:            db, usuario, venta_id
+204:        )
+205:    except DevolucionError as exc:

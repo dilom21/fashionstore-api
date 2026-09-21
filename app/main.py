@@ -8,6 +8,7 @@ from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
+from app.modules.devoluciones.api.router import router as devoluciones_router
 from app.modules.inventario.api.router import router as inventario_router
 from app.modules.pagos.api.router import router as pagos_router
 from app.modules.promociones.api.router import router as promociones_router
@@ -62,6 +63,7 @@ app.include_router(reservas_router)
 app.include_router(reservas_sucursal_router)
 app.include_router(atencion_reservas_router)
 app.include_router(ventas_router)
+app.include_router(devoluciones_router)
 app.include_router(pagos_router)
 
 
