@@ -29,6 +29,9 @@ from app.modules.temporadas_colecciones.api.router import (
 )
 from app.modules.usuarios.api.router import router as usuarios_router
 from app.modules.ventas.api.router import router as ventas_router
+from app.modules.vestidor_virtual.api.router import (
+    router as vestidor_virtual_router,
+)
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -67,6 +70,7 @@ app.include_router(reservas_sucursal_router)
 app.include_router(atencion_reservas_router)
 app.include_router(ventas_router)
 app.include_router(pagos_router)
+app.include_router(vestidor_virtual_router)
 
 
 @app.get("/")
