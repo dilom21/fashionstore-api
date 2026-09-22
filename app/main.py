@@ -1,20 +1,24 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import text
-
-from app.core.database import engine
 from app.modules.asistencia_inteligente.api.router import (
     router as asistencia_inteligente_router,
 )
+from app.modules.vestidor_virtual.api.router import (
+    router as vestidor_virtual_router,
+)
+from app.core.database import engine
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
+from app.modules.devoluciones.api.router import router as devoluciones_router
 from app.modules.inventario.api.router import router as inventario_router
 from app.modules.pagos.api.router import router as pagos_router
 from app.modules.promociones.api.router import router as promociones_router
 from app.modules.proveedores.api.router import router as proveedores_router
+from app.modules.reportes.api.router import router as reportes_router
 from app.modules.reservas.api.atencion_router import (
     router as atencion_reservas_router,
 )
@@ -29,9 +33,6 @@ from app.modules.temporadas_colecciones.api.router import (
 )
 from app.modules.usuarios.api.router import router as usuarios_router
 from app.modules.ventas.api.router import router as ventas_router
-from app.modules.vestidor_virtual.api.router import (
-    router as vestidor_virtual_router,
-)
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -69,7 +70,9 @@ app.include_router(reservas_router)
 app.include_router(reservas_sucursal_router)
 app.include_router(atencion_reservas_router)
 app.include_router(ventas_router)
+app.include_router(devoluciones_router)
 app.include_router(pagos_router)
+app.include_router(reportes_router)
 app.include_router(vestidor_virtual_router)
 
 
