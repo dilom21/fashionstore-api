@@ -83,6 +83,21 @@ try {
         throw 'createdb fallo. No se modifico ninguna base preexistente.'
     }
 
+    # PostgreSQL 18 crea el esquema public automaticamente en template0.
+    # El dump de Supabase contiene CREATE SCHEMA public; de lo contrario
+    # pg_restore fallaria con 'schema public already exists'.
+    # Eliminamos SOLO ese esquema en la base que acabamos de crear, sin CASCADE.
+    # Si NO esta vacio, DROP SCHEMA fallara y detendremos el proceso.
+    $baseActual = & psql --host=$hostLocal --port=$LocalPort --username=$usuarioLocal --dbname=$nombre --no-password --no-align --tuples-only --set=ON_ERROR_STOP=1 --command="SELECT current_database()"
+    if ($LASTEXITCODE -ne 0 -or ($baseActual | Out-String).Trim() -ne $nombre) {
+        throw "No se pudo verificar la base nueva $nombre. No se eliminara ningun esquema."
+    }
+    Write-Host 'Preparando esquema public VACIO en la base nueva (sin CASCADE)...'
+    & psql --host=$hostLocal --port=$LocalPort --username=$usuarioLocal --dbname=$nombre --no-password --set=ON_ERROR_STOP=1 --command="DROP SCHEMA public;"
+    if ($LASTEXITCODE -ne 0) {
+        throw "No se pudo quitar el esquema public VACIO de $nombre. Restauracion cancelada de forma segura."
+    }
+
     Write-Host 'Restaurando dump en transaccion unica (un error revierte la restauracion)...'
     & pg_restore --host=$hostLocal --port=$LocalPort --username=$usuarioLocal --dbname=$nombre --no-password --no-owner --no-privileges --single-transaction --exit-on-error $archivo.FullName
     if ($LASTEXITCODE -ne 0) {
