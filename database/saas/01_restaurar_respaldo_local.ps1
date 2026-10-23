@@ -72,7 +72,7 @@ try {
         throw 'No se pudo validar la conexion al PostgreSQL LOCAL. Revisa usuario/clave.'
     }
 
-    # Siempre una base nueva, sin -c, sin DROP y sin reutilizar otra base.
+    # Siempre una base nueva, sin eliminar ni reutilizar otras bases.
     $nombre = 'fashionstore_restore_' + (Get-Date -Format 'yyyyMMdd_HHmmss') + '_' + (Get-Random -Minimum 100 -Maximum 999)
     if ($nombre -notmatch '^fashionstore_restore_[0-9]{8}_[0-9]{6}_[0-9]{3}$') {
         throw 'Nombre de base de pruebas invalido.'
