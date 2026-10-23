@@ -14,6 +14,9 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60
 
+    # Segundo parcial: habilitar solo tras migracion SaaS y auditoria de seguridad.
+    saas_auth_enabled: bool = False
+
     # CU22 - Pago electronico con Stripe (Test Mode).
     # Los secretos se leen del entorno (.env local, no versionado). Si no estan
     # configurados, el provider responde con un error de configuracion limpio.
