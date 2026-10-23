@@ -48,7 +48,7 @@ try {
     $lecturaBase = @'
 SELECT json_build_object(
   'base', current_database(),
-  'servidor', inet_server_addr()::text,
+  'servidor', host(inet_server_addr()),
   'tablas', (SELECT COUNT(*) FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r'),
@@ -70,8 +70,13 @@ SELECT json_build_object(
 '@
 
     $antes = ConsultarJson -Consulta $lecturaBase
+    # host() elimina el sufijo CIDR /32 que inet::text puede incluir.
+    # Mostrar la respuesta diagnostica si hay una discrepancia; continuar
+    # solamente si tanto la base como la direccion coinciden.
     if ($antes.base -cne $base -or $antes.servidor -cne $servidor) {
-        throw 'La conexion no corresponde a la base LOCAL esperada. Abortado.'
+        throw ("Destino local inesperado. Base obtenida: '{0}'; host obtenido: '{1}'. " +
+               "Base esperada: '{2}'; host esperado: '{3}'. No se ejecuto SQL de migracion.") -f
+               $antes.base, $antes.servidor, $base, $servidor
     }
     if ([int]$antes.tablas -ne 41 -or [int]$antes.saas -ne 0) {
         throw "Se esperaban 41 tablas y cero SaaS. Actual: $($antes.tablas) tablas / $($antes.saas) SaaS. Abortado."
@@ -99,7 +104,7 @@ SELECT json_build_object(
     $lecturaPost = @'
 SELECT json_build_object(
   'base', current_database(),
-  'servidor', inet_server_addr()::text,
+  'servidor', host(inet_server_addr()),
   'tablas', (SELECT COUNT(*) FROM pg_class c
     JOIN pg_namespace n ON n.oid = c.relnamespace
     WHERE n.nspname = 'public' AND c.relkind = 'r'),
@@ -148,7 +153,8 @@ SELECT json_build_object(
 '@
     $despues = ConsultarJson -Consulta $lecturaPost
     if ($despues.base -cne $base -or $despues.servidor -cne $servidor) {
-        throw 'La comprobacion posterior NO corresponde a la base local prevista.'
+        throw ("Destino inesperado en comprobacion posterior. Base: '{0}'; host: '{1}'." -f
+               $despues.base, $despues.servidor)
     }
 
     $errores = @()
