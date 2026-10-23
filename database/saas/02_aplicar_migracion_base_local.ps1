@@ -74,9 +74,9 @@ SELECT json_build_object(
     # Mostrar la respuesta diagnostica si hay una discrepancia; continuar
     # solamente si tanto la base como la direccion coinciden.
     if ($antes.base -cne $base -or $antes.servidor -cne $servidor) {
-        throw ("Destino local inesperado. Base obtenida: '{0}'; host obtenido: '{1}'. " +
-               "Base esperada: '{2}'; host esperado: '{3}'. No se ejecuto SQL de migracion.") -f
-               $antes.base, $antes.servidor, $base, $servidor
+        $detalle = ("Destino local inesperado. Base obtenida: '{0}'; host obtenido: '{1}'. " +
+                    "Base esperada: '{2}'; host esperado: '{3}'. No se ejecuto SQL de migracion.") -f $antes.base, $antes.servidor, $base, $servidor
+        throw $detalle
     }
     if ([int]$antes.tablas -ne 41 -or [int]$antes.saas -ne 0) {
         throw "Se esperaban 41 tablas y cero SaaS. Actual: $($antes.tablas) tablas / $($antes.saas) SaaS. Abortado."
@@ -153,8 +153,8 @@ SELECT json_build_object(
 '@
     $despues = ConsultarJson -Consulta $lecturaPost
     if ($despues.base -cne $base -or $despues.servidor -cne $servidor) {
-        throw ("Destino inesperado en comprobacion posterior. Base: '{0}'; host: '{1}'." -f
-               $despues.base, $despues.servidor)
+        $detalle = "Destino inesperado en comprobacion posterior. Base: '{0}'; host: '{1}'." -f $despues.base, $despues.servidor
+        throw $detalle
     }
 
     $errores = @()
