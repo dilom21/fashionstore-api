@@ -115,6 +115,18 @@ SELECT json_build_object(
   'politicas_nuevas', (SELECT COUNT(*) FROM pg_policies
     WHERE schemaname = 'public' AND tablename IN
       ('empresa','plan_saas','suscripcion','usuario_empresa','empresa_configuracion')),
+  'pk_nuevas', (SELECT COUNT(*) FROM pg_constraint k
+    JOIN pg_class c ON c.oid=k.conrelid
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND k.contype='p'
+      AND c.relname IN
+        ('empresa','plan_saas','suscripcion','usuario_empresa','empresa_configuracion')),
+  'fk_nuevas', (SELECT COUNT(*) FROM pg_constraint k
+    JOIN pg_class c ON c.oid=k.conrelid
+    JOIN pg_namespace n ON n.oid=c.relnamespace
+    WHERE n.nspname='public' AND k.contype='f'
+      AND c.relname IN
+        ('empresa','plan_saas','suscripcion','usuario_empresa','empresa_configuracion')),
   'filas_saas', (
       (SELECT COUNT(*) FROM public.empresa)
     + (SELECT COUNT(*) FROM public.plan_saas)
@@ -144,6 +156,8 @@ SELECT json_build_object(
     if ([int]$despues.saas -ne 5) { $errores += 'Se esperaban 5 tablas SaaS' }
     if ([int]$despues.rls_nuevas -ne 5) { $errores += 'RLS no esta activo en todas las tablas SaaS' }
     if ([int]$despues.politicas_nuevas -ne 0) { $errores += 'Hay politicas inesperadas en las tablas nuevas' }
+    if ([int]$despues.pk_nuevas -ne 5) { $errores += 'Se esperaban 5 claves primarias SaaS' }
+    if ([int]$despues.fk_nuevas -ne 6) { $errores += 'Se esperaban 6 claves foraneas SaaS' }
     if ([int]$despues.filas_saas -ne 0) { $errores += 'Las tablas SaaS deberian estar vacias' }
     foreach ($campo in @('usuarios','clientes','empleados','sucursales',
                         'productos','variantes','inventarios','reservas','ventas','pagos')) {
