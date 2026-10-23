@@ -6,7 +6,7 @@ import os
 from types import SimpleNamespace
 
 # Las pruebas SaaS no deben depender de la BD de producción.
-os.environ["DATABASE_URL"] = "sqlite+pysqlite:///:memory:"
+os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./saas_auth_unit_test.db"
 os.environ["SECRET_KEY"] = "clave-ficticia-exclusiva-para-test-saas"
 os.environ["SAAS_AUTH_ENABLED"] = "false"
 
