@@ -24,8 +24,8 @@ _SQL_CONTEXTO_TENANT = text(
     JOIN public.suscripcion AS s ON s.empresa_id = e.id
     JOIN public.plan_saas AS p ON p.id = s.plan_saas_id
     WHERE ue.usuario_id = :usuario_id
-      AND (:empresa_id IS NULL OR e.id = CAST(:empresa_id AS bigint))
-      AND (:empresa_slug IS NULL OR e.slug = CAST(:empresa_slug AS text))
+      AND (CAST(:empresa_id AS bigint) IS NULL OR e.id = CAST(:empresa_id AS bigint))
+      AND (CAST(:empresa_slug AS text) IS NULL OR e.slug = CAST(:empresa_slug AS text))
       AND u.estado IS TRUE
       AND ue.estado IS TRUE
       AND e.estado IS TRUE
