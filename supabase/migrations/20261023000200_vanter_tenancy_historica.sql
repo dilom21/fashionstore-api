@@ -111,7 +111,7 @@ BEGIN
   END IF;
 
   IF cardinality(v_tablas) <> 31 OR (
-    SELECT COUNT(DISTINCT x) FROM unnest(v_tablas) AS x
+    SELECT COUNT(DISTINCT nombre) FROM unnest(v_tablas) AS t(nombre)
   ) <> 31 THEN
     RAISE EXCEPTION 'La lista de 31 tablas empresariales esta incompleta o duplicada';
   END IF;
