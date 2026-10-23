@@ -2,7 +2,7 @@
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from pydantic import ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -29,7 +29,7 @@ class TenantLoginRequest(LoginRequest):
     contexto: Literal["cliente", "personal"]
 
 
-class TenantLoginResponse(LoginRequest.__base__):
+class TenantLoginResponse(BaseModel):
     """Respuesta minima para nuevo cliente SaaS; no devuelve password."""
     access_token: str
     token_type: str = "bearer"
@@ -40,7 +40,7 @@ class TenantLoginResponse(LoginRequest.__base__):
     contexto: Literal["cliente", "personal"]
 
 
-class TenantMeResponse(LoginRequest.__base__):
+class TenantMeResponse(BaseModel):
     usuario_id: int
     empresa_id: int
     empresa_slug: str
