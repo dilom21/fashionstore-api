@@ -20,6 +20,8 @@ Se añadieron estos tres archivos en la rama feature:
 2. `database/saas/24_auditar_rls_efectivo_sandbox_5s.ps1`: uso obligatorio de PostgreSQL LOCAL, `default_transaction_read_only=on`, contraseña LOCAL introducida sin eco (nunca la de Supabase), informe temporal en `$env:TEMP\fashionstore_5s_rls_principal_actual_sandbox_LOCAL_REVISAR.txt`, sin sobrescribir. Rechaza el resultado incompleto o sin `ROLLBACK`.
 3. `tests_saas/test_rls_principal_actual_5s.py`: **12 pruebas estáticas** de las restricciones, guardas, comandos SQL no mutadores, detección de principal y documentos. No conectan a PostgreSQL. Suite esperada **`498 passed`** = 486 previos + 12; pendiente de ejecución real.
 
+**Límite de certificación: el diagnóstico no acredita aislamiento entre empresas. NO crear roles** durante 5S ni ejecutar ensayos de escritura hasta obtener autorización expresa.
+
 **La herramienta captura el problema, no lo soluciona:** PostgreSQL señalará que para `postgres` RLS no se aplica efectivamente. Tampoco hay tenants ficticios sembrados para probar `SELECT` permitido A/denegado B.
 
 ## 3. Protocolo FUTURO de aislamiento A/B (NO ejecutar en 5S)
