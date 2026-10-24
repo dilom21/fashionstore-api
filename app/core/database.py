@@ -38,7 +38,9 @@ def _aplicar_contexto_request(
     de un request hacia otro. El listener reaplica el contexto si la misma
     Session abre una nueva transacción.
 
-    Coexiste con ``app.usuario_id``, que cada service establece por su cuenta.
+    En SaaS, tras validar JWT+membresia, Session.info contiene tambien
+    usuario_id. Se reaplica solo como dato de AUDITORIA, nunca como prueba
+    de la identidad/autorizacion de una conexion SQL arbitraria.
     """
     request_ip = session.info.get("request_ip")
     if request_ip:
@@ -54,6 +56,15 @@ def _aplicar_contexto_request(
         connection.execute(
             text("SELECT set_config('app.empresa_id', :empresa_id, true)"),
             {"empresa_id": str(empresa_id)},
+        )
+    # Solo la dependencia SaaS validada inserta esta clave en Session.info.
+    # Esta reaplicacion ocurre tras un commit/rollback cuando la misma Session
+    # vuelve a abrir una transaccion. No afecta servicios legacy sin esa clave.
+    usuario_id = session.info.get("usuario_id")
+    if usuario_id is not None:
+        connection.execute(
+            text("SELECT set_config('app.usuario_id', :usuario_id, true)"),
+            {"usuario_id": str(usuario_id)},
         )
 
 
