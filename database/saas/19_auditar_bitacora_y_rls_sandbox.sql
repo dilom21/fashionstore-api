@@ -137,9 +137,8 @@ ORDER BY tablename,policyname;
 -- relacl sea NULL (acldefault usa ACL de PostgreSQL).
 SELECT '6_BITACORA_ACL' AS seccion,
        c.relname AS tabla,
-       coalesce(pg_get_userbyid(nullif(a.grantee,0)),
-           CASE WHEN a.grantee=0 THEN 'PUBLIC' ELSE '<DESCONOCIDO>' END)
-           AS beneficiario,
+       CASE WHEN a.grantee=0 THEN 'PUBLIC'
+            ELSE pg_get_userbyid(a.grantee) END AS beneficiario,
        a.privilege_type,a.is_grantable,
        pg_get_userbyid(a.grantor) AS concedente
 FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
