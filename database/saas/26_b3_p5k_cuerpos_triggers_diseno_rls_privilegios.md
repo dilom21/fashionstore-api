@@ -60,7 +60,7 @@ Casos que deberán ejecutarse tras autorizar rol/políticas/seed ficticio exclus
 - Dos carritos simultáneos para mismo inventario, fallo en segundo ítem y rollback atómico, sin negativo ni aumento de `stock_actual`.
 - Trigger `fn_actualizar_actividad_carrito` concurrente y locks carrito-inventario; garantía de orden y sin deadlocks en tests PG.
 
-**No hay credenciales ni seed** definidos para los ensayos en esta subfase. El rol PostgreSQL sería objeto GLOBAL del clúster, así que ninguna creación de rol se aprobará implícitamente a partir de aprobar pruebas de pytest.
+**No hay credenciales ni seed** definidos para los ensayos en esta subfase. El rol PostgreSQL sería objeto GLOBAL del clúster y, si llegara a crearse con autorización expresa, requeriría `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB` y `NOCREATEROLE` entre otros límites. Ninguna creación de rol se aprobará implícitamente por superar pytest.
 
 ## 5. Comandos SOLO de lectura para el estudiante
 
