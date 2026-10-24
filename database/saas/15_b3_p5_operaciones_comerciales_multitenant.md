@@ -48,6 +48,18 @@ Solo si pasan, ejecutar la auditoría en la copia PostgreSQL local:
 
 Requiere contraseña `postgres` LOCAL. Destino fijo: `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594`. El SQL no modifica registros, no ejecuta procedimientos con efectos ni cambia suscripciones.
 
+## Continuación: subfase 5B de CU15 preparada, NO validada
+
+La documentación específica de la siguiente subfase es
+[`16_b3_p5b_carrito_transaccional_tenant.md`](16_b3_p5b_carrito_transaccional_tenant.md).
+
+Se agregó exclusivamente `POST /tenant/carritos/items` para perfil de cliente
+en su empresa, con transacción, validación de inventario y stock disponible,
+pero sin reservar ni descontar existencias. El código y las 24 nuevas pruebas
+se prepararon en GitHub; **NO se ejecutaron aún en Windows**, ni en la copia
+PostgreSQL real. El Paso 5 continúa abierto; no reinterpretar este avance como
+la habilitación de reservas, ventas, pagos, compras o devoluciones.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
