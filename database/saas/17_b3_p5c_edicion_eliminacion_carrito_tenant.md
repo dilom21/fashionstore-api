@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5C: modificación y eliminación del carrito de un cliente SaaS
 
-**Estado:** código y pruebas preparados en GitHub; **pendientes de ejecución del estudiante**. El Paso 5 global permanece EN PROCESO. No tocar `main`, Supabase ni la base PostgreSQL restaurada; `SAAS_AUTH_ENABLED=false`.
+**Estado:** **SUBFASE 5C VALIDADA** por el estudiante: `203 passed, 2 warnings in 4.77s`; **0 fallos**. El Paso 5 global permanece EN PROCESO. No tocar `main`, Supabase ni la base PostgreSQL restaurada; `SAAS_AUTH_ENABLED=false`.
 
 ## Alcance de la subfase
 
@@ -39,9 +39,9 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado, aún no confirmado:** `203 passed` = 176 pruebas previas + 27 nuevas.
+**Resultado observado en PowerShell:** `203 passed, 2 warnings in 4.77s` = 176 pruebas previas + 27 nuevas. Las dos advertencias son deprecaciones conocidas de Starlette/FastAPI, no fallos. El `git pull --ff-only` actualizó la rama hasta `cacaa06` antes de ejecutar pytest.
 
-Se usan dos empresas ficticias en **SQLite en memoria**. No tocar PostgreSQL local o Supabase ni ejecutar migración. Los tests validan la lógica de los métodos, **no** triggers reales ni paralelismo en PostgreSQL.
+Se usan dos empresas ficticias en **SQLite en memoria**. No se ejecutaron escrituras PostgreSQL ni migraciones en esta subfase. Los tests validan la lógica de los métodos, **no** triggers reales ni paralelismo en PostgreSQL.
 
 ## Pendiente para terminar el Paso 5
 - Lectura propia del carrito y controles de pertenencia de sus líneas en la respuesta.
@@ -50,3 +50,7 @@ Se usan dos empresas ficticias en **SQLite en memoria**. No tocar PostgreSQL loc
 - Pruebas reales con rollback contra PostgreSQL local, bajo rol sin `BYPASSRLS`; esto sigue prohibido contra Supabase.
 - Los roles demo de otras empresas permanecen desactivados; las pruebas SQLite usan contextos simulados.
 - No habilitar `SAAS_AUTH_ENABLED` ni desplegar. El Paso 5 no se da por concluido tras estas pruebas. Esperar `siguiente` para otra subfase.
+
+## Cierre de la subfase 5C
+
+La ejecución local de la suite completa obtuvo **203 pruebas superadas**, incluyendo 27 casos añadidos para las nuevas rutas PATCH/DELETE; no hubo fallos. La subfase 5C se marca como **VALIDADA en SQLite ficticio**, sin extender la conclusión a PostgreSQL transaccional o autenticación empresarial con usuarios reales. Mantener bloqueadas reservas y operaciones comerciales no migradas; no activar `SAAS_AUTH_ENABLED` ni desplegar. **Paso 5 continúa EN PROCESO**, esperar `siguiente` antes de otra subfase.
