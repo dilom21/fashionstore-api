@@ -1,24 +1,28 @@
 from datetime import date
 from decimal import Decimal
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Numeric, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, Numeric, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 
 
-class Categoria(Base):
+class Categoria(EmpresaScopedMixin, Base):
     __tablename__ = "categoria"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "nombre", name="uq_categoria_empresa_nombre"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
-    nombre: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    nombre: Mapped[str] = mapped_column(String, nullable=False)
     descripcion: Mapped[str | None] = mapped_column(String)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
     productos: Mapped[list["Producto"]] = relationship(back_populates="categoria")
 
 
-class Producto(Base):
+class Producto(EmpresaScopedMixin, Base):
     __tablename__ = "producto"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
@@ -54,8 +58,11 @@ class Color(Base):
     recursos: Mapped[list["RecursoProducto"]] = relationship(back_populates="color")
 
 
-class Temporada(Base):
+class Temporada(EmpresaScopedMixin, Base):
     __tablename__ = "temporada"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "nombre", name="uq_temporada_empresa_nombre"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     nombre: Mapped[str] = mapped_column(String(100), nullable=False, unique=True)
@@ -66,14 +73,17 @@ class Temporada(Base):
     inventarios: Mapped[list["Inventario"]] = relationship(back_populates="temporada")
 
 
-class VarianteProducto(Base):
+class VarianteProducto(EmpresaScopedMixin, Base):
     __tablename__ = "variante_producto"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "sku", name="uq_variante_empresa_sku"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     producto_id: Mapped[int] = mapped_column(ForeignKey("producto.id"), nullable=False)
     talla_id: Mapped[int] = mapped_column(ForeignKey("talla.id"), nullable=False)
     color_id: Mapped[int] = mapped_column(ForeignKey("color.id"), nullable=False)
-    sku: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    sku: Mapped[str] = mapped_column(String, nullable=False)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
     producto: Mapped["Producto"] = relationship(back_populates="variantes")
@@ -82,7 +92,7 @@ class VarianteProducto(Base):
     inventarios: Mapped[list["Inventario"]] = relationship(back_populates="variante_producto")
 
 
-class RecursoProducto(Base):
+class RecursoProducto(EmpresaScopedMixin, Base):
     __tablename__ = "recurso_producto"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
