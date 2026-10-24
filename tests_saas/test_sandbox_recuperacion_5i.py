@@ -71,7 +71,7 @@ def test_5i_recuperador_abort_si_hay_objetos_public():
 
 def test_5i_recuperador_no_destruye_ni_sobrescribe():
     s = RECUPERAR.read_text(encoding="utf-8")
-    assert not re.search(r"(?m)^\\s*&\\s*\\$pgrestore[^\\n]*--clean(?:\\s|=)", s)
+    assert not re.search(r"(?m)^\s*&\s*\$pgrestore[^\n]*--clean(?:\s|=)", s)
     assert not re.search(r"(?im)^\s*(DROP\s+(?:SCHEMA|DATABASE)|&\s*\$dropdb)\b", s)
     assert "Archivo temporal previo" in s
     assert "--no-owner --no-acl" in s
