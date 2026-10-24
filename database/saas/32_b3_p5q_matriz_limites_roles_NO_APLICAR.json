@@ -1,0 +1,192 @@
+{
+  "formato": "fashionstore.b3.p5q.contrato-acceso.v1",
+  "estado": "BORRADOR_NO_APLICABLE",
+  "desplegable": false,
+  "branch": "feat/saas-multitenant-parcial2",
+  "motor": "PostgreSQL",
+  "base_autorizada_solo_futuros_ensayos": "fashionstore_saas_reservas_sandbox_5h",
+  "modelo_amenaza": {
+    "frontend_solo_http": true,
+    "acceso_sql_de_clientes_finales": "DENEGADO",
+    "inyeccion_sql_con_credencial_compartida": "NO_MITIGADA_CON_GUC",
+    "guc_es_identidad_autenticada": false,
+    "cuenta_postgres_en_aplicacion": "PROHIBIDA"
+  },
+  "principales_futuros": {
+    "bootstrap": {
+      "nombre_descriptivo": "rol_sql_bootstrap_pendiente",
+      "existe_en_postgresql": false,
+      "superuser": false,
+      "bypassrls": false,
+      "puede_efectuar_comercio": false,
+      "requisito": "validar Argon2 antes de app.empresa_id; elegir una interfaz con acceso minimo al hash sin exponer consultas generales",
+      "tablas_dependencia_login": [
+        "usuario",
+        "rol",
+        "usuario_empresa",
+        "empresa",
+        "suscripcion",
+        "plan_saas",
+        "cliente",
+        "empleado",
+        "sucursal"
+      ],
+      "hash_requerido_por_codigo_actual": true,
+      "permiso_select_total_usuario": "PROHIBIDO",
+      "grant_ejecutable_definido": false
+    },
+    "comercial": {
+      "nombre_descriptivo": "rol_sql_comercial_pendiente",
+      "existe_en_postgresql": false,
+      "superuser": false,
+      "bypassrls": false,
+      "puede_leer_password_hash": false,
+      "puede_llamar_sp_legacy": false,
+      "llamada_sp_tenant": "BLOQUEADA",
+      "permiso_select_total_usuario": "PROHIBIDO",
+      "grant_ejecutable_definido": false,
+      "sp_nuevos_solo_en_borrador": [
+        "sp_crear_reserva_tenant",
+        "sp_cancelar_reserva_tenant",
+        "sp_finalizar_reserva_sin_compra_tenant"
+      ]
+    },
+    "auditoria": {
+      "nombre_descriptivo": "rol_sql_auditoria_pendiente",
+      "existe_en_postgresql": false,
+      "superuser": false,
+      "bypassrls": false,
+      "puede_leer_password_hash": false,
+      "grant_ejecutable_definido": false
+    }
+  },
+  "contrato_autenticacion": {
+    "pasos": [
+      "verificacion_de_credenciales_Argon2",
+      "verificar_membresia_empresa_y_perfil",
+      "verificar_suscripcion_y_plan",
+      "emitir_JWT_empresa_firmado",
+      "resolver_TenantContext_en_peticion",
+      "establecer_GUCs_locales_solo_como_auditoria"
+    ],
+    "hash_solo_verificacion_servidor": true,
+    "hash_en_http_respuesta": false,
+    "no_consultar_membresias_ajenas_en_respuesta": true,
+    "requiere_refactor_consulta_orm_usuario": true,
+    "requiere_arquitectura_bootstrap_sin_rls_circular": true,
+    "requiere_proteger_acceso_al_hash": true
+  },
+  "contrato_reservas": {
+    "identidad_http_desde_tenantcontext": true,
+    "guc_no_valida_identidad_sql": true,
+    "requiere_ruta_privilegios_security_invoker": true,
+    "requiere_vincular_sp_al_principal_sql": true,
+    "requiere_politicas_select_y_with_check": true,
+    "requiere_privilegios_transitivos_trigger": true,
+    "requiere_revisar_execute_public_sp_legacy": true
+  },
+  "matriz_politicas_futuras": [
+    {
+      "recurso": "usuario.password_hash",
+      "bootstrap": "SOLO_ACCESO_RESTRINGIDO_PENDIENTE",
+      "comercial": "DENEGAR",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "usuario_empresa",
+      "bootstrap": "RESOLVER_UNA_MEMBRESIA_PENDIENTE",
+      "comercial": "SOLO_AUTORIZACION_TENANT_PENDIENTE",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "empresa+suscripcion+plan_saas",
+      "bootstrap": "VALIDACION_LIMITADA_PENDIENTE",
+      "comercial": "CONSULTA_TENANT_PENDIENTE",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "cliente+empleado+sucursal",
+      "bootstrap": "COMPROBAR_PERFIL_PENDIENTE",
+      "comercial": "SOLO_TENANT_PENDIENTE",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "carrito+detalle_carrito",
+      "bootstrap": "DENEGAR",
+      "comercial": "PROPIETARIO_TENANT_PENDIENTE",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "inventario+reserva+detalle_reserva+movimiento_inventario",
+      "bootstrap": "DENEGAR",
+      "comercial": "OPERACION_TRANSACCIONAL_PENDIENTE",
+      "auditoria": "DENEGAR"
+    },
+    {
+      "recurso": "bitacora",
+      "bootstrap": "DENEGAR",
+      "comercial": "INSERT_TRIGGER_PENDIENTE",
+      "auditoria": "LECTURA_TENANT_CONTROLADA_PENDIENTE"
+    },
+    {
+      "recurso": "sp_reservas_legacy",
+      "bootstrap": "DENEGAR",
+      "comercial": "DENEGAR",
+      "auditoria": "DENEGAR"
+    }
+  ],
+  "controles_bloqueantes": [
+    {
+      "id": "bootstrap_rls",
+      "resuelto": false,
+      "motivo": "Login antes de tenant y SELECT de Usuario/rol ORM; no hay principal bootstrap restringido"
+    },
+    {
+      "id": "acceso_hash_seguro",
+      "resuelto": false,
+      "motivo": "Autenticar Argon2 actual necesita password_hash antes de membresia; no definir SELECT amplio"
+    },
+    {
+      "id": "sql_identidad_invocador",
+      "resuelto": false,
+      "motivo": "Parametros p_empresa_id/p_usuario_id no autentican sesion SQL"
+    },
+    {
+      "id": "guc_mutable",
+      "resuelto": false,
+      "motivo": "current_setting app.empresa_id/app.usuario_id es falsificable mediante SQL arbitrario"
+    },
+    {
+      "id": "rls_policies_y_grants",
+      "resuelto": false,
+      "motivo": "Las 16 tablas auditadas tienen RLS habilitado sin policies ni grants para un rol SQL limitado"
+    },
+    {
+      "id": "legacy_execute_public",
+      "resuelto": false,
+      "motivo": "4 SP antiguos exponen EXECUTE a PUBLIC; no se ha revisado plan de compatibilidad"
+    },
+    {
+      "id": "integracion_pg_real",
+      "resuelto": false,
+      "motivo": "No hay test con rol no BYPASSRLS, dos empresas inventadas, triggers, rollback ni concurrencia"
+    }
+  ],
+  "operaciones_prohibidas_hasta_autorizacion": [
+    "CREATE ROLE",
+    "CREATE POLICY",
+    "GRANT",
+    "REVOKE",
+    "ALTER TABLE",
+    "INSERT DE SEED",
+    "CALL sp_*_tenant",
+    "SAAS_AUTH_ENABLED=true"
+  ],
+  "evidencia_base": {
+    "pruebas_5p": "454 passed, 2 warnings in 7.06s",
+    "auditoria": "5P PREFLIGHT OK: 46 tablas vacias; 48 FK tenant; 0 policies criticas; 0 SP tenant",
+    "rol_consultado": "postgres superuser BYPASSRLS",
+    "sp_legacy_execute_public": 4,
+    "columnas_hash_con_acl_especifica": 0
+  }
+}
