@@ -186,13 +186,19 @@ class CarritoTenantReadRepository:
         )
         ahora = datetime.now(timezone.utc)
         car = Carrito.__table__
+        consulta_activa = cls._carritos_del_cliente(
+            empresa_id, cliente_id
+        ).where(
+            car.c.estado == "ACTIVO",
+            car.c.fecha_actualizacion >
+            ahora - timedelta(hours=VIGENCIA_CARRITO_HORAS),
+        )
+        # El total no depende del offset o limit aplicado a la pagina.
+        total_activos = int(db.scalar(
+            select(func.count()).select_from(consulta_activa.subquery())
+        ) or 0)
         carros = db.execute(
-            cls._carritos_del_cliente(empresa_id, cliente_id)
-            .where(
-                car.c.estado == "ACTIVO",
-                car.c.fecha_actualizacion >
-                ahora - timedelta(hours=VIGENCIA_CARRITO_HORAS),
-            )
+            consulta_activa
             .order_by(car.c.fecha_actualizacion.desc(), car.c.id.desc())
             .limit(limit).offset(offset)
         ).mappings().all()
@@ -202,7 +208,7 @@ class CarritoTenantReadRepository:
                 db, empresa_id=empresa_id, carro=dict(carro),
             )
             items.append(resumen)
-        return {"items": items, "total_carritos_activos": len(items)}
+        return {"items": items, "total_carritos_activos": total_activos}
 
     @classmethod
     def obtener(
