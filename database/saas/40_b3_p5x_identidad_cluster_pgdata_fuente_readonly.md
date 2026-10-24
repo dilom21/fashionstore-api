@@ -47,6 +47,6 @@ Marcadores esperados en el archivo: `BEGIN`, `1_IDENTIDAD_CLUSTER_FUENTE`, `2_DI
 
 ## Riesgos y alcance del cierre
 
-Los siete bloqueantes del contrato 5Q permanecen abiertos: bootstrap RLS; permisos del hash; identidad SQL de actor; GUC modificable; policies y grants; `EXECUTE PUBLIC` legacy; integración PostgreSQL con un usuario real restringido. Los 14 casos A/B siguen **`NO_EJECUTADO`**. `SAAS_AUTH_ENABLED=false`, transacciones de reserva/pago/venta SaaS cerradas. El manifiesto del futuro laboratorio conserva `BORRADOR_NO_EJECUTAR`, `desplegable=false`, `iniciar_laboratorio_autorizado=false`.
+Los 7 bloqueantes del contrato 5Q permanecen abiertos: bootstrap RLS; permisos del hash; identidad SQL de actor; GUC modificable; policies y grants; `EXECUTE PUBLIC` legacy; integración PostgreSQL con un usuario real restringido. Los 14 casos A/B siguen **`NO_EJECUTADO`**. `SAAS_AUTH_ENABLED=false`, transacciones de reserva/pago/venta SaaS cerradas. El manifiesto del futuro laboratorio conserva `BORRADOR_NO_EJECUTAR`, `desplegable=false`, `iniciar_laboratorio_autorizado=false`.
 
 **No crear una instancia, PGDATA, roles, policies, grants, seed ni SP en 5X.** El usuario solo autorizó avanzar esta subfase de preparación y auditoría READ ONLY, **no autoriza** `initdb`, `pg_ctl` ni ningún DDL. Solo cerrar 5X después de recibir resultados locales; **Paso 5 continúa EN PROCESO, Bloque 3 4/7**. Esperar un nuevo `siguiente` para 5Y, y solicitar autorización expresa separada antes de crear infraestructura.
