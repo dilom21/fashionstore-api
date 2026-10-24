@@ -4,9 +4,10 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 
 
-class Carrito(Base):
+class Carrito(EmpresaScopedMixin, Base):
     """Carrito de compras de un cliente para una sucursal (CU15).
 
     La tabla real ``carrito`` posee:
@@ -39,7 +40,7 @@ class Carrito(Base):
     )
 
 
-class DetalleCarrito(Base):
+class DetalleCarrito(EmpresaScopedMixin, Base):
     """Linea de carrito: una fila de inventario y su cantidad.
 
     La tabla real ``detalle_carrito`` posee:
