@@ -110,3 +110,17 @@ def get_current_tenant_admin(
             detail="Se requiere ADMINISTRADOR de esta empresa",
         )
     return tenant
+
+
+def get_current_tenant_cliente(
+    tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+) -> TenantContext:
+    """Exige identidad en contexto cliente. La pertenencia al perfil concreto
+    se vuelve a comprobar en SQL por empresa_id y usuario_id en cada escritura.
+    """
+    if tenant.contexto != "cliente":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Se requiere un cliente de esta empresa",
+        )
+    return tenant
