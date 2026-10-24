@@ -37,7 +37,7 @@ BEGIN
       RAISE EXCEPTION 'Falta empresa_id: %',v_t;
    END IF;
    EXECUTE format('SELECT count(*) FROM public.%I WHERE empresa_id IS DISTINCT FROM $1',v_t)
-     USING v_emp INTO v_actual;
+     INTO v_actual USING v_emp;
    IF v_actual <> 0 THEN RAISE EXCEPTION 'Propietarios historicos no consistentes: %',v_t; END IF;
  END LOOP;
  -- Uniques compuestos para todas las tablas con PK simple id; conservar PK original.
