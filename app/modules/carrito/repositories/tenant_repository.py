@@ -10,7 +10,7 @@ de PostgreSQL y la UNIQUE parcial siguen siendo defensas obligatorias.
 """
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, insert, select, update
+from sqlalchemy import and_, delete, func, insert, select, update
 from sqlalchemy.orm import Session
 
 from app.modules.autenticacion_seguridad.models.models import Cliente
@@ -185,4 +185,189 @@ class CarritoTenantRepository:
             "inventario_id": inventario_id,
             "cantidad": cantidad_final,
             "estado": "ACTIVO",
+        }
+
+    @classmethod
+    def _carrito_propio_activo(
+        cls, db: Session, *, empresa_id: int, usuario_id: int, carrito_id: int
+    ) -> dict:
+        """Bloquea el cliente y SU carrito. Un ID ajeno no revela titularidad.
+
+        Un carrito vencido recibe 409 aunque la fila no tenga aun estado
+        EXPIRADO: los errores hacen rollback, no se debe reactivar.
+        El siguiente POST valido expira los carritos obsoletos.
+        """
+        if isinstance(carrito_id, bool) or not isinstance(carrito_id, int) or carrito_id <= 0:
+            raise CarritoTenantError(404, "Carrito no encontrado")
+        cliente_id = cls._cliente_id(
+            db, empresa_id=empresa_id, usuario_id=usuario_id,
+        )
+        car = Carrito.__table__
+        dato = db.execute(
+            select(
+                car.c.id, car.c.sucursal_id,
+                car.c.estado, car.c.fecha_actualizacion,
+            ).where(
+                car.c.id == carrito_id,
+                car.c.empresa_id == empresa_id,
+                car.c.cliente_id == cliente_id,
+            ).with_for_update(of=car)
+        ).mappings().one_or_none()
+        if dato is None:
+            raise CarritoTenantError(404, "Carrito no encontrado")
+
+        ultima = dato["fecha_actualizacion"]
+        # SQLite en pruebas retorna DATETIME sin zona; PG conserva TIMESTAMPTZ.
+        if ultima.tzinfo is None:
+            ultima = ultima.replace(tzinfo=timezone.utc)
+        if dato["estado"] != "ACTIVO" or ultima <= (
+            datetime.now(timezone.utc) - timedelta(hours=VIGENCIA_CARRITO_HORAS)
+        ):
+            raise CarritoTenantError(409, "El carrito ya no esta activo")
+        return dict(dato)
+
+    @staticmethod
+    def _detalle_propio(
+        db: Session, *, empresa_id: int, carrito_id: int, detalle_id: int,
+    ) -> dict:
+        if isinstance(detalle_id, bool) or not isinstance(detalle_id, int) or detalle_id <= 0:
+            raise CarritoTenantError(404, "Linea de carrito no encontrada")
+        det = DetalleCarrito.__table__
+        fila = db.execute(
+            select(det.c.id, det.c.inventario_id, det.c.cantidad).where(
+                det.c.id == detalle_id,
+                det.c.empresa_id == empresa_id,
+                det.c.carrito_id == carrito_id,
+            ).with_for_update(of=det)
+        ).mappings().one_or_none()
+        if fila is None:
+            raise CarritoTenantError(404, "Linea de carrito no encontrada")
+        return dict(fila)
+
+    @classmethod
+    def actualizar_cantidad(
+        cls, db: Session, *, empresa_id: int, usuario_id: int,
+        carrito_id: int, detalle_id: int, cantidad: int,
+    ) -> dict:
+        """La cantidad REEMPLAZA la previa; no se suma como en POST."""
+        if isinstance(cantidad, bool) or not isinstance(cantidad, int) or cantidad <= 0:
+            raise CarritoTenantError(422, "Cantidad invalida")
+        car = cls._carrito_propio_activo(
+            db, empresa_id=empresa_id, usuario_id=usuario_id,
+            carrito_id=carrito_id,
+        )
+        detalle = cls._detalle_propio(
+            db, empresa_id=empresa_id,
+            carrito_id=carrito_id, detalle_id=detalle_id,
+        )
+        disponible = cls._stock_valido(
+            db, empresa_id=empresa_id,
+            sucursal_id=int(car["sucursal_id"]),
+            inventario_id=int(detalle["inventario_id"]),
+        )
+        if cantidad > disponible:
+            raise CarritoTenantError(409, "Stock insuficiente")
+        det = DetalleCarrito.__table__
+        db.execute(
+            update(det).where(
+                det.c.id == detalle_id,
+                det.c.empresa_id == empresa_id,
+                det.c.carrito_id == carrito_id,
+            ).values(cantidad=cantidad)
+        )
+        carrito = Carrito.__table__
+        db.execute(
+            update(carrito).where(
+                carrito.c.id == carrito_id,
+                carrito.c.empresa_id == empresa_id,
+                carrito.c.cliente_id == cls._cliente_id(
+                    db, empresa_id=empresa_id, usuario_id=usuario_id,
+                ),
+                carrito.c.estado == "ACTIVO",
+            ).values(fecha_actualizacion=datetime.now(timezone.utc))
+        )
+        return {
+            "carrito_id": carrito_id,
+            "detalle_id": detalle_id,
+            "inventario_id": int(detalle["inventario_id"]),
+            "cantidad": cantidad,
+            "estado": "ACTIVO",
+        }
+
+    @classmethod
+    def eliminar_detalle(
+        cls, db: Session, *, empresa_id: int, usuario_id: int,
+        carrito_id: int, detalle_id: int,
+    ) -> dict:
+        """DELETE fisico de linea; carrito vacio => ELIMINADO, nunca ACTIVO."""
+        cls._carrito_propio_activo(
+            db, empresa_id=empresa_id, usuario_id=usuario_id,
+            carrito_id=carrito_id,
+        )
+        cls._detalle_propio(
+            db, empresa_id=empresa_id,
+            carrito_id=carrito_id, detalle_id=detalle_id,
+        )
+        det = DetalleCarrito.__table__
+        db.execute(
+            delete(det).where(
+                det.c.id == detalle_id,
+                det.c.empresa_id == empresa_id,
+                det.c.carrito_id == carrito_id,
+            )
+        )
+        restantes = int(db.scalar(
+            select(func.count()).select_from(det).where(
+                det.c.empresa_id == empresa_id,
+                det.c.carrito_id == carrito_id,
+            )
+        ) or 0)
+        car = Carrito.__table__
+        estado = "ELIMINADO" if restantes == 0 else "ACTIVO"
+        db.execute(
+            update(car).where(
+                car.c.id == carrito_id,
+                car.c.empresa_id == empresa_id,
+                car.c.estado == "ACTIVO",
+            ).values(
+                estado=estado, fecha_actualizacion=datetime.now(timezone.utc),
+            )
+        )
+        return {
+            "carrito_id": carrito_id,
+            "estado": estado,
+            "cantidad_lineas": restantes,
+        }
+
+    @classmethod
+    def eliminar_carrito(
+        cls, db: Session, *, empresa_id: int, usuario_id: int,
+        carrito_id: int,
+    ) -> dict:
+        """Baja LOGICA: preserva detalles y trazabilidad para auditoria."""
+        cls._carrito_propio_activo(
+            db, empresa_id=empresa_id, usuario_id=usuario_id,
+            carrito_id=carrito_id,
+        )
+        car = Carrito.__table__
+        db.execute(
+            update(car).where(
+                car.c.id == carrito_id,
+                car.c.empresa_id == empresa_id,
+                car.c.estado == "ACTIVO",
+            ).values(
+                estado="ELIMINADO", fecha_actualizacion=datetime.now(timezone.utc),
+            )
+        )
+        det = DetalleCarrito.__table__
+        restantes = int(db.scalar(
+            select(func.count()).select_from(det).where(
+                det.c.empresa_id == empresa_id,
+                det.c.carrito_id == carrito_id,
+            )
+        ) or 0)
+        return {
+            "carrito_id": carrito_id,
+            "estado": "ELIMINADO",
+            "cantidad_lineas": restantes,
         }
