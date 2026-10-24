@@ -16,7 +16,7 @@ from sqlalchemy.orm import Session
 from app.modules.autenticacion_seguridad.models.models import Cliente
 from app.modules.carrito.models.models import Carrito, DetalleCarrito
 from app.modules.catalogo.models.models import (
-    Categoria, Color, Producto, Talla, VarianteProducto,
+    Categoria, Color, Producto, Talla, Temporada, VarianteProducto,
 )
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
@@ -57,6 +57,7 @@ class CarritoTenantRepository:
         p, c = Producto.__table__, Categoria.__table__
         s = Sucursal.__table__
         t, co = Talla.__table__, Color.__table__
+        temporada = Temporada.__table__
         stmt = (
             select(i.c.stock_actual, i.c.stock_reservado)
             .join(s, and_(
@@ -78,6 +79,11 @@ class CarritoTenantRepository:
                 c.c.id == p.c.categoria_id,
                 c.c.empresa_id == empresa_id,
                 c.c.estado.is_(True),
+            ))
+            # La temporada tambien es un recurso empresarial: exigir tenant.
+            .join(temporada, and_(
+                temporada.c.id == i.c.temporada_id,
+                temporada.c.empresa_id == empresa_id,
             ))
             .join(t, and_(t.c.id == v.c.talla_id, t.c.estado.is_(True)))
             .join(co, and_(co.c.id == v.c.color_id, co.c.estado.is_(True)))
