@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5X — Identificador del clúster original y contraste de PGDATA (solo lectura)
 
-**Estado: 5X PREPARADA, pendiente de validación en Windows y auditoría SQL local READ ONLY.** Rama única `feat/saas-multitenant-parcial2`. Paso 5 EN PROCESO, Bloque 3 **4/7**.
+**Estado: 5X VALIDADA Y CERRADA exclusivamente como auditoría READ ONLY de identidad del clúster fuente y comparación textual de PGDATA; clúster destino inexistente y RLS A/B no certificado.** Rama única `feat/saas-multitenant-parcial2`. Paso 5 EN PROCESO, Bloque 3 **4/7**.
 
 ## Evidencia previa
 
@@ -22,7 +22,7 @@ Documentación PostgreSQL 18: [`pg_control_system()` devuelve `system_identifier
 
 ## Pasos de validación 5X
 
-Suite anterior confirmada: **560 passed**. Suite nueva esperada: **`574 passed`** (14 pruebas adicionales), todavía por confirmar en Windows.
+Suite anterior confirmada: **560 passed**. Suite nueva **CONFIRMADA EN WINDOWS: `574 passed, 2 warnings in 7.21s`** (14 pruebas adicionales), cero fallos.
 
 Desde `C:\SI2_Parcial1\fashionstore-api`, Conda `fashionstore-api`:
 
@@ -49,4 +49,28 @@ Marcadores esperados en el archivo: `BEGIN`, `1_IDENTIDAD_CLUSTER_FUENTE`, `2_DI
 
 Los 7 bloqueantes del contrato 5Q permanecen abiertos: bootstrap RLS; permisos del hash; identidad SQL de actor; GUC modificable; policies y grants; `EXECUTE PUBLIC` legacy; integración PostgreSQL con un usuario real restringido. Los 14 casos A/B siguen **`NO_EJECUTADO`**. `SAAS_AUTH_ENABLED=false`, transacciones de reserva/pago/venta SaaS cerradas. El manifiesto del futuro laboratorio conserva `BORRADOR_NO_EJECUTAR`, `desplegable=false`, `iniciar_laboratorio_autorizado=false`.
 
-**No crear una instancia, PGDATA, roles, policies, grants, seed ni SP en 5X.** El usuario solo autorizó avanzar esta subfase de preparación y auditoría READ ONLY, **no autoriza** `initdb`, `pg_ctl` ni ningún DDL. Solo cerrar 5X después de recibir resultados locales; **Paso 5 continúa EN PROCESO, Bloque 3 4/7**. Esperar un nuevo `siguiente` para 5Y, y solicitar autorización expresa separada antes de crear infraestructura.
+**5X VALIDADA Y CERRADA en su alcance de pruebas estáticas y auditoría SQL READ ONLY. No crear una instancia, PGDATA, roles, policies, grants, seed ni SP en 5X.** El usuario solo autorizó avanzar esta subfase de preparación y auditoría READ ONLY, **no autoriza** `initdb`, `pg_ctl` ni ningún DDL. Los resultados locales ya se recibieron y permitieron cerrar exclusivamente la auditoría 5X; **Paso 5 continúa EN PROCESO, Bloque 3 4/7**. Esperar un nuevo `siguiente` para 5Y, y solicitar autorización expresa separada antes de crear infraestructura.
+
+
+## 5X — Resultado real de Windows y cierre (24 de octubre de 2026)
+
+El estudiante actualizó `feat/saas-multitenant-parcial2` por fast-forward **`fab2e32..284f517`** y ejecutó `python -m pytest -q tests_saas`: **`574 passed, 2 warnings in 7.21s`**, cero fallos. Las dos advertencias son deprecaciones ya conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+Después ejecutó el wrapper `28_auditar_identidad_cluster_fuente_5x.ps1`, que consultó metadatos del **sandbox local** con la identidad SQL `postgres` a `127.0.0.1:5432`. La auditoría devolvió `5X PREFLIGHT OK: sandbox localhost, postgres18, 46 tablas, 48 FK, 0 policies criticas` y `5X AUDITORIA IDENTIDAD FUENTE READ ONLY COMPLETADA`. La transacción terminó en **`ROLLBACK`**; el informe privado se escribió únicamente bajo `$env:TEMP`.
+
+Evidencia recibida **sin registrar el número `system_identifier` en GitHub**:
+
+| Campo | Resultado observado | Interpretación |
+|---|---|---|
+| Sección | `1_IDENTIDAD_CLUSTER_FUENTE` | Fuente PostgreSQL identificada |
+| Base | `fashionstore_saas_reservas_sandbox_5h` | No se consultó base histórica |
+| Identidad SQL | `postgres` / `postgres` | Cuenta privilegiada; no certifica RLS |
+| Puerto y versión | `5432` / PostgreSQL `18` | Identificación del origen |
+| ID de clúster fuente | **`MEDIDO_LOCALMENTE_NO_VERSIONADO`** | Valor real conservado solo en informe local; no se publica |
+| PGDATA frente a ruta candidata | `SIN_SOLAPAMIENTO_TEXTUAL_NO_CERTIFICA` | No detectado solapamiento textual; sin garantía canónica/física |
+| Privacidad | `RUTA_PGDATA_ORIGEN_NO_PUBLICADA` | No se reveló directorio de datos |
+| Sección de alcance | `2_DICTAMEN_ALCANCE` | Conclusión sin creación ni pruebas A/B |
+| Dictamen | `ORIGEN_MEDIDO_DESTINO_AUN_INEXISTENTE` | El segundo clúster NO existe |
+| Límite | `SIN_CLUSTER_NUEVO_SIN_ROLES_SIN_RLS_A_B` | No se certificó aislamiento |
+
+**5X VALIDADA Y CERRADA únicamente como auditoría read-only del clúster fuente.** Aunque el identificador original fue medido, ni el análisis de rutas ni su identificación demuestran independencia del laboratorio futuro. **No se ha creado un segundo clúster, no se han creado roles ni policies, ni se han ejecutado pruebas A/B**. Los **7 bloqueantes** de 5Q siguen ABIERTOS; la matriz de 14 casos está **`NO_EJECUTADO`**; el manifiesto 5U sigue **`BORRADOR_NO_EJECUTAR`**, `desplegable=false`, `iniciar_laboratorio_autorizado=false`; `SAAS_AUTH_ENABLED=false`. No se despliega Supabase, no se altera `main`, BD histórica ni rutas financieras. **Esperar un nuevo `siguiente` antes de 5Y; incluso entonces, cualquier creación de clúster o DDL exige autorización explícita adicional.** No pedir nuevos comandos para 5X.
