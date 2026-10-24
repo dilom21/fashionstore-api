@@ -151,7 +151,8 @@ def test_listado_admin_solo_su_empresa(escenario_comercial, tipo):
     client, _, _ = escenario_comercial
     respuesta = client.get(f"/tenant/comercial/{tipo}")
     assert respuesta.status_code == 200, respuesta.text
-    assert respuesta.json() == [{"id": 1101, "estado": respuesta.json()[0]["estado"]}]
+    assert len(respuesta.json()) == 1
+    assert respuesta.json()[0]["id"] == 1101
     assert set(respuesta.json()[0]) == {"id", "estado"}
 
 
