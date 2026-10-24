@@ -324,3 +324,276 @@ def test_resto_del_flujo_comercial_sigue_bloqueado_503(escenario_carrito):
     ):
         assert client.request(metodo, ruta, json={}).status_code == 503
     assert _total(factory, Carrito.__table__) == 0
+
+
+# B3/P5C: PATCH de cantidad y DELETE de linea/carrito, sin alterar stock.
+
+def _carrito_creado(client):
+    r = _agregar(client, cantidad=2)
+    assert r.status_code == 200, r.text
+    return r.json()
+
+
+def test_patch_cantidad_reemplaza_y_no_suma(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    ruta = f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+    respuesta = client.patch(ruta, json={"cantidad": 5})
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()["cantidad"] == 5
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 5
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 1111)).one() == (10, 2)
+
+
+def test_patch_cantidad_maxima_disponible_o_rechazada(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    ruta = f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+    assert client.patch(ruta, json={"cantidad": 9}).status_code == 409
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+    assert client.patch(ruta, json={"cantidad": 8}).status_code == 200
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 8
+
+
+def test_delete_ultima_linea_elimina_carrito_logicamente(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    ruta = f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+    resp = client.delete(ruta)
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        "carrito_id": carrito["carrito_id"],
+        "estado": "ELIMINADO",
+        "cantidad_lineas": 0,
+    }
+    assert _total(factory, DetalleCarrito.__table__) == 0
+    with factory() as db:
+        assert db.scalar(select(Carrito.estado)) == "ELIMINADO"
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 1111)).one() == (10, 2)
+
+
+def test_delete_carrito_logico_conserva_detalles(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    resp = client.delete(f'/tenant/carritos/{carrito["carrito_id"]}')
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["estado"] == "ELIMINADO"
+    assert resp.json()["cantidad_lineas"] == 1
+    assert _total(factory, Carrito.__table__) == 1
+    assert _total(factory, DetalleCarrito.__table__) == 1
+    assert client.delete(f'/tenant/carritos/{carrito["carrito_id"]}').status_code == 409
+
+
+def test_delete_una_de_dos_lineas_mantiene_carrito_activo(escenario_carrito):
+    client, _, factory = escenario_carrito
+    with factory.begin() as db:
+        db.execute(insert(VarianteProducto.__table__).values(
+            id=112, empresa_id=10, producto_id=111,
+            talla_id=1, color_id=1, sku="A-112", estado=True,
+        ))
+        db.execute(insert(Inventario.__table__).values(
+            id=1112, empresa_id=10, sucursal_id=1101,
+            variante_producto_id=112, temporada_id=111,
+            stock_actual=5, stock_reservado=0,
+            fecha_actualizacion=datetime.now(timezone.utc),
+        ))
+    primero = _carrito_creado(client)
+    segundo = _agregar(client, inventario=1112, cantidad=1)
+    assert segundo.status_code == 200, segundo.text
+    assert primero["carrito_id"] == segundo.json()["carrito_id"]
+    resp = client.delete(
+        f'/tenant/carritos/{primero["carrito_id"]}/items/{primero["detalle_id"]}'
+    )
+    assert resp.status_code == 200, resp.text
+    assert resp.json()["estado"] == "ACTIVO"
+    assert resp.json()["cantidad_lineas"] == 1
+    assert _total(factory, DetalleCarrito.__table__) == 1
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.inventario_id)) == 1112
+
+
+@pytest.mark.parametrize("metodo", ["PATCH", "DELETE_LINEA", "DELETE_CARRITO"])
+def test_mutaciones_no_alcanzan_carrito_otra_empresa(escenario_carrito, metodo):
+    client, identidad, factory = escenario_carrito
+    carrito_a = _carrito_creado(client)
+    identidad["empresa_id"], identidad["usuario_id"] = 20, 88
+    carrito_b = _agregar(client, sucursal=2202, inventario=2222, cantidad=2).json()
+    identidad["empresa_id"], identidad["usuario_id"] = 10, 99
+    if metodo == "PATCH":
+        r = client.patch(
+            f'/tenant/carritos/{carrito_b["carrito_id"]}/items/{carrito_b["detalle_id"]}',
+            json={"cantidad": 5},
+        )
+    elif metodo == "DELETE_LINEA":
+        r = client.delete(
+            f'/tenant/carritos/{carrito_b["carrito_id"]}/items/{carrito_b["detalle_id"]}'
+        )
+    else:
+        r = client.delete(f'/tenant/carritos/{carrito_b["carrito_id"]}')
+    assert r.status_code == 404, r.text
+    with factory() as db:
+        assert db.scalar(
+            select(DetalleCarrito.cantidad).where(
+                DetalleCarrito.id == carrito_b["detalle_id"]
+            )
+        ) == 2
+        assert db.scalar(
+            select(Carrito.estado).where(Carrito.id == carrito_b["carrito_id"])
+        ) == "ACTIVO"
+    assert _total(factory, Carrito.__table__) == 2
+
+
+def test_detalle_propio_de_otro_carrito_no_modificable(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    with factory.begin() as db:
+        db.execute(insert(Carrito.__table__).values(
+            id=8888, empresa_id=10, cliente_id=1001, sucursal_id=1101,
+            fecha_creacion=datetime.now(timezone.utc),
+            fecha_actualizacion=datetime.now(timezone.utc),
+            estado="ACTIVO",
+        ))
+    ruta = f'/tenant/carritos/8888/items/{carrito["detalle_id"]}'
+    assert client.patch(ruta, json={"cantidad": 4}).status_code == 404
+    assert client.delete(ruta).status_code == 404
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+
+
+@pytest.mark.parametrize("metodo", ["PATCH", "DELETE_LINEA", "DELETE_CARRITO"])
+def test_carrito_caducado_o_convertido_no_se_reactiva(escenario_carrito, metodo):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    with factory.begin() as db:
+        db.execute(
+            Carrito.__table__.update().where(
+                Carrito.__table__.c.id == carrito["carrito_id"]
+            ).values(
+                fecha_actualizacion=datetime.now(timezone.utc) - timedelta(hours=3),
+            )
+        )
+    if metodo == "PATCH":
+        r = client.patch(
+            f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}',
+            json={"cantidad": 4},
+        )
+    elif metodo == "DELETE_LINEA":
+        r = client.delete(
+            f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+        )
+    else:
+        r = client.delete(f'/tenant/carritos/{carrito["carrito_id"]}')
+    assert r.status_code == 409, r.text
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+    assert _total(factory, DetalleCarrito.__table__) == 1
+
+
+@pytest.mark.parametrize("datos", [
+    {}, {"cantidad": None}, {"cantidad": 0},
+    {"cantidad": -2}, {"cantidad": 1001},
+    {"cantidad": 4, "empresa_id": 20},
+    {"cantidad": 4, "cliente_id": 2002},
+])
+def test_patch_cantidad_invalida_y_suplantacion(escenario_carrito, datos):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    r = client.patch(
+        f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}',
+        json=datos,
+    )
+    assert r.status_code == 422
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+
+
+@pytest.mark.parametrize("metodo", ["PATCH", "DELETE"])
+def test_contexto_personal_no_puede_editar_carrito(escenario_carrito, metodo):
+    client, identidad, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    identidad["contexto"] = "personal"
+    ruta = f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+    r = client.patch(ruta, json={"cantidad": 3}) if metodo == "PATCH" else client.delete(ruta)
+    assert r.status_code == 403
+    assert _total(factory, DetalleCarrito.__table__) == 1
+
+
+def test_perfil_cliente_distinto_denegado_antes_de_editar(escenario_carrito):
+    client, identidad, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    identidad["usuario_id"] = 88
+    r = client.delete(f'/tenant/carritos/{carrito["carrito_id"]}')
+    assert r.status_code == 403
+    assert _total(factory, Carrito.__table__, estado="ACTIVO") == 1
+
+
+def test_stock_de_variante_ajena_impide_patch(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    with factory.begin() as db:
+        db.execute(
+            Inventario.__table__.update().where(Inventario.__table__.c.id == 1111)
+            .values(variante_producto_id=222)
+        )
+    r = client.patch(
+        f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}',
+        json={"cantidad": 4},
+    )
+    assert r.status_code == 404
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+
+
+@pytest.mark.parametrize("metodo", ["PATCH", "DELETE"])
+def test_flag_apagado_y_token_ausente_bloquean_mutacion(escenario_carrito, metodo, monkeypatch):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    app.dependency_overrides.pop(get_current_tenant_context)
+    ruta = f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}'
+    r = client.patch(ruta, json={"cantidad": 3}) if metodo == "PATCH" else client.delete(ruta)
+    assert r.status_code == 401
+    monkeypatch.setattr(settings, "saas_auth_enabled", False)
+    r = client.patch(ruta, json={"cantidad": 3}) if metodo == "PATCH" else client.delete(ruta)
+    assert r.status_code == 503
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+
+
+def test_gate_restringe_metodos_y_urls_de_carrito(escenario_carrito):
+    client, _, factory = escenario_carrito
+    for metodo, ruta in (
+        ("PUT", "/tenant/carritos/1/items/1"),
+        ("POST", "/tenant/carritos/1/items/1"),
+        ("GET", "/tenant/carritos/1"),
+        ("PATCH", "/tenant/carritos/0/items/1"),
+        ("DELETE", "/tenant/carritos/01"),
+        ("DELETE", "/tenant/carritos/1/extra"),
+        ("POST", "/tenant/reservas"),
+        ("POST", "/tenant/comercial/ventas"),
+    ):
+        assert client.request(metodo, ruta).status_code == 503
+    assert _total(factory, Carrito.__table__) == 0
+
+
+def test_eliminar_y_editar_no_cambian_reservas_ni_movimientos(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _carrito_creado(client)
+    assert client.patch(
+        f'/tenant/carritos/{carrito["carrito_id"]}/items/{carrito["detalle_id"]}',
+        json={"cantidad": 6},
+    ).status_code == 200
+    assert client.delete(f'/tenant/carritos/{carrito["carrito_id"]}').status_code == 200
+    with factory() as db:
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 1111)).one() == (10, 2)
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 2222)).one() == (7, 0)
