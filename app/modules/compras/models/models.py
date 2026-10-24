@@ -14,12 +14,13 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.catalogo.models.models import Temporada, VarianteProducto
 from app.modules.proveedores.models.models import Proveedor
 from app.modules.sucursales.models.models import Sucursal
 
 
-class OrdenCompra(Base):
+class OrdenCompra(EmpresaScopedMixin, Base):
     """Orden de compra a proveedor (CU12).
 
     La tabla real posee:
@@ -66,7 +67,7 @@ class OrdenCompra(Base):
     )
 
 
-class DetalleOrdenCompra(Base):
+class DetalleOrdenCompra(EmpresaScopedMixin, Base):
     """Linea de una orden de compra.
 
     La tabla real posee:
@@ -98,7 +99,7 @@ class DetalleOrdenCompra(Base):
     temporada: Mapped["Temporada"] = relationship()
 
 
-class MovimientoInventario(Base):
+class MovimientoInventario(EmpresaScopedMixin, Base):
     """Movimiento de inventario (solo lectura en CU12).
 
     La recepcion de una orden escribe en esta tabla a traves del
