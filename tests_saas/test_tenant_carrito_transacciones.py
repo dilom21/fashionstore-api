@@ -907,3 +907,225 @@ def test_get_no_requiere_producto_actualmente_activo(escenario_carrito):
         f'/tenant/carritos/{a["carrito_id"]}/items/{a["detalle_id"]}',
         json={"cantidad": 3},
     ).status_code == 404
+
+
+# B3/P5E: prevalidar CU16 sin crear reserva ni tocar inventario.
+
+def _prevalidar(client, carrito_id, fecha=None, **extra):
+    if fecha is None:
+        fecha = (datetime.now(timezone.utc) + timedelta(days=2)).isoformat()
+    return client.post("/tenant/reservas/prevalidar", json={
+        "carrito_id": carrito_id, "fecha_atencion": fecha, **extra,
+    })
+
+
+def test_reserva_prevalidacion_apta_no_crea_reserva_ni_cambia_stock(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _agregar(client, cantidad=3).json()
+    r = _prevalidar(client, carrito["carrito_id"])
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["carrito_id"] == carrito["carrito_id"]
+    assert body["sucursal_id"] == 1101
+    assert body["cantidad_lineas"] == 1
+    assert body["cantidad_unidades"] == 3
+    assert body["stock_verificado_preliminarmente"] is True
+    assert body["reserva_creada"] is False
+    assert body["requiere_verificacion_transaccional"] is True
+    assert set(body) == {
+        "carrito_id", "sucursal_id", "fecha_atencion",
+        "cantidad_lineas", "cantidad_unidades",
+        "stock_verificado_preliminarmente",
+        "reserva_creada", "requiere_verificacion_transaccional",
+    }
+    assert _total(factory, Reserva.__table__) == 0
+    with factory() as db:
+        assert db.scalar(select(Carrito.estado)) == "ACTIVO"
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 3
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 1111)).one() == (10, 2)
+
+
+def test_prevalidacion_repetida_no_convierte_carrito(escenario_carrito):
+    client, _, factory = escenario_carrito
+    carrito = _agregar(client).json()
+    for _ in range(3):
+        assert _prevalidar(client, carrito["carrito_id"]).status_code == 200
+    assert _total(factory, Reserva.__table__) == 0
+    with factory() as db:
+        assert db.scalar(select(Carrito.estado)) == "ACTIVO"
+
+
+def test_prevalidacion_distingue_empresas_sin_revelar_carritos(escenario_carrito):
+    client, identidad, factory = escenario_carrito
+    a = _agregar(client).json()
+    identidad["empresa_id"], identidad["usuario_id"] = 20, 88
+    b = _agregar(client, sucursal=2202, inventario=2222).json()
+    assert _prevalidar(client, a["carrito_id"]).status_code == 404
+    assert _prevalidar(client, b["carrito_id"]).status_code == 200
+    identidad["empresa_id"], identidad["usuario_id"] = 10, 99
+    assert _prevalidar(client, b["carrito_id"]).status_code == 404
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_otra_persona_de_misma_empresa_404(escenario_carrito):
+    client, identidad, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(insert(Cliente.__table__).values(
+            id=1002, empresa_id=10, usuario_id=77,
+            nombre="Otro", apellido="Usuario", estado=True,
+        ))
+    identidad["usuario_id"] = 77
+    assert _prevalidar(client, a["carrito_id"]).status_code == 404
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_carrito_sin_lineas_409(escenario_carrito):
+    client, _, factory = escenario_carrito
+    ahora = datetime.now(timezone.utc)
+    with factory.begin() as db:
+        db.execute(insert(Carrito.__table__).values(
+            id=8111, empresa_id=10, cliente_id=1001, sucursal_id=1101,
+            fecha_creacion=ahora, fecha_actualizacion=ahora, estado="ACTIVO",
+        ))
+    r = _prevalidar(client, 8111)
+    assert r.status_code == 409
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_reserva_ya_existente_409(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    hoy = datetime.now(timezone.utc)
+    with factory.begin() as db:
+        db.execute(insert(Reserva.__table__).values(
+            id=9111, empresa_id=10, cliente_id=1001,
+            sucursal_id=1101, carrito_id=a["carrito_id"],
+            fecha_reserva=hoy, fecha_atencion=hoy+timedelta(days=2),
+            estado="PENDIENTE",
+        ))
+    assert _prevalidar(client, a["carrito_id"]).status_code == 409
+    assert _total(factory, Reserva.__table__) == 1
+
+
+@pytest.mark.parametrize("stock,esperado", [
+    (2, 409), (9, 409), (8, 200), (0, 200),
+])
+def test_prevalidacion_stock_actual_y_reservado(
+    escenario_carrito, stock, esperado,
+):
+    client, _, factory = escenario_carrito
+    a = _agregar(client, cantidad=2).json()
+    with factory.begin() as db:
+        db.execute(Inventario.__table__.update().where(
+            Inventario.__table__.c.id == 1111
+        ).values(stock_reservado=stock))
+    r = _prevalidar(client, a["carrito_id"])
+    assert r.status_code == esperado, r.text
+    assert _total(factory, Reserva.__table__) == 0
+
+
+@pytest.mark.parametrize("entidad", [
+    "sucursal", "variante", "producto", "categoria", "talla", "color",
+])
+def test_prevalidacion_prenda_o_sucursal_inactiva_409(escenario_carrito, entidad):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    tablas = {
+        "sucursal": (Sucursal.__table__, 1101),
+        "variante": (VarianteProducto.__table__, 111),
+        "producto": (Producto.__table__, 111),
+        "categoria": (Categoria.__table__, 111),
+        "talla": (Talla.__table__, 1),
+        "color": (Color.__table__, 1),
+    }
+    tabla, id_ = tablas[entidad]
+    with factory.begin() as db:
+        db.execute(tabla.update().where(tabla.c.id == id_).values(estado=False))
+    r = _prevalidar(client, a["carrito_id"])
+    assert r.status_code == 409, r.text
+    assert _total(factory, Reserva.__table__) == 0
+
+
+@pytest.mark.parametrize("cambio", [
+    ("inventario_id", 2222), ("empresa_id", 20),
+])
+def test_prevalidacion_linea_inconsistente_409(escenario_carrito, cambio):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    campo, valor = cambio
+    with factory.begin() as db:
+        db.execute(DetalleCarrito.__table__.update().where(
+            DetalleCarrito.__table__.c.id == a["detalle_id"]
+        ).values(**{campo: valor}))
+    assert _prevalidar(client, a["carrito_id"]).status_code == 409
+
+
+@pytest.mark.parametrize("offset", [-3, -1, 0])
+def test_prevalidacion_fecha_pasada_o_actual_422(escenario_carrito, offset):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    pasado = (datetime.now(timezone.utc) + timedelta(days=offset)).isoformat()
+    assert _prevalidar(client, a["carrito_id"], fecha=pasado).status_code == 422
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_fecha_naive_tratada_como_utc(escenario_carrito):
+    client, _, _ = escenario_carrito
+    a = _agregar(client).json()
+    fecha = (datetime.now(timezone.utc) + timedelta(days=2)).replace(tzinfo=None)
+    assert _prevalidar(client, a["carrito_id"], fecha=fecha.isoformat()).status_code == 200
+
+
+@pytest.mark.parametrize("extra", [
+    {"empresa_id": 20}, {"cliente_id": 2002},
+    {"inventario_id": 2222}, {"cantidad": 50},
+])
+def test_prevalidacion_no_acepta_identidad_ni_stock_desde_json(escenario_carrito, extra):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    assert _prevalidar(client, a["carrito_id"], **extra).status_code == 422
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_cliente_no_activo_403(escenario_carrito):
+    client, identidad, factory = escenario_carrito
+    identidad["empresa_id"] = 20
+    assert _prevalidar(client, 1234).status_code == 403
+    assert _total(factory, Reserva.__table__) == 0
+
+
+def test_prevalidacion_contexto_personal_403(escenario_carrito):
+    client, identidad, _ = escenario_carrito
+    identidad["contexto"] = "personal"
+    assert _prevalidar(client, 1234).status_code == 403
+
+
+def test_prevalidacion_sin_token_401(escenario_carrito):
+    client, _, _ = escenario_carrito
+    app.dependency_overrides.pop(get_current_tenant_context)
+    assert _prevalidar(client, 1234).status_code == 401
+
+
+def test_prevalidacion_con_flag_inactivo_503(escenario_carrito, monkeypatch):
+    client, _, _ = escenario_carrito
+    app.dependency_overrides.pop(get_current_tenant_context)
+    monkeypatch.setattr(settings, "saas_auth_enabled", False)
+    assert _prevalidar(client, 1234).status_code == 503
+
+
+def test_sigue_bloqueada_la_creacion_y_cancelacion_real(escenario_carrito):
+    client, _, factory = escenario_carrito
+    rutas = [
+        ("POST", "/tenant/reservas"),
+        ("POST", "/reservas"),
+        ("PATCH", "/tenant/reservas/1/cancelar"),
+        ("POST", "/tenant/reservas/prevalidar/crear"),
+        ("GET", "/tenant/reservas/prevalidar"),
+        ("POST", "/tenant/comercial/ventas"),
+    ]
+    for metodo, ruta in rutas:
+        assert client.request(metodo, ruta, json={}).status_code == 503
+    assert _total(factory, Reserva.__table__) == 0
