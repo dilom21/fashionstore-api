@@ -81,6 +81,10 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     ):
         return True
     if metodo == "GET":
+        # CU15: el cliente solo puede listar sus carritos o consultar
+        # uno concreto; cualquier otra subruta sigue bloqueada.
+        if ruta == "/tenant/carritos" or _RUTA_CARRITO.fullmatch(ruta) is not None:
+            return True
         return (
             ruta in _RUTAS_CATALOGO_LISTADO
             or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
