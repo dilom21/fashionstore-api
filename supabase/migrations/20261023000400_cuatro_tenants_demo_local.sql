@@ -241,12 +241,43 @@ BEGIN
  ) THEN
    RAISE EXCEPTION 'Alguna empresa supera el limite de sucursales del plan';
  END IF;
- IF (SELECT count(*) FROM public.bitacora) <> 840 THEN
-   RAISE EXCEPTION 'Se esperaban 34 nuevas entradas de auditoria por triggers';
+ -- Auditoria: 38 eventos nuevos exactos:
+ --   4 usuario (globales), 4 cliente, 4 producto, 4 variante_producto,
+ --   4 empleado, 9 sucursal y 9 inventario (34 empresariales).
+ -- El primer calculo omitio trg_bitacora_cliente; este conteo lo incluye.
+ IF (SELECT count(*) FROM public.bitacora) <> 844 THEN
+   RAISE EXCEPTION
+     'Auditoria inesperada: total real=%, esperado=844 (806 historicos + 38 nuevos)',
+     (SELECT count(*) FROM public.bitacora);
  END IF;
- -- Cuatro eventos globales (usuario) mas 30 eventos empresariales.
- IF (SELECT count(*) FROM public.bitacora WHERE empresa_id IS NULL)<>4 THEN
-   RAISE EXCEPTION 'La bitacora demo contiene eventos empresariales sin tenant';
+ IF (SELECT count(*) FROM public.bitacora WHERE empresa_id IS NULL) <> 4
+    OR (SELECT count(*) FROM public.bitacora
+         WHERE empresa_id IS NULL AND entidad_afectada='usuario'
+           AND accion='CREAR') <> 4 THEN
+   RAISE EXCEPTION 'Auditoria global incorrecta: deben existir 4 altas de usuario';
+ END IF;
+ IF (SELECT count(*) FROM public.bitacora b
+     JOIN public.empresa e ON e.id=b.empresa_id
+     WHERE e.slug IN ('urbanwear','elegancia-sur','denim-house','sportline')) <> 34 THEN
+   RAISE EXCEPTION 'Auditoria tenant incorrecta: 34 eventos deben tener empresa demo';
+ END IF;
+ IF EXISTS (
+   SELECT 1
+   FROM (VALUES
+     ('cliente',4),('producto',4),('variante_producto',4),('empleado',4),
+     ('sucursal',9),('inventario',9)
+   ) AS esperado(entidad,cantidad)
+   LEFT JOIN LATERAL (
+     SELECT count(*) AS eventos
+     FROM public.bitacora b
+     JOIN public.empresa e ON e.id=b.empresa_id
+     WHERE e.slug IN ('urbanwear','elegancia-sur','denim-house','sportline')
+       AND b.entidad_afectada=esperado.entidad
+       AND b.accion='CREAR'
+   ) AS real ON TRUE
+   WHERE real.eventos<>esperado.cantidad
+ ) THEN
+   RAISE EXCEPTION 'Faltan o sobran eventos de auditoria por entidad demo';
  END IF;
  RAISE NOTICE 'Creadas cuatro empresas, nueve sucursales, cuatro admin inactivos y recursos separados.';
 END;
