@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5F: diseño transaccional de reservas e inspección completa de SP
 
-**Estado:** revisión/diseño preparados. **No se han examinado aún los cuerpos completos en PostgreSQL local, no se ha creado un procedimiento tenant-aware ni se ha ejecutado DML**. El Paso 5 continúa EN PROCESO, no saltar al Paso 6.
+**Estado:** **subfase 5F VALIDADA**: 280 pruebas aprobadas (2 advertencias, 6.40 s), extracción READ ONLY superada y **cuerpos completos recibidos/analizados**. No se creó un procedimiento tenant-aware ni se ejecutó DML. El Paso 5 continúa EN PROCESO, no saltar al Paso 6.
 
 **Alcance:** tres SP legacy de PostgreSQL: `sp_crear_reserva_desde_carrito` (CU16), `sp_cancelar_reserva` (CU16) y `sp_finalizar_reserva_sin_compra` (CU18). Rama exclusiva `feat/saas-multitenant-parcial2`. Mantener `SAAS_AUTH_ENABLED=false`, `main` sin cambios y Supabase intocable.
 
@@ -65,7 +65,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado, todavía NO ejecutado por el estudiante: `280 passed`** = 262 pruebas anteriores + 18 casos nuevos de revisión estática de scripts y bloqueo de rutas. Estos tests **no verifican seguridad real de SQL PostgreSQL**, solo comprueban guardas del utilitario, consistencia de los tres nombres y bloqueo de endpoints legacy.
+**Resultado real del estudiante: `280 passed, 2 warnings in 6.40s`** = 262 pruebas anteriores + 18 casos nuevos de revisión estática de scripts y bloqueo de rutas. Estos tests no verifican seguridad real de SQL PostgreSQL, solo comprueban guardas del utilitario, consistencia de los tres nombres y bloqueo de endpoints legacy. Estos tests **no verifican seguridad real de SQL PostgreSQL**, solo comprueban guardas del utilitario, consistencia de los tres nombres y bloqueo de endpoints legacy.
 
 Solo si las pruebas pasan:
 
@@ -75,4 +75,12 @@ Solo si las pruebas pasan:
 
 Adjuntar al chat el archivo `fashionstore_P5F_SP_reservas_LOCAL_REVISAR.txt` que se guarda en `$env:TEMP` **después de revisarlo por si contiene secretos**. La salida PowerShell y el archivo permiten revisar los cuerpos SQL y elegir una migración posterior. No subir ese archivo a GitHub. No activar `SAAS_AUTH_ENABLED`.
 
-**Cierre de subfase 5F:** revisión documental y extracción de definiciones, sin efectuar ninguna reserva real. El Paso 5 seguirá EN PROCESO. Esperar `siguiente` antes de implementar un nuevo SP tenant-aware.
+**Cierre de subfase 5F: VALIDADA** la revisión documental, la extracción de las tres definiciones y el análisis de sus fallos de aislamiento empresarial, sin efectuar ninguna reserva real. El Paso 5 seguirá EN PROCESO. Esperar `siguiente` antes de implementar un nuevo SP tenant-aware.
+
+## 6. Resultado de inspección REAL recibido tras ejecutar el script
+
+El estudiante ejecutó `git pull --ff-only` y `python -m pytest -q tests_saas` con **280 passed, 2 warnings in 6.40s**. `11_extraer_definiciones_reserva_solo_lectura.ps1` confirmó las tres firmas y exportó sus cuerpos completos de PostgreSQL local a TEMP; sin CALL ni escrituras. El fichero compartido terminó en `ROLLBACK`.
+
+**Hallazgos confirmados por lectura del código SQL real:** los tres SP carecen de cláusulas por `empresa_id`; `p_usuario_id` solo se registra en Kardex, no autoriza al actor; los INSERT de recursos empresariales omiten `empresa_id`; el procedimiento de creación lee la fecha de última actividad pero no exige las dos horas de CU15. Los tres tienen `public_execute=true`, propietario `postgres`, `security_definer=false` y `search_path=public,pg_temp`. Los permisos EXECUTE a PUBLIC no prueban acceso efectivo a tablas sin revisar grants/RLS. Los bloqueos `FOR UPDATE` y la aritmética de stock son una base útil, pero no garantizan aislamiento SaaS.
+
+El informe detallado, que no publica el SQL original extraído, es [`21_b3_p5f_hallazgos_sql_legacy.md`](21_b3_p5f_hallazgos_sql_legacy.md). Se mantiene **5F validada solo como revisión/diseño**, **Paso 5 global EN PROCESO**, con la creación/cancelación/finalización real de reservas cerrada.
