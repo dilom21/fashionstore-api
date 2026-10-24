@@ -66,6 +66,21 @@ validados, límite de dos horas y sin movimientos de stock. Se agregaron
 Aun con esas pruebas aprobadas, el Paso 5 seguirá abierto hasta migrar
 reservas, ventas, pagos, compras, devoluciones y procedimientos transaccionales.
 
+## Continuación: subfase 5D de CU15 preparada, pendiente de pytest
+
+Se implementó la **lectura exclusiva del carrito por el propio cliente**:
+`GET /tenant/carritos` y `GET /tenant/carritos/{carrito_id}`. Ambos exigen
+cliente activo y `empresa_id` consistente en el carrito, sucursal y cadena
+completa de las líneas. Solo realizan `SELECT`, sin expirar carritos ni
+modificar stock; rechazan con 409 un carrito con referencias cruzadas
+deliberadamente corruptas, sin mostrar información parcial.
+
+Se añadieron 28 pruebas nuevas al fixture SQLite ficticio. **Todavía no
+fueron ejecutadas por el estudiante**. Consultar
+[`18_b3_p5d_lectura_carritos_cliente.md`](18_b3_p5d_lectura_carritos_cliente.md).
+El Paso 5 continúa en proceso; **no abrir reservas, pagos, ventas ni otros
+procedimientos** hasta validarlos con PostgreSQL de forma segura.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
