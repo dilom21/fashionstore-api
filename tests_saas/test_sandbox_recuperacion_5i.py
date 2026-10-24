@@ -124,7 +124,8 @@ def test_5i_no_procedimientos_tenant_ni_rls_habilitado():
     s = RECUPERAR.read_text(encoding="utf-8")
     assert "sp_*_tenant" in s
     assert "NO habilitar SaaS" in s
-    assert "Recuperacion" not in s.split("Recuperacion")[:1]
+    assert "No se borraran bases, esquemas ni tablas." in s
+    assert "NO ejecuta sp_*_tenant" in s
     v = VERIFICADOR.read_text(encoding="utf-8")
     assert "v_sp<>0" in v
     assert "v_fk<>48" in v
