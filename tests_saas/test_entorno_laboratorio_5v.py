@@ -63,15 +63,15 @@ def test_5v_no_ejecuta_comandos_que_muten_entorno():
     # Buscar INVOCACIONES reales, no la variable booleana "$initdb -and".
     # Esto conserva el bloqueo de initdb/pg_ctl sin confundir condiciones.
     assert not re.search(
-        r"(?mi)^\\s*(?:initdb(?:\\.exe)?|\\$initdb)\\s+-[a-z]",
+        r"(?mi)^\s*(?:initdb(?:\.exe)?|\$initdb)\s+-[a-z]",
         ejecutable,
     )
     assert not re.search(
-        r"(?mi)^\\s*(?:pg_ctl(?:\\.exe)?|\\$pgCtl)\\s+(?:start\\b|-?[a-z])",
+        r"(?mi)^\s*(?:pg_ctl(?:\.exe)?|\$pgCtl)\s+(?:start\b|-?[a-z])",
         ejecutable,
     )
     assert not re.search(
-        r"(?mi)^\\s*&\\s*[^\\r\\n]*(?:initdb|pg_ctl)(?:\\.exe)?\\b",
+        r"(?mi)^\s*&\s*[^\r\n]*(?:initdb|pg_ctl)(?:\.exe)?\b",
         ejecutable,
     )
 
