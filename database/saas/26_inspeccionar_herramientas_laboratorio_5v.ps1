@@ -43,7 +43,7 @@ $puertoEstado = 'DESCONOCIDO'
 $comandoPuertos = Get-Command -Name 'Get-NetTCPConnection' -ErrorAction SilentlyContinue
 if ($null -ne $comandoPuertos) {
     try {
-        $listeners = @(Get-NetTCPConnection -LocalPort $puertoPropuesto -State Listen -ErrorAction Stop)
+        $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop | Where-Object { $_.LocalPort -eq $puertoPropuesto })
         if ($listeners.Count -gt 0) {
             $puertoEstado = 'OCUPADO'
         } else {
