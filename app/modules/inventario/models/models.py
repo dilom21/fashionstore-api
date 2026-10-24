@@ -4,9 +4,10 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 
 
-class Inventario(Base):
+class Inventario(EmpresaScopedMixin, Base):
     __tablename__ = "inventario"
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
