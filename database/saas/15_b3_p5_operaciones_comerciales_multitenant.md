@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5/7: base segura para operaciones comerciales
 
-**Estado:** preparada la FASE DE CONSULTA Y PERTENENCIA del Paso 5, pendiente de las pruebas Windows y de la migración transaccional. El paso completo de operaciones comerciales NO se considera concluido con esta fase de solo lectura.
+**Estado:** FASE DE CONSULTA Y PERTENENCIA del Paso 5 **VALIDADA LOCALMENTE** con 152 pruebas exitosas y auditoría PostgreSQL READ ONLY superada. **Paso 5 completo sigue EN PROCESO**: todavía falta la migración de operaciones comerciales transaccionales.
 
 **Rama exclusiva:** `feat/saas-multitenant-parcial2`. No tocar `main` ni Supabase remoto. Mantener `SAAS_AUTH_ENABLED=false`.
 
@@ -38,7 +38,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado si todas pasan:** **152** pruebas (115 anteriores + 37 nuevas); no afirmar éxito sin la consola del estudiante.
+**Resultado real recibido de PowerShell:** `152 passed, 2 warnings in 3.48s` (115 previas y 37 nuevas), 0 fallos. Advertencias deprecatorias de `starlette.testclient` y `HTTP_422_UNPROCESSABLE_ENTITY`, sin impacto en el resultado.
 
 Solo si pasan, ejecutar la auditoría en la copia PostgreSQL local:
 
@@ -57,3 +57,13 @@ Requiere contraseña `postgres` LOCAL. Destino fijo: `127.0.0.1:5432 / fashionst
 - No activar `SAAS_AUTH_ENABLED`, no usar base SaaS como backend legacy, no ejecutar `supabase db push`.
 
 **Criterio de esta fase:** aprobar pytest + SQL READ ONLY; la implementación completa de casos de uso comerciales seguirá pendiente incluso si ambas pruebas pasan. No proceder a otro paso sin revisión de la salida y el próximo `siguiente`.
+
+## Evidencia de auditoría y cierre de subfase (salida entregada por el estudiante)
+
+La ejecución de `08_verificar_consultas_comerciales_local.ps1` confirmó conexión a la base local `fashionstore_restore_20261023_193554_594` en `127.0.0.1:5432`, dentro de `BEGIN TRANSACTION READ ONLY`. El servidor devolvió los seis avisos `PROPIEDAD OK` (`carrito`, `reserva`, `venta`, `pago`, `orden_compra`, `devolucion`), `RELACIONES OK: seis dominios sin cruces empresariales` y `DATOS ORIGINALES OK: Vanter Men conserva ventas, pagos y reservas`.
+
+**Valores efectivamente observados:** `vanter-men` tiene 48 carritos, 11 reservas, 40 ventas, 30 pagos, 4 órdenes de compra y 4 devoluciones. `denim-house`, `elegancia-sur`, `sportline` y `urbanwear` tienen 0 registros en cada una de las seis tablas. El SQL finalizó con `ROLLBACK` y PowerShell informó `AUDITORIA COMERCIAL LOCAL SUPERADA (SIN ESCRITURAS)`.
+
+**Resultado del Paso 5:** se da por verificada **únicamente la subfase de lectura administrativa y pertenencia**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
+
+**Siguiente intervención:** cuando el estudiante escriba `siguiente`, continuar exclusivamente dentro del Paso 5, comenzando por diseño/validación de transacciones del carrito o inventario. No saltar al Paso 6.
