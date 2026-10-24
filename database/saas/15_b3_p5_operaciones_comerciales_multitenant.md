@@ -48,21 +48,20 @@ Solo si pasan, ejecutar la auditoría en la copia PostgreSQL local:
 
 Requiere contraseña `postgres` LOCAL. Destino fijo: `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594`. El SQL no modifica registros, no ejecuta procedimientos con efectos ni cambia suscripciones.
 
-## Continuación: subfase 5B de CU15 preparada, NO validada
+## Continuación: subfase 5B de CU15 VALIDADA
 
 La documentación específica de la siguiente subfase es
 [`16_b3_p5b_carrito_transaccional_tenant.md`](16_b3_p5b_carrito_transaccional_tenant.md).
 
 Se agregó exclusivamente `POST /tenant/carritos/items` para el perfil de cliente en su empresa, con transacción, validación de inventario y stock disponible, pero sin reservar ni descontar existencias. **Subfase 5B validada:** el estudiante ejecutó `176 passed, 2 warnings in 3.93s` y un preflight PostgreSQL READ ONLY sobre cinco empresas, con `ROLLBACK` y sin modificaciones. Esto **NO prueba una escritura real contra PostgreSQL**. El Paso 5 continúa abierto; no reinterpretar este avance como la habilitación de reservas, ventas, pagos, compras o devoluciones.
 
-## Continuación: subfase 5C de CU15 preparada, PENDIENTE de pytest
+## Continuación: subfase 5C de CU15 VALIDADA en SQLite
 
 Se implementaron `PATCH /tenant/carritos/{carrito_id}/items/{detalle_id}`,
 `DELETE /tenant/carritos/{carrito_id}/items/{detalle_id}` y
 `DELETE /tenant/carritos/{carrito_id}`, siempre con cliente y tenant
 validados, límite de dos horas y sin movimientos de stock. Se agregaron
-27 pruebas nuevas a SQLite en memoria; **todavía no fueron ejecutadas por el
-estudiante**. La guía específica está en
+27 pruebas nuevas en SQLite en memoria y **la ejecución real del estudiante superó `203 passed, 2 warnings in 4.77s`** (176 previas + 27 nuevas). La guía específica está en
 [`17_b3_p5c_edicion_eliminacion_carrito_tenant.md`](17_b3_p5c_edicion_eliminacion_carrito_tenant.md).
 Aun con esas pruebas aprobadas, el Paso 5 seguirá abierto hasta migrar
 reservas, ventas, pagos, compras, devoluciones y procedimientos transaccionales.
@@ -83,6 +82,10 @@ La ejecución de `08_verificar_consultas_comerciales_local.ps1` confirmó conexi
 
 **Valores efectivamente observados:** `vanter-men` tiene 48 carritos, 11 reservas, 40 ventas, 30 pagos, 4 órdenes de compra y 4 devoluciones. `denim-house`, `elegancia-sur`, `sportline` y `urbanwear` tienen 0 registros en cada una de las seis tablas. El SQL finalizó con `ROLLBACK` y PowerShell informó `AUDITORIA COMERCIAL LOCAL SUPERADA (SIN ESCRITURAS)`.
 
-**Resultado del Paso 5:** se da por verificada **únicamente la subfase de lectura administrativa y pertenencia**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
+**Resultado del Paso 5:** se han validado las subfases **5A (lectura administrativa y pertenencia), 5B (alta de líneas de carrito en SQLite) y 5C (modificación y eliminación de carrito en SQLite)**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
 
 **Siguiente intervención:** cuando el estudiante escriba `siguiente`, continuar exclusivamente dentro del Paso 5, comenzando por diseño/validación de transacciones del carrito o inventario. No saltar al Paso 6.
+
+## Evidencia incorporada de la subfase 5C
+
+El estudiante sincronizó la rama feature hasta `cacaa06` y ejecutó `python -m pytest -q tests_saas` con **203 pruebas aprobadas, 0 fallos y 2 advertencias deprecatorias en 4.77 s**. No se realizó ninguna escritura o prueba nueva en PostgreSQL durante esta subfase. Las 48 FK y la coherencia de stock de la copia local habían sido verificadas previamente mediante el preflight de solo lectura 5B. La subfase 5C se da por validada **solo en su alcance probado**. El Paso 5 sigue EN PROCESO hasta finalizar reservas, ventas, pagos, compras, devoluciones y ensayos PostgreSQL pertinentes.
