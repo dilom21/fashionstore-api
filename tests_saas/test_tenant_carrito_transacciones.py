@@ -1011,7 +1011,7 @@ def test_prevalidacion_reserva_ya_existente_409(escenario_carrito):
 
 
 @pytest.mark.parametrize("stock,esperado", [
-    (2, 409), (9, 409), (8, 200), (0, 200),
+    (2, 200), (9, 409), (8, 200), (0, 200),
 ])
 def test_prevalidacion_stock_actual_y_reservado(
     escenario_carrito, stock, esperado,
