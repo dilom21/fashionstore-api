@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5V — Inspección local de herramientas para un laboratorio PostgreSQL independiente
 
-**Estado: 5V PREPARADA, pendiente de pruebas locales y diagnóstico Windows.** Paso 5 comercial EN PROCESO, **Bloque 3 4/7**. Solo rama `feat/saas-multitenant-parcial2`.
+**Estado: 5V VALIDADA Y CERRADA exclusivamente como diagnóstico local de disponibilidad de herramientas y pruebas estáticas. No existe un laboratorio PostgreSQL separado.** Paso 5 comercial EN PROCESO, **Bloque 3 4/7**. Solo rama `feat/saas-multitenant-parcial2`.
 
 ## 1. Evidencia confirmada y objetivo concreto
 
@@ -30,7 +30,7 @@ El diagnóstico **NO invoca Docker, `initdb`, `pg_ctl`, `psql`, `pg_dump` o `pg_
 
 Se añadió `tests_saas/test_entorno_laboratorio_5v.py`: **14 pruebas offline**, que inspeccionan el código PowerShell y su documentación para detectar la introducción de escrituras, comandos de Docker/PostgreSQL, conexiones SQL, lectura de secretos, certificaciones falsas o habilitación del SaaS. No ejecutan el `.ps1`, no requieren privilegios ni conectan a ninguna DB.
 
-Suite anterior confirmada: **532 passed**. **Resultado esperado: `546 passed`** (=532+14); no verificado aún en el Windows del estudiante.
+Suite anterior confirmada: **532 passed**. **Resultado confirmado en Windows: `546 passed, 2 warnings in 7.92s`** (=532+14); cero fallos.
 
 ## 4. Pasos seguros para validación Windows
 
@@ -70,4 +70,29 @@ El eventual `CREATE ROLE` afecta a todo el clúster donde se ejecute; por eso el
 
 ## 6. Cierre previsto
 
-5V se podrá cerrar **solo como diagnóstico de disponibilidad de herramientas** cuando el estudiante confirme `546 passed` y el informe PowerShell. La salida no reducirá automáticamente los 7 bloqueos ni completará las transacciones del Paso 5. **Paso 5 EN PROCESO, Bloque 3 4/7.** No iniciar 5W sin el próximo `siguiente` y no crear infraestructura sin autorización específica. Conservar `main`, Supabase, sandbox y `fashionstore_restore_20261023_193554_594` sin cambios.
+5V queda **VALIDADA Y CERRADA solo como diagnóstico de disponibilidad de herramientas**, tras confirmar `546 passed` y la salida PowerShell. La salida no reducirá automáticamente los 7 bloqueos ni completará las transacciones del Paso 5. **Paso 5 EN PROCESO, Bloque 3 4/7.** No iniciar 5W sin el próximo `siguiente` y no crear infraestructura sin autorización específica. Conservar `main`, Supabase, sandbox y `fashionstore_restore_20261023_193554_594` sin cambios.
+
+
+## 7. Resultados reales de Windows y decisión de cierre 5V (2026-10-24)
+
+El estudiante sincronizó `feat/saas-multitenant-parcial2` mediante fast-forward **`10b612f..282b2ef`** y ejecutó `python -m pytest -q tests_saas`: **`546 passed, 2 warnings in 7.92s`**, cero fallos. Los dos fallos estáticos previos de 5V fueron corregidos antes de esta ejecución: el falso positivo ante la condición PowerShell `$initdb -and`, sin eliminar la detección de invocaciones reales, y una redacción explícita del requisito de autorización. Las dos advertencias restantes son las conocidas deprecaciones Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+El script `26_inspeccionar_herramientas_laboratorio_5v.ps1` se ejecutó localmente en **modo solo lectura**, sin solicitar credenciales ni lanzar ejecutables externos. Resultado comunicado:
+
+| Verificación | Evidencia recibida | Alcance real |
+|---|---|---|
+| `DOCKER_CLI` | `ENCONTRADO_NO_EJECUTADO` | Existe el cliente, NO se verificó Docker Engine/daemon |
+| `PG18_INITDB` | `ENCONTRADO_NO_EJECUTADO` | Existe el binario, NO se ejecutó |
+| `PG18_PG_CTL` | `ENCONTRADO_NO_EJECUTADO` | Existe el binario, NO se ejecutó |
+| `PG18_PG_CONFIG` | `ENCONTRADO_NO_EJECUTADO` | Existe el binario, NO se ejecutó |
+| `RUTA_DATOS_PROPUESTA` | `NO_EXISTE_NO_CREADA` | No hay carpeta de laboratorio creada en la ruta propuesta |
+| `PUERTO_55432` | `SIN_LISTENER_OBSERVADO` | No se observó un listener; NO asegura disponibilidad futura |
+| `OPCION_POSIBLE` | `DOCKER_CLI_REQUIERE_VERIFICACION` | Vía candidata, condicionada a verificar daemon/seguridad |
+| `OPCION_POSIBLE` | `PG18_INSTANCIA_SEPARADA_REQUIERE_AUTORIZACION` | Vía candidata con binarios instalados, sin iniciar otro servidor |
+| `CLUSTER_INDEPENDIENTE` | `NO_VERIFICADO` | No se demostró ni creó un segundo clúster |
+| `SYSTEM_IDENTIFIER` | `NO_MEDIDO` | No existe prueba de identificadores de clúster distintos |
+| `AISLAMIENTO_RLS_A_B` | `NO_CERTIFICADO` | Ninguno de los 14 escenarios A/B se ejecutó |
+
+**Dictamen:** se pueden **considerar** ambas alternativas de laboratorio para diseño posterior, especialmente una segunda instancia nativa PostgreSQL 18 como opción sin dependencia del daemon Docker. No escoger ni iniciar todavía una opción sin analizar riesgos de rutas, puertos, privilegios, identidad de clúster, permiso específico y limpieza. El reporte de `SIN_LISTENER_OBSERVADO` nunca demuestra que el puerto esté reservado o libre de conflictos futuros.
+
+**5V VALIDADA Y CERRADA únicamente como inspección local del entorno y pruebas offline.** Los **7 bloqueantes** del manifiesto 5Q siguen abiertos, 14 casos A/B **NO ejecutados**, `BORRADOR_NO_EJECUTAR` / `desplegable=false`, `SAAS_AUTH_ENABLED=false`, rutas de reserva/ventas/pagos SaaS cerradas, Paso 5 EN PROCESO y Bloque 3 **4/7**. En esta subfase no se solicitaron cambios de BD local, sandbox, BD histórica, Supabase ni `main`. **No iniciar 5W hasta recibir `siguiente`, y no crear clúster ni ejecutar DDL aun entonces sin autorización explícita separada.** No hay comandos nuevos para el estudiante ahora.
