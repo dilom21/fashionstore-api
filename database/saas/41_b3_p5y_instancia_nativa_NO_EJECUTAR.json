@@ -1,0 +1,107 @@
+{
+  "version": "fashionstore.b3.p5y.nativa.v1",
+  "estado": "PLAN_NO_EJECUTAR",
+  "ejecucion_autorizada": false,
+  "entorno_autorizado": false,
+  "operaciones_sql_autorizadas": false,
+  "limpieza_autorizada": false,
+  "destino": {
+    "motor": "PostgreSQL 18",
+    "modo": "segunda_instancia_nativa_independiente",
+    "host": "127.0.0.1",
+    "puerto_propuesto": 55432,
+    "directorio_pgdata_propuesto": "C:\\SI2_Parcial1\\fashionstore-rls-lab-5v-data",
+    "cluster_inicializado": false,
+    "system_identifier_destino": null
+  },
+  "origen_protegido": {
+    "host": "127.0.0.1",
+    "puerto": 5432,
+    "base_sandbox": "fashionstore_saas_reservas_sandbox_5h",
+    "system_identifier_fuente_en_repo": null,
+    "consulta_solo_lectura": true,
+    "ruta_pgdata_no_versionar": true,
+    "base_historica_no_tocar": "fashionstore_restore_20261023_193554_594"
+  },
+  "seguridad_propuesta": {
+    "autenticacion": "scram-sha-256",
+    "prohibir_trust": true,
+    "prohibir_md5": true,
+    "password_superuser_interactivo": true,
+    "sin_contrasena_en_argumentos_o_repo": true,
+    "listen_addresses": "127.0.0.1",
+    "hba_ipv4": "127.0.0.1/32",
+    "sin_acceso_red_publica": true,
+    "no_registrar_servicio_windows": true,
+    "no_usar_set_role_de_postgres_para_pruebas": true,
+    "no_importar_filas_historicas": true,
+    "no_exportar_secretos": true
+  },
+  "compuertas": [
+    {
+      "id": "G00",
+      "objetivo": "Aprobación explícita de crear instancia nativa separada",
+      "cumplida": false
+    },
+    {
+      "id": "G01",
+      "objetivo": "Ruta PGDATA ausente, sin junctions y diferente del origen",
+      "cumplida": false
+    },
+    {
+      "id": "G02",
+      "objetivo": "Puerto futuro verificado justo antes de iniciar",
+      "cumplida": false
+    },
+    {
+      "id": "G03",
+      "objetivo": "initdb solo en directorio nuevo aprobado, SCRAM y contraseña interactiva",
+      "cumplida": false
+    },
+    {
+      "id": "G04",
+      "objetivo": "Escucha loopback y pg_hba restrictivo aprobados antes de iniciar",
+      "cumplida": false
+    },
+    {
+      "id": "G05",
+      "objetivo": "Iniciar solo instancia de laboratorio sin registrar servicio global",
+      "cumplida": false
+    },
+    {
+      "id": "G06",
+      "objetivo": "Comparar system_identifier destino con origen real",
+      "cumplida": false
+    },
+    {
+      "id": "G07",
+      "objetivo": "Permiso SQL separado para schema-only y roles de ensayo",
+      "cumplida": false
+    },
+    {
+      "id": "G08",
+      "objetivo": "Instalar ACL y policies verificadas solo en clúster desechable",
+      "cumplida": false
+    },
+    {
+      "id": "G09",
+      "objetivo": "Superar 14 casos A/B y aprobar rollback y limpieza",
+      "cumplida": false
+    }
+  ],
+  "validacion_rls": {
+    "ensayos_previstos": 14,
+    "casos_reales_ejecutados": 0,
+    "certificado_aislamiento": false,
+    "politicas_instaladas": false,
+    "roles_restringidos_creados": false,
+    "saas_auth_enabled": false,
+    "bloqueantes_pendientes": 7
+  },
+  "evidencia_inicial": {
+    "suite_validada": "574 passed, 2 warnings in 7.21s",
+    "preflight_5x": "ORIGEN_MEDIDO_DESTINO_AUN_INEXISTENTE",
+    "origen_medido_solo_local": true,
+    "laboratorio_creado": false
+  }
+}
