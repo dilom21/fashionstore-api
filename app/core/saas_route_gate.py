@@ -1,0 +1,58 @@
+"""Bloque 3 / Paso 1: cierre preventivo de rutas legacy en modo SaaS.
+
+La base SaaS comparte tablas de varias empresas. Los routers heredados del
+primer parcial aun consultan sin empresa_id y NO son seguros con tenants.
+Este guard es deliberadamente restrictivo: solo deja pasar login/me SaaS
+y endpoints publicos estaticos mientras se migran los routers por etapas.
+
+No es reemplazo de RLS ni de autorizacion tenant en cada servicio.
+Con SAAS_AUTH_ENABLED=false conserva el comportamiento del primer parcial.
+"""
+from starlette.responses import JSONResponse
+from starlette.types import ASGIApp, Receive, Scope, Send
+
+from app.core.config import settings
+
+
+_RUTAS_PERMITIDAS_SAAS = frozenset(
+    {
+        ("GET", "/"),
+        ("GET", "/health"),
+        ("POST", "/auth/tenant/login"),
+        ("GET", "/auth/tenant/me"),
+    }
+)
+
+
+class BloqueoRutasLegacySaaS:
+    """Middleware ASGI: si SaaS esta activo, deniega rutas no migradas.
+
+    Una allowlist exacta evita liberar rutas por coincidencias de prefijo
+    (p. ej. /auth/tenant/login/extra o /health/db). Tampoco se permite
+    abrir rutas legacy enviando un token de usuario empresarial.
+    """
+
+    def __init__(self, app: ASGIApp) -> None:
+        self.app = app
+
+    async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
+        if scope["type"] != "http" or not settings.saas_auth_enabled:
+            await self.app(scope, receive, send)
+            return
+
+        metodo = scope.get("method", "")
+        ruta = scope.get("path", "")
+        if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
+            await self.app(scope, receive, send)
+            return
+
+        respuesta = JSONResponse(
+            status_code=503,
+            content={
+                "detail": (
+                    "Ruta no disponible en modo SaaS hasta implementar "
+                    "autorizacion y aislamiento por empresa"
+                )
+            },
+        )
+        await respuesta(scope, receive, send)
