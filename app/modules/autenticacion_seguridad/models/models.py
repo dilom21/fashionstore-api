@@ -1,9 +1,10 @@
 from datetime import date, datetime
 
-from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, String, Text
+from sqlalchemy import BigInteger, Boolean, Date, ForeignKey, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin, EmpresaAuditoriaMixin
 
 
 class Rol(Base):
@@ -37,33 +38,41 @@ class Usuario(Base):
     )
 
 
-class Cliente(Base):
+class Cliente(EmpresaScopedMixin, Base):
     __tablename__ = "cliente"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "ci", name="uq_cliente_empresa_ci"),
+        UniqueConstraint("empresa_id", "usuario_id", name="uq_cliente_empresa_usuario"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     usuario_id: Mapped[int | None] = mapped_column(
-        ForeignKey("usuario.id"), nullable=True, unique=True
+        ForeignKey("usuario.id"), nullable=True
     )
     nombre: Mapped[str] = mapped_column(String, nullable=False)
     apellido: Mapped[str] = mapped_column(String, nullable=False)
     telefono: Mapped[str | None] = mapped_column(String)
     sexo: Mapped[str | None] = mapped_column(String)
-    ci: Mapped[str | None] = mapped_column(String, unique=True)
+    ci: Mapped[str | None] = mapped_column(String)
     fecha_nacimiento: Mapped[date | None] = mapped_column(Date)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False)
 
 
-class Empleado(Base):
+class Empleado(EmpresaScopedMixin, Base):
     __tablename__ = "empleado"
+    __table_args__ = (
+        UniqueConstraint("empresa_id", "ci", name="uq_empleado_empresa_ci"),
+        UniqueConstraint("empresa_id", "usuario_id", name="uq_empleado_empresa_usuario"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     usuario_id: Mapped[int] = mapped_column(
-        ForeignKey("usuario.id"), nullable=False, unique=True
+        ForeignKey("usuario.id"), nullable=False
     )
     sucursal_id: Mapped[int] = mapped_column(ForeignKey("sucursal.id"), nullable=False)
     nombres: Mapped[str] = mapped_column(String, nullable=False)
     apellidos: Mapped[str] = mapped_column(String, nullable=False)
-    ci: Mapped[str] = mapped_column(String, nullable=False, unique=True)
+    ci: Mapped[str] = mapped_column(String, nullable=False)
     telefono: Mapped[str | None] = mapped_column(String)
     fecha_contratacion: Mapped[date] = mapped_column(Date, nullable=False)
     estado: Mapped[bool] = mapped_column(Boolean, nullable=False)
@@ -126,7 +135,7 @@ class RolFuncion(Base):
     descripcion: Mapped[str | None] = mapped_column(String(255))
 
 
-class Bitacora(Base):
+class Bitacora(EmpresaAuditoriaMixin, Base):
     """Evento de auditoria registrado por triggers o por el backend."""
 
     __tablename__ = "bitacora"
