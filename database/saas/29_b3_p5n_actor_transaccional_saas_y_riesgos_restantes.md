@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5N — Actor de auditoría SaaS entre transacciones (cambio acotado)
 
-**Estado: IMPLEMENTADO EN CÓDIGO DE RAMA FEATURE, PENDIENTE DE PRUEBAS EN WINDOWS.** Paso comercial 5/7 sigue EN PROCESO; Bloque 3 sigue **4/7**. No habilitar rutas de reserva/pago/venta ni ejecutar procedimientos SQL tenant.
+**Estado: SUBFASE 5N VALIDADA EN CÓDIGO Y PRUEBAS UNITARIAS LOCALES; no es una validación de RLS PostgreSQL.** Paso comercial 5/7 sigue EN PROCESO; Bloque 3 sigue **4/7**. No habilitar rutas de reserva/pago/venta ni ejecutar procedimientos SQL tenant.
 
 ## 1. Qué se verificó hasta 5M
 
@@ -18,7 +18,7 @@
 
 ## 3. Resultado esperado y límites de certificación
 
-Suite anterior confirmada: **412 passed** (5M). Casos nuevos: **12**. Total **esperado**: **`424 passed`**, todavía pendiente del estudiante en Windows.
+Suite anterior confirmada: **412 passed** (5M). Casos nuevos: **12**. Resultado **confirmado en Windows**: **`424 passed, 2 warnings in 6.99s`**, cero fallos.
 
 Las pruebas 5N ejercitan lógica de Python con sesiones falsas. No validan que `bitacora` pueda insertar con un principal RLS real, ni comprueban reuso del pool PostgreSQL, políticas, concurrencia o el aislamiento multitenant. Sigue siendo imprescindible realizar ensayos con roles no privilegiados y dos empresas **completamente ficticias** antes de considerar rutas transaccionales.
 
@@ -53,4 +53,15 @@ Si pytest falla, no ejecutar más comandos; compartir salida completa. No ejecut
 - Rama permitida: `feat/saas-multitenant-parcial2`, exclusivamente; **no tocar `main`**.
 - BD local restaurada `fashionstore_restore_20261023_193554_594`: lectura únicamente; BD sandbox `fashionstore_saas_reservas_sandbox_5h`: **sin modificaciones en 5N**.
 - **No modificar Supabase**, mantener `SAAS_AUTH_ENABLED=false`, no instalar `sp_*_tenant`, crear roles globales, policies, grants, seed ni ejecutar operaciones comerciales reales.
-- El trabajo 5N se podrá marcar como validado **solo en su alcance de código/unit tests** tras `424 passed` local y revisión de salida estática. Paso 5 comercial sigue EN PROCESO y Bloque 3 4/7. Esperar `siguiente` antes de iniciar otra subfase.
+- **5N VALIDADA exclusivamente en alcance de código/unit tests:** `424 passed` y revisor estático con 5 guardas OK, dos diagnósticos `REVISAR CAMBIO` y tres bloqueantes arquitectónicos pendientes. Paso 5 comercial sigue EN PROCESO y Bloque 3 4/7. Esperar `siguiente` antes de iniciar otra subfase.
+
+
+## 7. Evidencia recibida y dictamen de cierre 5N
+
+El estudiante ejecutó en `C:\SI2_Parcial1\fashionstore-api` un fast-forward desde `68a0621` hasta `cfa09b0` de la rama `feat/saas-multitenant-parcial2` y obtuvo **`424 passed, 2 warnings in 6.99s`**, cero fallos, mediante `python -m pytest -q tests_saas`. Las dos advertencias corresponden a Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`, ya conocidas.
+
+El revisor offline `python .\\database\\saas\\20_revision_estatica_contrato_rls_5m.py` confirmó las cinco guardas `OK` y devolvió dos resultados **`REVISAR CAMBIO`** para `actor_auditoria_no_automatizado_en_dependencia_saas` y `actor_no_reaplicado_automaticamente_tras_nueva_transaccion`, como se esperaba después de los cambios en `tenant_dependencies.py` y `database.py`.
+
+**Tres `BLOQUEANTE DE DISENO` siguen vigentes:** `bootstrap_login_sin_politicas_definidas`, `args_sp_no_vinculados_al_principal_sql_autenticado` y `guc_empresa_no_es_identidad_independiente`. Terminó con `5M ANALISIS DE CODIGO COMPLETADO; RLS REAL TODAVIA NO VALIDADO`. `REVISAR CAMBIO` **no equivale a certificar RLS ni a garantizar la identidad del actor ante SQL arbitrario**. Tampoco reemplaza una prueba de aislamiento o de commit/rollback sobre PostgreSQL real con usuario sin `BYPASSRLS`.
+
+**Cierre:** la subfase **5N queda VALIDADA solo en código y unit tests**. No se ejecutó SQL PostgreSQL, no se creó ni modificó rol/policy/grant/seed/procedimiento y no se habilitó `SAAS_AUTH_ENABLED`. El Paso 5 sigue EN PROCESO y Bloque 3 en 4/7. `main`, Supabase y BD restaurada continúan sin cambios de esta subfase. Esperar `siguiente` para continuar.
