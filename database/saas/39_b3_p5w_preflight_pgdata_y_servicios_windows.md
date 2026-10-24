@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5W — Preflight PGDATA y servicios de segunda instancia PostgreSQL 18
 
-**Estado: 5W PREPARADA; pruebas y diagnóstico Windows pendientes.** Solo en `feat/saas-multitenant-parcial2`. **Paso 5 EN PROCESO, Bloque 3 4/7**; `SAAS_AUTH_ENABLED=false`, sin rutas comerciales nuevas.
+**Estado: 5W VALIDADA Y CERRADA exclusivamente como inspección read-only de PGDATA/servicios Windows y 14 tests estáticos; independencia de clúster NO certificada.** Solo en `feat/saas-multitenant-parcial2`. **Paso 5 EN PROCESO, Bloque 3 4/7**; `SAAS_AUTH_ENABLED=false`, sin rutas comerciales nuevas.
 
 ## Base confirmada
 
@@ -41,7 +41,7 @@ La inspección de `Win32_Service` puede omitir servidores iniciados fuera de ser
 
 Se añade `tests_saas/test_preflight_pgdata_windows_5w.py`, con **14 pruebas offline** que comprueban guardas de ruta, reparse points, consultas de servicio no reveladoras, prohibición de escritura, ausencia de llamadas a ejecutables/SQL, integración desligada de la API y los indicadores finales siempre bloqueados.
 
-Anteriormente: `546 passed`. Suite esperada **`560 passed`** (=546 anteriores +14 nuevas), **todavía no confirmada en Windows**.
+Anteriormente: `546 passed`. Suite **CONFIRMADA EN WINDOWS: `560 passed, 2 warnings in 7.14s`** (=546 anteriores +14 nuevas), cero fallos.
 
 ## Ejecución limitada solicitada al estudiante
 
@@ -66,4 +66,29 @@ Aunque 5W complete sus comprobaciones, no se considerará autorizado crear el la
 
 No tocar `main`, Supabase, servidor PostgreSQL original, BD histórica ni sandbox. No ejecutar pruebas A/B ni habilitar transacciones antes de demostrar SQL con identidad independiente. La matriz de 14 casos continúa `NO_EJECUTADO`, los **7 bloqueantes** abiertos. **Bloque 3 4/7** y `SAAS_AUTH_ENABLED=false` se mantienen.
 
-**5W pendiente de pruebas locales.** Después de validarlas, cerrar solo la inspección de ubicación/servicios y **esperar un nuevo `siguiente`** antes de 5X. Esta instrucción jamás concede autorización implícita para inicializar o borrar PGDATA.
+**5W VALIDADA Y CERRADA solo como inspección read-only de ubicación/servicios y pruebas offline. Esperar un nuevo `siguiente`** antes de 5X. Esta instrucción jamás concede autorización implícita para inicializar o borrar PGDATA.
+
+
+## Resultado de validación local y cierre de 5W — 24 de octubre de 2026
+
+El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2` en Windows/Conda, fast-forward **`282b2ef..fab2e32`**, y `python -m pytest -q tests_saas`. **Resultado confirmado: `560 passed, 2 warnings in 7.14s`**, cero fallos, incluidas las 14 pruebas estáticas nuevas 5W. Las dos advertencias son deprecaciones existentes Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+También ejecutó el script **`database/saas/27_preflight_directorio_pg18_laboratorio_5w.ps1`**. Resultado completo transmitido en la conversación:
+
+```text
+5W PREFLIGHT WIN READ ONLY - NO CREA PGDATA NI INICIA POSTGRES
+5W PGDATA_PROPUESTO=NO_EXISTE_NO_CREADO
+5W PADRE_PGDATA=EXISTE
+5W ANCESTROS_REPARSE=NINGUNO_OBSERVADO
+5W RUTA_PROYECTO_BINARIOS=SIN_SOLAPAMIENTO_TEXTUAL
+5W SERVICIOS_POSTGRES=CONTADOS_1
+5W PGDATA_CLUSTER_5432=NO_VERIFICADO
+5W SYSTEM_IDENTIFIER_ORIGEN_DESTINO=NO_MEDIDOS
+5W CLUSTER_NATIVO_INDEPENDIENTE=NO_CERTIFICADO
+5W DICTAMEN=BLOQUEADO_SIN_AUTORIZACION_EXPLICITA
+5W SIN CAMBIOS: NO ejecutar initdb/pg_ctl ni crear roles, policies o datos
+```
+
+**Interpretación limitada:** la carpeta candidata **no existe** y la padre sí; no se observaron reparse points entre los ancestros inspeccionados, ni solapamiento textual con repositorio/binarios. Windows devolvió **1 servicio PostgreSQL** coincidente, pero no necesariamente inventarió todas las instancias, su configuración efectiva o sus directorios de datos. La verificación **no comparó el PGDATA original ni los `system_identifier`**; los resultados favorables de ruta **no certifican independencia del clúster**, disponibilidad continua del puerto, autorización de creación ni seguridad del eventual laboratorio.
+
+**Cierre 5W:** VALIDADA Y CERRADA exclusivamente como diagnóstico de lectura del equipo y suite offline. Persisten **7 bloqueantes** 5Q y **14 casos A/B reales NO_EJECUTADO**. `BORRADOR_NO_EJECUTAR`, `desplegable=false` e `iniciar_laboratorio_autorizado=false` se conservan. **`SAAS_AUTH_ENABLED=false`; Paso 5 EN PROCESO; Bloque 3 4/7.** No se solicitó `initdb`, `pg_ctl`, roles, policies, grants, seed ni cambios a `127.0.0.1:5432`, BD restaurada, sandbox, Supabase o `main`. **Esperar `siguiente` para 5X. Toda creación de infraestructura/DDL exige autorización explícita separada, no derivada de esa palabra.** No hay nuevos comandos para el estudiante en 5W.
