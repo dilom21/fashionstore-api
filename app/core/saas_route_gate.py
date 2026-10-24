@@ -36,7 +36,18 @@ class BloqueoRutasLegacySaaS:
         self.app = app
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
-        if scope["type"] != "http" or not settings.saas_auth_enabled:
+        if not settings.saas_auth_enabled:
+            await self.app(scope, receive, send)
+            return
+
+        if scope["type"] == "websocket":
+            # Los futuros canales websocket tambien necesitan empresa_id.
+            # Negar la conexion antes de aceptarla; no hay rutas WS migradas.
+            await send({"type": "websocket.close", "code": 1008})
+            return
+
+        if scope["type"] != "http":
+            # Eventos internos lifespan/asgi nunca son datos de un tenant.
             await self.app(scope, receive, send)
             return
 
