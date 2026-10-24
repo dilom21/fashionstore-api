@@ -80,6 +80,28 @@ Se añadieron 28 pruebas nuevas al fixture SQLite ficticio. **El estudiante las 
 El Paso 5 continúa en proceso; **no abrir reservas, pagos, ventas ni otros
 procedimientos** hasta validarlos con PostgreSQL de forma segura.
 
+## Continuación: subfase 5E de CU16 preparada, PENDIENTE de pruebas
+
+La revisión del repositorio legacy halló que la llamada
+`sp_crear_reserva_desde_carrito(carrito_id, fecha_atencion, observacion,
+usuario_id, reserva_id)` **no incluye empresa_id**. El código fuente SQL
+completo del procedimiento no aparece versionado en GitHub; no se debe
+suponer que verifica aislamiento en el stock.
+
+Como avance limitado, se incorporó exclusivamente
+`POST /tenant/reservas/prevalidar`, con perfil de cliente empresarial,
+carrito y líneas propias, productos activos, disponibilidad calculada
+`stock_actual - stock_reservado` y revisión de reserva duplicada.
+**NO crea ni cancela reservas, NO mueve stock ni llama SP**; es una
+fotografía preliminar sin garantía de disponibilidad futura. Se
+agregaron 31 pruebas nuevas a SQLite, aún pendientes de ejecución.
+
+La guía [`19_b3_p5e_prevalidacion_reserva_y_sp.md`](19_b3_p5e_prevalidacion_reserva_y_sp.md)
+incluye una auditoría READ ONLY de firmas y texto de los 3 SP en
+PostgreSQL local. Las marcas de texto no acreditan seguridad tenant.
+**El Paso 5 permanece EN PROCESO**. La reserva real, cancelación, venta,
+pago y modificaciones de stock siguen cerradas en modo SaaS.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
