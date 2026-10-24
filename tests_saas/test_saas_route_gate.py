@@ -11,7 +11,8 @@ os.environ["SECRET_KEY"] = "clave-ficticia-exclusiva-para-test-saas"
 os.environ["SAAS_AUTH_ENABLED"] = "false"
 
 import pytest
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket
+from starlette.websockets import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
@@ -53,6 +54,11 @@ def _app_ficticia() -> FastAPI:
     @app.get("/auth/clientes/me/perfil")
     def perfil_legacy():
         return {"datos": "PERFIL LEGADO"}
+
+    @app.websocket("/ws/legacy")
+    async def websocket_legacy(websocket: WebSocket):
+        await websocket.accept()
+        await websocket.send_text("MENSAJE LEGADO DE PRUEBA")
 
     return app
 
@@ -123,3 +129,19 @@ def test_guard_instalado_en_app_real_y_bloqueo_sin_tocar_db(monkeypatch):
             respuesta = client.get(ruta)
             assert respuesta.status_code == 503, ruta
         assert client.get("/health").status_code == 200
+
+
+def test_modo_saas_bloquea_websocket_legacy(monkeypatch):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    with TestClient(_app_ficticia()) as client:
+        with pytest.raises(WebSocketDisconnect) as exc:
+            with client.websocket_connect("/ws/legacy") as websocket:
+                websocket.receive_text()
+    assert exc.value.code == 1008
+
+
+def test_modo_legacy_conserva_websocket(monkeypatch):
+    monkeypatch.setattr(settings, "saas_auth_enabled", False)
+    with TestClient(_app_ficticia()) as client:
+        with client.websocket_connect("/ws/legacy") as websocket:
+            assert websocket.receive_text() == "MENSAJE LEGADO DE PRUEBA"
