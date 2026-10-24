@@ -46,9 +46,9 @@ try {
         throw 'Extraccion local fallida; verificar mensajes de psql.'
     }
     $contenido = Get-Content -LiteralPath $salida -Raw
-    if ($contenido -notmatch 'INICIO public\.sp_crear_reserva_desde_carrito' -or
-        $contenido -notmatch 'INICIO public\.sp_cancelar_reserva' -or
-        $contenido -notmatch 'INICIO public\.sp_finalizar_reserva_sin_compra' -or
+    if ($contenido -notmatch 'INICIO (?:public\.)?sp_crear_reserva_desde_carrito\(' -or
+        $contenido -notmatch 'INICIO (?:public\.)?sp_cancelar_reserva\(' -or
+        $contenido -notmatch 'INICIO (?:public\.)?sp_finalizar_reserva_sin_compra\(' -or
         $contenido -notmatch '(?m)^ROLLBACK\s*$') {
         Remove-Item -LiteralPath $salida -ErrorAction SilentlyContinue
         throw 'Extraccion incompleta: falta un procedimiento o ROLLBACK.'
