@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5E: prevalidación de reserva y auditoría de SP PostgreSQL
 
-**Estado:** preparado en GitHub, pendiente de ejecución del estudiante en Windows. **Paso 5 comercial global continúa abierto**. Solo la subfase 5E de prevalidación se someterá a prueba: NO se implementa ni habilita la creación, cancelación o finalización real de reservas.
+**Estado:** **SUBFASE 5E VALIDADA** por el estudiante: `262 passed, 2 warnings in 6.11s` y auditoría de metadatos de tres SP PostgreSQL local con `ROLLBACK`, sin escrituras. **Paso 5 comercial global continúa abierto**. Solo la subfase 5E de prevalidación se someterá a prueba: NO se implementa ni habilita la creación, cancelación o finalización real de reservas.
 
 **Rama:** `feat/saas-multitenant-parcial2`. Mantener `SAAS_AUTH_ENABLED=false` y no tocar `main`, Supabase ni PostgreSQL remoto.
 
@@ -74,7 +74,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado, aún no ejecutado por el estudiante:** **262 passed** = 231 anteriores + 31 nuevos.
+**Resultado real de PowerShell:** **262 passed, 2 warnings in 6.11s** = 231 pruebas anteriores + 31 nuevas. El usuario actualizó la rama feature hasta `eff4ee3` antes de pytest; 0 fallos. Advertencias deprecatorias conocidas de Starlette/FastAPI.
 
 **Solo si pytest pasa**, inspeccionar los SP de la copia local:
 
@@ -94,4 +94,22 @@ La salida mostrará tres procedimientos, sus firmas, y señales booleanas de exp
 - Migrar reservas reales y posteriormente los flujos de ventas, pagos, compras, devoluciones, permisos específicos de rol; el Paso 5 y todo el Bloque 3 no quedan terminados.
 - Mantener `SAAS_AUTH_ENABLED=false`, sin deploy ni migraciones remotas.
 
-**No avanzar automáticamente:** esperar salida de pytest y auditoría, registrar evidencia y detenerse. Solo continuar con `siguiente`.
+**No avanzar automáticamente:** ambas salidas recibidas y registradas. Detenerse. Solo continuar con `siguiente`, revisando primero el SQL completo de los tres SP y diseñando verificación tenant dentro de la misma transacción, **sin modificar la BD restaurada**.
+
+## Evidencia de ejecución y hallazgo de seguridad de PostgreSQL
+
+El estudiante ejecutó el 23-10-2026 desde PowerShell (Conda `fashionstore-api`) `python -m pytest -q tests_saas`, con **262 pruebas aprobadas, 0 fallos y 2 advertencias en 6.11 s**.
+
+Después ejecutó `10_auditar_procedimientos_reservas_local.ps1` en la **base local** `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594`. La auditoría reportó **5 empresas, 48 claves foráneas compuestas tenant y 3 procedimientos CU16/CU18**. La sentencia final fue `ROLLBACK` y PowerShell indicó `AUDITORIA SP RESERVAS LOCAL SUPERADA (SIN ESCRITURAS)`. Ningún procedimiento fue invocado.
+
+| Procedimiento | Firma recuperada | Menciona `empresa_id` | Menciona `app.empresa_id` | Menciona `FOR UPDATE` | Menciona `stock_reservado` |
+|---|---|---|---|---|---|
+| `sp_crear_reserva_desde_carrito` | `IN p_carrito_id bigint, IN p_fecha_atencion timestamptz, IN p_observacion text, IN p_usuario_id bigint, INOUT p_reserva_id bigint` | `f` | `f` | `t` | `t` |
+| `sp_cancelar_reserva` | `IN p_reserva_id bigint, IN p_usuario_id bigint, IN p_observacion text` | `f` | `f` | `t` | `t` |
+| `sp_finalizar_reserva_sin_compra` | `IN p_reserva_id bigint, IN p_usuario_id bigint, IN p_observacion text` | `f` | `f` | `t` | `t` |
+
+**Significado:** en el texto de las tres definiciones no aparece ninguna mención literal de `empresa_id` ni de `app.empresa_id`. Sí aparecen `FOR UPDATE` y `stock_reservado`. Es un **indicador de revisión de seguridad pendiente**, no una prueba exhaustiva de que carezcan de toda protección, porque faltan su cuerpo completo y posibles dependencias. Un bloqueo de filas tampoco equivale a autorización multiempresa.
+
+**Datos comerciales observados:** `vanter-men` tiene 11 reservas, 16 `detalle_reserva`, 265 inventarios y 3 unidades de `stock_reservado`. Las otras cuatro empresas tienen 0 reservas, 0 líneas, y 0 unidades reservadas; cuentan respectivamente con 2, 3, 3 y 1 inventarios. Total de inventarios: 274. No se realizaron escrituras.
+
+**Decisión de cierre:** marcar 5E **VALIDADA en el alcance de prevalidación SQLite y auditoría de metadatos READ ONLY**. La creación/cancelación/finalización verdadera de reservas sigue **BLOQUEADA (503)** en SaaS; no habilitar hasta verificar y adaptar controles empresariales dentro de un SP transaccional, evaluar concurrencia de stock y probar sobre un entorno PostgreSQL aislado autorizado. Mantener `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos.
