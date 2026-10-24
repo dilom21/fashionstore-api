@@ -407,4 +407,13 @@ Tras la validación real de 5N (`424 passed, 2 warnings in 6.99s`, 2 diagnóstic
 
 **Diseño propuesto sin SQL ejecutable:** `database/saas/30_b3_p5o_contrato_llamadas_y_bootstrap_rls.md` separa rol/credencial de bootstrap del rol de operación empresarial (mínimos privilegios, no superusuarios, NO `BYPASSRLS`), documenta riesgos de credencial SQL compartida y compara modelo backend HTTP confiable con modelo que resista SQL arbitrario. **No se implementaron autenticación SQL, `CREATE ROLE`, `CREATE POLICY`, grants, seed ni SP tenant**.
 
-**Pruebas nuevas:** `tests_saas/test_contrato_invocacion_sp_5o.py` incorpora **16 pruebas unitarias sin BD**, con resultado total esperado **`440 passed`** (424 previas +16). Se detiene hasta que el estudiante corra pytest en Windows y comparta resultados. **5O EN VALIDACIÓN LOCAL, Paso 5 EN PROCESO, Bloque 3 4/7**. `SAAS_AUTH_ENABLED=false`, `main`, Supabase, sandbox y BD restaurada sin cambios.
+**Pruebas nuevas:** `tests_saas/test_contrato_invocacion_sp_5o.py` incorpora **16 pruebas unitarias sin PostgreSQL**, con resultado total **CONFIRMADO `440 passed, 2 warnings in 7.17s`** (424 previas +16), cero fallos. **5O VALIDADA solo como código inerte y pruebas unitarias; Paso 5 EN PROCESO, Bloque 3 4/7**. `SAAS_AUTH_ENABLED=false`, `main`, Supabase, sandbox y BD restaurada sin cambios.
+
+
+## Cierre real 5O — 440 pruebas superadas y tres riesgos de identidad aún abiertos
+
+El estudiante efectuó fast-forward `cfa09b0..73e4de8` en `feat/saas-multitenant-parcial2` y ejecutó `python -m pytest -q tests_saas` en Windows. Resultado observado: **`440 passed, 2 warnings in 7.17s`**, sin fallos; las dos advertencias corresponden a deprecaciones ya conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+**5O CERRADA** solo en alcance de interfaz Python inerte para preparar tres procedimientos tenant parametrizados con IDs de `TenantContext`. Las funciones no ejecutan `CALL` ni conectan a PostgreSQL y no están integradas a rutas comerciales. Los borradores `sp_*_tenant.sql.txt` siguen **sin instalar**, el sandbox continúa sin roles de ensayo, seed o políticas RLS aplicadas según la última auditoría disponible (NO se re-auditó PostgreSQL en 5O). **No declarar aislamiento SQL verificado**: permanecen sin resolver el bootstrap de login con RLS, la vinculación DB-side del invocador `p_usuario_id`/`p_empresa_id` y la posibilidad de alterar GUC de sesión mediante SQL arbitrario.
+
+**Paso 5 comercial EN PROCESO; Bloque 3 4/7.** `SAAS_AUTH_ENABLED=false`, reserva/pago/venta transaccionales bloqueados. No se ejecutaron SQL ni DDL/DML contra el sandbox, Supabase o la fuente restaurada como parte de 5O; cambios exclusivamente en rama feature, sin tocar `main`. Informe: [`30_b3_p5o_contrato_llamadas_y_bootstrap_rls.md`](30_b3_p5o_contrato_llamadas_y_bootstrap_rls.md). **Esperar `siguiente`** para continuar a otra subfase, sin avanzar aún al Paso 6.
