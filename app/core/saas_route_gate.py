@@ -38,7 +38,7 @@ _RUTAS_CATALOGO_DETALLE = re.compile(
 
 
 def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
-    if _ruta_saas_permitida(metodo, ruta):
+    if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
     if metodo == "GET":
         return ruta in _RUTAS_CATALOGO_LISTADO or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
@@ -74,7 +74,7 @@ class BloqueoRutasLegacySaaS:
 
         metodo = scope.get("method", "")
         ruta = scope.get("path", "")
-        if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
+        if _ruta_saas_permitida(metodo, ruta):
             await self.app(scope, receive, send)
             return
 
