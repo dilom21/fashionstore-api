@@ -37,6 +37,9 @@ no detectan errores PL/pgSQL de compilación/ejecución, triggers ocultos,
 privilegios efectivos, RLS, tipado de timestamps, semántica de transacciones
 ni carreras reales.
 
+La integración futura requerirá un **PostgreSQL aislado** de pruebas y
+una revisión de seguridad independiente de los resultados de pytest.
+
 **Bloqueadores conocidos antes de cualquier CALL:**
 1. Ejecutar el preflight de metadatos; revisar nombres, columnas, FK UNIQUE, permisos, propietarios, índices y triggers de reserva/Kardex.
 2. Revisar en PostgreSQL **aislado de ensayo**, con datos ficticios y cuenta SQL sin `BYPASSRLS`, la compilación, grants, RLS, `FOR SHARE` y `FOR UPDATE`. La copia restaurada NO es la base de ensayo.
