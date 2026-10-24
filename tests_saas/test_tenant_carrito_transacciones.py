@@ -14,7 +14,7 @@ os.environ["SAAS_AUTH_ENABLED"] = "false"
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import BigInteger, create_engine, insert, select, func
+from sqlalchemy import BigInteger, create_engine, insert, select, func, event
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -1129,3 +1129,94 @@ def test_sigue_bloqueada_la_creacion_y_cancelacion_real(escenario_carrito):
     for metodo, ruta in rutas:
         assert client.request(metodo, ruta, json={}).status_code == 503
     assert _total(factory, Reserva.__table__) == 0
+
+
+# B3/P5H: orden CU15: carrito antes de inventario.
+# SQLite ignora FOR UPDATE: estos tests SOLO comprueban el orden SQL emitido.
+
+def _registrar_sql(engine, ejecutar):
+    sentencias = []
+    def antes(conn, cursor, statement, parameters, context, executemany):
+        sentencias.append(" ".join(statement.upper().split()))
+    event.listen(engine, "before_cursor_execute", antes)
+    try:
+        respuesta = ejecutar()
+    finally:
+        event.remove(engine, "before_cursor_execute", antes)
+    return respuesta, sentencias
+
+
+def _indices_acceso_carrito_y_stock(sentencias):
+    carrito = next(
+        (i for i, q in enumerate(sentencias)
+         if " FROM CARRITO " in " " + q + " "
+         or q.startswith("INSERT INTO CARRITO ")), None
+    )
+    inventario = next(
+        (i for i, q in enumerate(sentencias)
+         if " FROM INVENTARIO " in " " + q + " "), None
+    )
+    assert carrito is not None, "No se consulto/creo el carrito"
+    assert inventario is not None, "No se comprobo inventario"
+    return carrito, inventario
+
+
+def test_5h_alta_carrito_antes_de_bloquear_inventario(escenario_carrito):
+    client, _, factory = escenario_carrito
+    res, sentencias = _registrar_sql(
+        factory.kw["bind"], lambda: _agregar(client, cantidad=2)
+    )
+    assert res.status_code == 200, res.text
+    carrito, inventario = _indices_acceso_carrito_y_stock(sentencias)
+    assert carrito < inventario
+    assert any(q.startswith("INSERT INTO CARRITO ") for q in sentencias)
+    assert _total(factory, Carrito.__table__) == 1
+
+
+def test_5h_carrito_existente_se_consulta_antes_del_stock(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client, cantidad=2)
+    assert a.status_code == 200, a.text
+    res, sentencias = _registrar_sql(
+        factory.kw["bind"], lambda: _agregar(client, cantidad=3)
+    )
+    assert res.status_code == 200, res.text
+    carrito, inventario = _indices_acceso_carrito_y_stock(sentencias)
+    assert carrito < inventario
+    assert not any(q.startswith("INSERT INTO CARRITO ") for q in sentencias)
+    assert res.json()["cantidad"] == 5
+    assert res.json()["carrito_id"] == a.json()["carrito_id"]
+    with factory() as db:
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 5
+
+
+def test_5h_inventario_inexistente_revierte_alta_carrito(escenario_carrito):
+    client, _, factory = escenario_carrito
+    res, sentencias = _registrar_sql(
+        factory.kw["bind"],
+        lambda: _agregar(client, inventario=99999, cantidad=1),
+    )
+    assert res.status_code == 404, res.text
+    carrito, inventario = _indices_acceso_carrito_y_stock(sentencias)
+    assert carrito < inventario
+    assert _total(factory, Carrito.__table__) == 0
+    assert _total(factory, DetalleCarrito.__table__) == 0
+
+
+def test_5h_stock_insuficiente_revierte_alta_y_sin_movimiento(
+    escenario_carrito,
+):
+    client, _, factory = escenario_carrito
+    res, sentencias = _registrar_sql(
+        factory.kw["bind"],
+        lambda: _agregar(client, cantidad=9),  # 10 - 2 = 8 disponibles
+    )
+    assert res.status_code == 409, res.text
+    carrito, inventario = _indices_acceso_carrito_y_stock(sentencias)
+    assert carrito < inventario
+    assert _total(factory, Carrito.__table__) == 0
+    assert _total(factory, DetalleCarrito.__table__) == 0
+    with factory() as db:
+        assert db.execute(select(
+            Inventario.stock_actual, Inventario.stock_reservado
+        ).where(Inventario.id == 1111)).one() == (10, 2)
