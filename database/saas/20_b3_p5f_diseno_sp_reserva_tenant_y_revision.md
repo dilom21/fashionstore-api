@@ -17,7 +17,7 @@ Se agregaron dos archivos de revisión:
 - `11_extraer_definiciones_reserva_solo_lectura.sql`: `BEGIN TRANSACTION READ ONLY`, guarda de base local, 5 empresas, 48 FK tenant y 3 procedimientos; consulta `pg_proc`/`pg_get_functiondef` de los tres, el propietario, `SECURITY DEFINER`, `search_path` declarado y concesión `EXECUTE` a PUBLIC; termina con `ROLLBACK`.
 - `11_extraer_definiciones_reserva_solo_lectura.ps1`: usa únicamente `127.0.0.1:5432` y la base `fashionstore_restore_20261023_193554_594`, fija además `default_transaction_read_only=on`; exporta **texto de las definiciones** a `$env:TEMP\fashionstore_P5F_SP_reservas_LOCAL_REVISAR.txt`, **fuera de GitHub**. Pide contraseña de PostgreSQL local, no imprime ni guarda la contraseña.
 
-El texto `CREATE [OR REPLACE] PROCEDURE` devuelto por `pg_get_functiondef` **NO se ejecuta**, solo se almacena como texto. El archivo debe revisarse antes de adjuntarlo al chat por si la definición contiene detalles confidenciales; **nunca subirlo a GitHub ni ejecutar su contenido**. Lo ideal es compartir el archivo revisado de texto como adjunto en el chat para poder estudiar el código SQL original sin inventarlo.
+El texto `CREATE [OR REPLACE] PROCEDURE` devuelto por `pg_get_functiondef` **NO se ejecuta**, solo se almacena como texto. **No ejecutar** manualmente estas definiciones exportadas ni intentar un `CALL`. El archivo debe revisarse antes de adjuntarlo al chat por si la definición contiene detalles confidenciales; **nunca subirlo a GitHub ni ejecutar su contenido**. Lo ideal es compartir el archivo revisado de texto como adjunto en el chat para poder estudiar el código SQL original sin inventarlo.
 
 ## 3. CONTRATO PROPUESTO (aún no implementado) para los nuevos SP SaaS
 
@@ -65,7 +65,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Se indicará el total esperado al terminar de crear las pruebas estáticas 5F.**
+**Resultado esperado, todavía NO ejecutado por el estudiante: `280 passed`** = 262 pruebas anteriores + 18 casos nuevos de revisión estática de scripts y bloqueo de rutas. Estos tests **no verifican seguridad real de SQL PostgreSQL**, solo comprueban guardas del utilitario, consistencia de los tres nombres y bloqueo de endpoints legacy.
 
 Solo si las pruebas pasan:
 
