@@ -267,15 +267,14 @@ BEGIN
      ('cliente',4),('producto',4),('variante_producto',4),('empleado',4),
      ('sucursal',9),('inventario',9)
    ) AS esperado(entidad,cantidad)
-   LEFT JOIN LATERAL (
-     SELECT count(*) AS eventos
+   WHERE (
+     SELECT count(*)
      FROM public.bitacora b
      JOIN public.empresa e ON e.id=b.empresa_id
      WHERE e.slug IN ('urbanwear','elegancia-sur','denim-house','sportline')
        AND b.entidad_afectada=esperado.entidad
        AND b.accion='CREAR'
-   ) AS real ON TRUE
-   WHERE real.eventos<>esperado.cantidad
+   ) <> esperado.cantidad
  ) THEN
    RAISE EXCEPTION 'Faltan o sobran eventos de auditoria por entidad demo';
  END IF;
