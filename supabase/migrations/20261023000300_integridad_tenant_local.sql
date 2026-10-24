@@ -14,8 +14,6 @@ DECLARE
  v_emp BIGINT;
  v_t TEXT;
  v_total BIGINT;
- v_padres INTEGER;
- v_fk INTEGER;
  v_lista TEXT[] := ARRAY['bitacora', 'carrito', 'categoria', 'cliente', 'coleccion', 'configuracion_vestidor_ar', 'detalle_carrito', 'detalle_devolucion', 'detalle_orden_compra', 'detalle_reserva', 'detalle_venta', 'devolucion', 'empleado', 'inventario', 'movimiento_inventario', 'orden_compra', 'pago', 'producto', 'producto_coleccion', 'promocion', 'promocion_producto', 'proveedor', 'proveedor_producto', 'prueba_vestidor_ar', 'recurso_producto', 'reserva', 'sesion_vestidor_ar', 'sucursal', 'temporada', 'variante_producto', 'venta'];
 BEGIN
  IF current_database() <> 'fashionstore_restore_20261023_193554_594' THEN
@@ -92,13 +90,9 @@ $tenant_guard$;
 -- Las FKs compuestas se generan a partir de metadatos en tiempo de ejecución.
 DO $tenant_fks$
 DECLARE
- v_child TEXT;
- v_parent TEXT;
- v_column TEXT;
  v_fk_name TEXT;
  r RECORD;
  v_company_tables TEXT[] := ARRAY['bitacora', 'carrito', 'categoria', 'cliente', 'coleccion', 'configuracion_vestidor_ar', 'detalle_carrito', 'detalle_devolucion', 'detalle_orden_compra', 'detalle_reserva', 'detalle_venta', 'devolucion', 'empleado', 'inventario', 'movimiento_inventario', 'orden_compra', 'pago', 'producto', 'producto_coleccion', 'promocion', 'promocion_producto', 'proveedor', 'proveedor_producto', 'prueba_vestidor_ar', 'recurso_producto', 'reserva', 'sesion_vestidor_ar', 'sucursal', 'temporada', 'variante_producto', 'venta'];
- v_expected INTEGER;
  v_actual INTEGER := 0;
 BEGIN
  FOR r IN
@@ -127,7 +121,7 @@ BEGIN
        r.tabla_hija,v_fk_name,r.columna_hija,r.tabla_padre);
    v_actual := v_actual+1;
  END LOOP;
- IF v_actual = 0 THEN RAISE EXCEPTION 'No se encontraron FK empresariales; revisar inventario'; END IF;
+ IF v_actual <> 46 THEN RAISE EXCEPTION 'Se esperaban 46 FK empresariales; detectadas %', v_actual; END IF;
  RAISE NOTICE 'FK compuestas empresa-padre agregadas: %',v_actual;
 END;
 $tenant_fks$;
