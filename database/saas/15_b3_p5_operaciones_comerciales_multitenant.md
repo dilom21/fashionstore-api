@@ -102,10 +102,10 @@ PostgreSQL local. La auditoría local terminó con `ROLLBACK` y halló tres SP C
 **El Paso 5 permanece EN PROCESO**. La reserva real, cancelación, venta,
 pago y modificaciones de stock siguen cerradas en modo SaaS.
 
-## Continuación: subfase 5F de CU16/CU18 preparada, PENDIENTE de extracción
+## Continuación: subfase 5F de CU16/CU18 VALIDADA como revisión SQL
 
 La auditoría 5E terminó con **262 pruebas superadas y 3 SP detectados**
-pero los cuerpos SQL íntegros de los procedimientos siguen sin revisarse.
+y luego el estudiante proporcionó los tres cuerpos SQL íntegros, ahora revisados.
 Los SP originales no tienen menciones literales de `empresa_id` ni
 `app.empresa_id`, aunque sí `FOR UPDATE` y `stock_reservado`.
 No habilitar escritura SaaS apoyándose solo en esas marcas de texto.
@@ -114,9 +114,9 @@ Se prepararon:
 - `database/saas/11_extraer_definiciones_reserva_solo_lectura.sql`: extraer el texto `pg_get_functiondef`, propietario, `SECURITY DEFINER`, privilegios y `search_path` con `READ ONLY` y `ROLLBACK`.
 - `database/saas/11_extraer_definiciones_reserva_solo_lectura.ps1`: exportar a TEMP local y fuera de GitHub, sin ejecutar SP ni migraciones.
 - `database/saas/20_b3_p5f_diseno_sp_reserva_tenant_y_revision.md`: contrato propuesto para nuevas transacciones de reserva, cancelación y finalización, **no implementadas**.
-- `tests_saas/test_reserva_procedimientos_revision_5f.py`: 18 pruebas estáticas, pendiente de ejecutar; total esperado **280** junto a 262 anteriores.
+- `tests_saas/test_reserva_procedimientos_revision_5f.py`: 18 pruebas estáticas ejecutadas junto a 262 anteriores: **280 passed, 2 warnings in 6.40s**, sin fallos.
 
-Esta subfase es revisión/diseño y extracción de definiciones, **NO implementación ni validación de seguridad funcional de reservas**. Los SP vigentes, inventario, RLS y datos restaurados permanecen intactos; `SAAS_AUTH_ENABLED=false`, sin deploy ni escrituras. Esperar confirmación del estudiante antes de diseñar SQL nuevo según las funciones reales.
+Esta subfase **ya validó revisión/diseño y extracción de definiciones**, pero **NO implementó ni validó seguridad funcional de reservas**. Los SP vigentes, inventario, RLS y datos restaurados permanecen intactos; `SAAS_AUTH_ENABLED=false`, sin deploy ni escrituras. Esperar confirmación del estudiante antes de diseñar SQL nuevo según las funciones reales.
 
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
@@ -151,3 +151,11 @@ El estudiante actualizó mediante `git pull --ff-only` hasta `de12222` y ejecut�
 El estudiante actualizó la rama hasta `eff4ee3` y ejecutó `python -m pytest -q tests_saas`: **262 passed, 2 warnings in 6.11s**, sin fallos. Después auditó `sp_crear_reserva_desde_carrito`, `sp_cancelar_reserva` y `sp_finalizar_reserva_sin_compra` mediante `10_auditar_procedimientos_reservas_local.ps1`, exclusivamente en PostgreSQL local, `BEGIN TRANSACTION READ ONLY` y `ROLLBACK`. Los tres SP existen y tienen referencias textuales a `FOR UPDATE` y `stock_reservado`, pero **no presentan coincidencias literales `empresa_id` ni `app.empresa_id`**. Las cinco empresas y 48 FK tenant se conservaron. `vanter-men` mantiene 11 reservas, 16 líneas y 3 unidades reservadas, las otras cuatro 0 reservas/0 líneas/0 unidades reservadas. **No se ejecutaron SP ni se cambió stock**.
 
 **Resultado:** 5E validada en alcance de prevalidación e inspección read-only, **Paso 5 EN PROCESO**. No habilitar reservas reales, cancelar, finalizar, ventas ni pagos hasta examinar el cuerpo SQL íntegro, añadir controles empresariales transaccionales y verificar en PostgreSQL aislado con pruebas autorizadas. Esperar `siguiente`; sin activación SaaS, sin modificar `main` ni Supabase.
+
+## Evidencia incorporada de la subfase 5F
+
+El estudiante ejecutó con éxito **280 tests, 2 advertencias en 6.40s** y la extracción READ ONLY de `sp_crear_reserva_desde_carrito`, `sp_cancelar_reserva` y `sp_finalizar_reserva_sin_compra` desde la copia PostgreSQL local. Se recibió el archivo de 780 líneas completo, con las tres definiciones `CREATE OR REPLACE PROCEDURE`, datos de privilegios y `ROLLBACK` final.
+
+La inspección REAL confirmó ausencia de `empresa_id` en todas las tres definiciones, `p_usuario_id` utilizado solo como autor del movimiento de Kardex, `INSERT` sin `empresa_id`, falta de validación de las 2 horas del carrito, `SECURITY INVOKER` (no definer), propietario `postgres`, y `EXECUTE` a `PUBLIC`. Se mantienen `FOR UPDATE` y reglas de disponibilidad/liberación originales. No se declara una explotación confirmada; permisos efectivos, RLS y triggers requieren auditoría. Informe específico: [`21_b3_p5f_hallazgos_sql_legacy.md`](21_b3_p5f_hallazgos_sql_legacy.md).
+
+**5F VALIDADA dentro de revisión y diseño, Paso 5 aún EN PROCESO.** Próxima subfase, únicamente cuando el estudiante diga `siguiente`, será preparar versiones `sp_*_tenant` seguras y ensayos aislados, no desplegar ni activar nada. `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos.
