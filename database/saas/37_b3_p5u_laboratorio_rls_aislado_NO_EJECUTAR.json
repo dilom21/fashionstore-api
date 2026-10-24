@@ -1,0 +1,157 @@
+{
+  "version": "fashionstore.b3.p5u.laboratorio-aislado.v1",
+  "estado": "BORRADOR_NO_EJECUTAR",
+  "desplegable": false,
+  "iniciar_laboratorio_autorizado": false,
+  "alcance": "Solo futuro clúster PostgreSQL 18 DESECHABLE creado por initdb o contenedor independiente; sin rol global en el clúster del usuario.",
+  "origen": {
+    "host": "127.0.0.1",
+    "puerto": 5432,
+    "base": "fashionstore_saas_reservas_sandbox_5h",
+    "system_identifier": null,
+    "solo_lectura": true,
+    "solo_esquema": true,
+    "filas_exportadas": false
+  },
+  "destino": {
+    "host": "127.0.0.1",
+    "puerto_propuesto": 55432,
+    "base_propuesta": "fashionstore_rls_lab_5u",
+    "system_identifier": null,
+    "datadir_independiente_verificado": false,
+    "volumen_aislado_verificado": false,
+    "autenticacion_local_verificada": false,
+    "datos_reales_importados": false
+  },
+  "condiciones_irrenunciables": [
+    "El system_identifier del destino debe ser distinto al del origen; distintos puertos o nombres de base NO son prueba de aislamiento del clúster",
+    "No iniciar rol de ensayo desde postgres/SET ROLE dentro del clúster principal",
+    "No ejecutar pg_dump con datos: si se copia esquema, usar exclusivamente --schema-only desde sandbox VACÍO, revisar funciones y extensiones",
+    "No usar como destino la base restaurada fashionstore_restore_20261023_193554_594, Supabase ni el clúster PostgreSQL local en puerto 5432",
+    "El rol de ensayo debe tener LOGIN, NOSUPERUSER, NOBYPASSRLS, NOINHERIT y no ser propietario de tablas",
+    "Una política que solo compare app.empresa_id mutable no demuestra aislamiento ante SQL arbitrario",
+    "El rol SQL comercial no puede leer password_hash ni llamar SP legacy con EXECUTE PUBLIC",
+    "Destruir únicamente recursos del laboratorio tras verificar el identificador de clúster y una autorización separada para limpieza"
+  ],
+  "modelo_futuro": {
+    "identidad_de_empresa_en_sql": "Asociación protegida entre principal SQL autenticado y tenant; NO depender únicamente de GUC",
+    "mecanismo_pendiente": "Diseñar credenciales SQL no compartidas o interfaz autenticada verificable; no desplegado",
+    "principal_sql_empresa_a": "NO_CREADO",
+    "principal_sql_empresa_b": "NO_CREADO",
+    "aislamiento_sql_ante_inyeccion": "NO_DEMOSTRADO",
+    "estado_acls_policies": "PENDIENTE",
+    "apto_para_ejecutar": false
+  },
+  "tenants_ficticios": [
+    "empresa-lab-a",
+    "empresa-lab-b"
+  ],
+  "plan_casos": [
+    {
+      "id": "A01",
+      "principal": "A",
+      "operacion": "SELECT carrito A",
+      "esperado": "PERMITIR"
+    },
+    {
+      "id": "A02",
+      "principal": "A",
+      "operacion": "SELECT carrito B",
+      "esperado": "DENEGAR_SIN_FILAS"
+    },
+    {
+      "id": "A03",
+      "principal": "B",
+      "operacion": "SELECT carrito A",
+      "esperado": "DENEGAR_SIN_FILAS"
+    },
+    {
+      "id": "A04",
+      "principal": "B",
+      "operacion": "SELECT carrito B",
+      "esperado": "PERMITIR"
+    },
+    {
+      "id": "A05",
+      "principal": "A",
+      "operacion": "INSERT reserva empresa B",
+      "esperado": "RECHAZAR_WITH_CHECK"
+    },
+    {
+      "id": "A06",
+      "principal": "B",
+      "operacion": "UPDATE inventario empresa A",
+      "esperado": "RECHAZAR_SIN_CAMBIOS"
+    },
+    {
+      "id": "A07",
+      "principal": "A",
+      "operacion": "GUC app.empresa_id cambiado a B y SELECT de B",
+      "esperado": "DENEGAR_SIN_FILAS"
+    },
+    {
+      "id": "A08",
+      "principal": "B",
+      "operacion": "GUC app.usuario_id ajeno y CALL reserva",
+      "esperado": "RECHAZAR_IDENTIDAD_SQL"
+    },
+    {
+      "id": "A09",
+      "principal": "A",
+      "operacion": "SELECT usuario.password_hash",
+      "esperado": "RECHAZAR_PERMISO"
+    },
+    {
+      "id": "A10",
+      "principal": "A",
+      "operacion": "CALL SP reserva legacy",
+      "esperado": "RECHAZAR_PERMISO"
+    },
+    {
+      "id": "A11",
+      "principal": "A",
+      "operacion": "Transacción reserva con error intermedio",
+      "esperado": "ROLLBACK_TOTAL"
+    },
+    {
+      "id": "A12",
+      "principal": "B",
+      "operacion": "Bitácora evento empresa A",
+      "esperado": "DENEGAR_SIN_FILAS"
+    },
+    {
+      "id": "A13",
+      "principal": "A",
+      "operacion": "Reserva duplicada concurrente",
+      "esperado": "SIN_DOBLE_RESERVA"
+    },
+    {
+      "id": "A14",
+      "principal": "A",
+      "operacion": "SELECT inventario A",
+      "esperado": "PERMITIR"
+    }
+  ],
+  "evidencia": {
+    "pruebas_pg_reales_ejecutadas": false,
+    "resultado_rls_a_b": "NO_EJECUTADO",
+    "row_security_active_rol_a": null,
+    "row_security_active_rol_b": null,
+    "pase_de_casos": [],
+    "casos_reales_aprobados": 0,
+    "certificado_aislamiento": false
+  },
+  "restricciones": {
+    "saas_auth_enabled": false,
+    "transacciones_reserva_saas_habilitadas": false,
+    "principal_clúster_local_sin_mutaciones": true,
+    "main_sin_mutaciones": true,
+    "supabase_sin_mutaciones": true,
+    "ddl_futuro_solo_tras_autorizacion_explicita": true
+  },
+  "baseline": {
+    "suite_5t": "514 passed, 2 warnings in 7.64s",
+    "preflight_5s": "16/16 tablas con relrowsecurity=true pero row_security_active=false bajo postgres",
+    "bloqueantes_abiertos": 7
+  }
+}
