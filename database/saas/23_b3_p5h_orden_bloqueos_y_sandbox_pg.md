@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5H — Orden de bloqueos CU15/CU16 y preparación de sandbox PostgreSQL
 
-**Estado:** código/plan/pruebas preparados en `feat/saas-multitenant-parcial2`; **PENDIENTE de que el estudiante ejecute la suite en Windows**. **Paso 5 global EN PROCESO**. No avanzar a Paso 6.
+**Estado: SUBFASE 5H VALIDADA en su alcance SQLite/estático y modo plan sin cambios**, con evidencia del estudiante: `332 passed, 2 warnings in 6.49s`, 0 fallos; script de sandbox ejecutado sin parámetros y sin creación de base. **Paso 5 global EN PROCESO**. No avanzar a Paso 6.
 
 **Prohibiciones:** no modificar `main`, Supabase ni la copia restaurada `fashionstore_restore_20261023_193554_594`; mantener `SAAS_AUTH_ENABLED=false`. No ejecutar borradores `.sql.txt`, `CREATE PROCEDURE`, `CALL` ni operaciones de stock real.
 
@@ -30,7 +30,7 @@ Esto armoniza el orden principal **cliente -> carrito -> inventario -> línea** 
 - Cuatro casos de `tests_saas/test_tenant_carrito_transacciones.py`: capturan orden de SQL emitido en SQLite para carrito nuevo, carrito existente, inventario inexistente y stock insuficiente. Para los dos errores se exige rollback completo sin carrito/detalle residual; se comprueba stock intacto.
 - Ocho casos estáticos de `tests_saas/test_sandbox_reservas_5h.py`: guardas de doble opt-in, origen y destino fijados a localhost, `pg_dump --schema-only`, rechazo de base existente, verificación de fuente, restauración de secretos y `pg_restore`.
 
-**12 pruebas nuevas** respecto de 320 previas. **Total esperado, todavía no confirmado: `332 passed`.** IMPORTANTE: en SQLite los `FOR UPDATE` se ignoran; capturar el orden de SQL no demuestra que PostgreSQL haya adquirido locks ni ausencia de deadlocks.
+**12 pruebas nuevas** respecto de 320 previas. **Total observado en PowerShell: `332 passed, 2 warnings in 6.49s`.** IMPORTANTE: en SQLite los `FOR UPDATE` se ignoran; capturar el orden de SQL no demuestra que PostgreSQL haya adquirido locks ni ausencia de deadlocks.
 
 ## 4. Preparación segura de un sandbox independiente (NO crear ahora)
 
@@ -55,7 +55,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado: `332 passed` (no confirmado).**
+**Confirmado por el estudiante: `332 passed, 2 warnings in 6.49s`, 0 fallos.**
 
 Si las pruebas pasan, ejecutar **ÚNICAMENTE el modo PLAN sin parámetros**, que debe imprimir `MODO PLAN SIN CAMBIOS` y no solicitar contraseña:
 
@@ -67,4 +67,12 @@ Si las pruebas pasan, ejecutar **ÚNICAMENTE el modo PLAN sin parámetros**, que
 
 ## 6. Criterio de cierre
 
-Si los tests SQLite/estáticos pasan y el modo plan del script no realiza acciones, cerrar la subfase **solo como corrección del orden SQL emitido y preparación controlada de un sandbox**. El Paso 5 permanecerá EN PROCESO: faltan instalación segura, validación transaccional/roles RLS en PG separado, nuevos endpoints de reserva y venta/pago/compra/devolución. No activar `SAAS_AUTH_ENABLED` ni desplegar hasta completar todas esas pruebas. Esperar la palabra `siguiente` para cualquier próxima subfase.
+El estudiante confirmó los tests SQLite/estáticos y el modo plan sin modificaciones: **5H CERRADA solo como corrección del orden SQL emitido y preparación controlada de un sandbox**. El Paso 5 permanecerá EN PROCESO: faltan instalación segura, validación transaccional/roles RLS en PG separado, nuevos endpoints de reserva y venta/pago/compra/devolución. No activar `SAAS_AUTH_ENABLED` ni desplegar hasta completar todas esas pruebas. Esperar la palabra `siguiente` para cualquier próxima subfase.
+
+## 7. Evidencia recibida y alcance final de 5H
+
+El estudiante actualizó mediante `git pull --ff-only origin feat/saas-multitenant-parcial2` con avance de `5c6e21e` a `947d848`. Ejecutó `python -m pytest -q tests_saas` en su entorno Conda de Windows y obtuvo **`332 passed, 2 warnings in 6.49s`**, sin fallos. Las 12 pruebas adicionales verifican orden SQL en SQLite (4 casos) y propiedades estáticas del preparador de sandbox (8 casos).
+
+Después ejecutó **sin ningún switch** `database/saas/13_preparar_sandbox_pg_reservas_local.ps1`. PowerShell imprimió `MODO PLAN SIN CAMBIOS: aun NO se creo ninguna base`, informó origen `127.0.0.1/fashionstore_restore_20261023_193554_594` y posible destino `127.0.0.1/fashionstore_saas_reservas_sandbox_5h`, y no solicitó contraseña. **No se creó un sandbox, no se ejecutó un SQL sobre PostgreSQL, no se alteró inventario ni se instalaron SP**.
+
+Los warnings continúan siendo las dos deprecaciones conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`. **Esto no constituye una prueba de bloqueo concurrente sin deadlocks ni una prueba de seguridad RLS**: requieren PostgreSQL aislado de ensayo, cuenta no superusuario y pruebas transaccionales posteriores autorizadas. Mantener los borradores inertes, rutas de reserva real cerradas, `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos. Esperar expresamente `siguiente` para la próxima subfase.
