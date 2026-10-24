@@ -70,14 +70,22 @@ def get_current_tenant_context(
             plan_codigo=registro["plan_codigo"],
             permite_reportes_ia=bool(registro["permite_reportes_ia"]),
         )
-        # Establecer el contexto DESPUES de validar membresia. La variable no
-        # reemplaza los filtros empresa_id de las consultas ni los FK compuestos.
-        # set_config(..., true) limita el valor a la transaccion.
-        db.info["empresa_id"] = tenant.empresa_id
+        # Solo DESPUES de validar JWT y membresia: contexto de auditoria
+        # para esta transaccion. Ningun GUC prueba por si solo identidad SQL.
+        # Ambos set_config son LOCAL a la transaccion (pool seguro).
+        # Guardar Session.info DESPUES de las dos consultas evita conservar
+        # un contexto parcialmente aplicado si una de ellas falla.
+        db.execute(
+            text("SELECT set_config('app.usuario_id', :usuario_id, true)"),
+            {"usuario_id": str(tenant.usuario_id)},
+        )
         db.execute(
             text("SELECT set_config('app.empresa_id', :empresa_id, true)"),
             {"empresa_id": str(tenant.empresa_id)},
         )
+        # after_begin lo reaplica si la misma Session abre otra transaccion.
+        db.info["usuario_id"] = tenant.usuario_id
+        db.info["empresa_id"] = tenant.empresa_id
         return tenant
     except SQLAlchemyError as exc:
         raise HTTPException(
