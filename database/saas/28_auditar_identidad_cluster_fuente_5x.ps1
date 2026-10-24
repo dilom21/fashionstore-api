@@ -7,7 +7,6 @@ $usuario = 'postgres'
 $base = 'fashionstore_saas_reservas_sandbox_5h'
 $psql = 'C:\Program Files\PostgreSQL\18\bin\psql.exe'
 $sql = Join-Path $PSScriptRoot '28_auditar_identidad_cluster_fuente_5x.sql'
-$salida = Join-Path $env:TEMP 'fashionstore_5x_identidad_fuente_LOCAL_REVISAR.txt'
 
 if (-not (Test-Path -LiteralPath $psql -PathType Leaf)) {
     throw '5X: falta psql PG18 local, ninguna auditoria ejecutada.'
@@ -18,6 +17,7 @@ if (-not (Test-Path -LiteralPath $sql -PathType Leaf)) {
 if ([string]::IsNullOrWhiteSpace($env:TEMP)) {
     throw '5X: TEMP no disponible.'
 }
+$salida = Join-Path $env:TEMP 'fashionstore_5x_identidad_fuente_LOCAL_REVISAR.txt'
 if (Test-Path -LiteralPath $salida) {
     throw '5X: el informe ya existe; revisar antes de repetir. NO sobrescribir.'
 }
