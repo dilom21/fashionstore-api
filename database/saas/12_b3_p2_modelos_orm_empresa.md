@@ -36,6 +36,7 @@ Se esperan **79 pruebas unitarias (36 previas + 43 nuevas)** si todos los cambio
 - Con `SAAS_AUTH_ENABLED=false` el middleware preventivo no bloquea rutas heredadas; ese modo **no puede usarse para exponer las cinco empresas de la copia local** hasta adaptar los repositorios.
 - No habilitar `SAAS_AUTH_ENABLED`, no desplegar, no ejecutar `supabase db push`.
 - Los servicios y repositorios heredados todavía no proporcionan `empresa_id` en sus INSERT ni filtran SELECT/UPDATE/DELETE, por lo que **RNF02 sigue incompleto**.
+- `Usuario.empleado` conserva temporalmente la relación ORM legacy `uselist=False`. El nuevo diseño permite que un usuario tenga perfiles de empleado en distintas empresas; esa relación y los accesos que la usan deberán migrarse con cuidado antes de operaciones multiempresa de un mismo usuario. Aquí no se modifica para evitar romper el primer parcial.
 - El paso 3 del Bloque 3 abordará lectura del catálogo con contexto obligatorio de tenant y pruebas 403/404; no iniciarlo hasta la confirmación del usuario (`siguiente`).
 
 ## Estado de avance
