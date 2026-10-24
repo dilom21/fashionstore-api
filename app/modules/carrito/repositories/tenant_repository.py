@@ -4,7 +4,8 @@ Una sola transaccion para caducar carritos vencidos, crear/reusar carrito
 y agregar/sumar su linea. Se valida propietario, empresa, sucursal y
 cadena inventario->variante->producto->categoria dentro de SQL.
 
-El bloque FOR UPDATE sobre cliente serializa altas del mismo comprador en PG;
+El bloque FOR UPDATE sobre cliente serializa altas del mismo comprador en PG.
+El POST toma el carrito ANTES de inventario, siguiendo el orden de CU16;
 el bloque de inventario protege la lectura de disponibilidad. Las FK tenant
 de PostgreSQL y la UNIQUE parcial siguen siendo defensas obligatorias.
 """
@@ -126,10 +127,12 @@ class CarritoTenantRepository:
                 carrito.c.fecha_actualizacion <= limite,
             ).values(estado="EXPIRADO")
         )
-        disponible = cls._stock_valido(
-            db, empresa_id=empresa_id,
-            sucursal_id=sucursal_id, inventario_id=inventario_id,
-        )
+        # Orden global de bloqueos para CU15 -> CU16:
+        # cliente -> carrito -> inventario -> linea.
+        # El borrador de reserva bloquea carrito antes de inventario.
+        # Nunca tomar inventario antes del carrito en este POST: un
+        # PATCH/DELETE de la misma sesion puede mantener el carrito
+        # bloqueado y esperar el inventario, creando un ciclo.
         actual = db.scalar(
             select(carrito.c.id).where(
                 carrito.c.empresa_id == empresa_id,
@@ -148,6 +151,13 @@ class CarritoTenantRepository:
                     estado="ACTIVO",
                 ).returning(carrito.c.id)
             )
+
+        # En altas fallidas (inventario ajeno, inexistente, stock) el
+        # router revierte tambien el carrito recien creado y expiraciones.
+        disponible = cls._stock_valido(
+            db, empresa_id=empresa_id,
+            sucursal_id=sucursal_id, inventario_id=inventario_id,
+        )
 
         detalle = db.execute(
             select(linea.c.id, linea.c.cantidad).where(
