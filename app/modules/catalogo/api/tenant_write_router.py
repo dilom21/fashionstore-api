@@ -28,12 +28,15 @@ T = TypeVar("T")
 class EscrituraTenantBase(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    @field_validator("nombre", "sku", check_fields=False)
+    @field_validator("nombre", "sku", check_fields=False, mode="before")
     @classmethod
-    def normalizar_texto_obligatorio(cls, value: str) -> str:
-        if not value.strip():
-            raise ValueError("El campo no puede estar vacio")
-        return value.strip()
+    def normalizar_texto_obligatorio(cls, value):
+        if isinstance(value, str):
+            resultado = value.strip()
+            if not resultado:
+                raise ValueError("El campo no puede estar vacio")
+            return resultado
+        return value
 
     @model_validator(mode="after")
     def verificar_patch_no_vacio(self):
