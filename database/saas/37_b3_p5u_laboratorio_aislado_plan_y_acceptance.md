@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5U — Laboratorio aislado para demostrar RLS A/B (solo preparación)
 
-**Estado: 5U PREPARADA, PRUEBAS LOCALES PENDIENTES.** Paso 5 comercial EN PROCESO, Bloque 3 **4/7**. Rama única `feat/saas-multitenant-parcial2`. Contrato en `BORRADOR_NO_EJECUTAR`, **`desplegable=false`** y **`iniciar_laboratorio_autorizado=false`**.
+**Estado: 5U VALIDADA Y CERRADA únicamente como planificación de laboratorio independiente y tests offline. Los ensayos PostgreSQL A/B NO se han ejecutado.** Paso 5 comercial EN PROCESO, Bloque 3 **4/7**. Rama única `feat/saas-multitenant-parcial2`. Contrato en `BORRADOR_NO_EJECUTAR`, **`desplegable=false`** y **`iniciar_laboratorio_autorizado=false`**.
 
 ## 1. Por qué es necesario un clúster distinto
 
@@ -66,7 +66,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado `532 passed` (aún no confirmado)**. Solo si se aprueba:
+**Resultado confirmado en Windows: `532 passed, 2 warnings in 7.33s`, cero fallos.** Solo si se aprueba:
 
 ```powershell
 python .\database\saas\25_validar_laboratorio_aislado_5u.py
@@ -85,6 +85,24 @@ Salida esperada (el estado bloqueado es intencional):
 
 ## 6. Criterio de cierre y pasos siguientes
 
-**5U solo podrá cerrarse como planificación de un laboratorio independiente y validación offline** cuando se confirmen `532 passed` y la salida del validador. Ni siquiera ese resultado permite certificar RLS real ni modifica el estado de los **siete bloqueos pendientes** del contrato 5Q. **Paso 5 comercial EN PROCESO, Bloque 3 4/7; `SAAS_AUTH_ENABLED=false`.** El próximo paso, 5V, requiere la orden `siguiente` y, **por separado**, aprobación específica antes de crear/arrancar un servidor PostgreSQL o ejecutar DDL incluso en un laboratorio nuevo. No avanzar a Paso 6 ni habilitar reservas/ventas/pagos.
+**5U CERRADA exclusivamente como planificación de un laboratorio independiente y validación offline** tras confirmar 532 pruebas y la salida del validador. Ni siquiera ese resultado permite certificar RLS real ni modifica el estado de los **siete bloqueos pendientes** del contrato 5Q. **Paso 5 comercial EN PROCESO, Bloque 3 4/7; `SAAS_AUTH_ENABLED=false`.** El próximo paso, 5V, requiere la orden `siguiente` y, **por separado**, aprobación específica antes de crear/arrancar un servidor PostgreSQL o ejecutar DDL incluso en un laboratorio nuevo. No avanzar a Paso 6 ni habilitar reservas/ventas/pagos.
 
 **Rama `main`, Supabase, sandbox local y BD restaurada:** sin cambios en esta subfase.
+
+
+## 7. Evidencia real recibida y cierre de 5U (2026-10-24)
+
+El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2`, fast-forward **`7302e68..0ba9dc2`**, en Windows / entorno Conda `fashionstore-api`. El comando `python -m pytest -q tests_saas` devolvió **`532 passed, 2 warnings in 7.33s`**, cero fallos, incluyendo 18 pruebas nuevas 5U de contratos/negaciones. Las advertencias son las deprecaciones conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+El estudiante ejecutó `python .\\database\\saas\\25_validar_laboratorio_aislado_5u.py` y obtuvo la salida literal:
+
+```text
+5U COMPROBACION OFFLINE - NO INICIA CLUSTER NI CREA ROLES
+5U MATRIZ CONSISTENTE: 14 casos A/B, 2 empresas ficticias
+5U AISLAMIENTO DE CLUSTER PENDIENTE: system_identifier sin medir
+5U NO EJECUTABLE: 7 bloqueantes y RLS A/B NO CERTIFICADO
+```
+
+**Dictamen acotado:** la definición de los **14 casos A/B** y **dos tenants ficticios** pasó sus verificaciones de coherencia offline. **No existe todavía el laboratorio propuesto** `127.0.0.1:55432`, no se midieron identificadores `system_identifier`, no se crearon identidades `LOGIN` propias ni policies; **ningún caso A01–A14 se ejecutó realmente** y no hay evidencia de aislamiento de filas. El estado de contrato sigue `BORRADOR_NO_EJECUTAR`, `desplegable=false`, `iniciar_laboratorio_autorizado=false` y los siete bloqueos anteriores continúan ABIERTOS.
+
+**5U VALIDADA Y CERRADA solo como planificación y validación offline; Paso 5 EN PROCESO; Bloque 3 4/7.** Se conserva `SAAS_AUTH_ENABLED=false`, sin abrir reserva/pago/venta SaaS, modificar `main`/Supabase/BD histórica o el sandbox durante 5U. No ejecutar Docker, initdb, pg_ctl, `CREATE ROLE`, `CREATE POLICY`, grants, seed ni `CALL` a partir de este documento. Para una fase posterior debe existir **autorización específica para crear infraestructura y aplicar cambios SQL incluso en el clúster desechable**, además de un nuevo `siguiente` antes de iniciar 5V. **No pedir comandos nuevos ahora.**
