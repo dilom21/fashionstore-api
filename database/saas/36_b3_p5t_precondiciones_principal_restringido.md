@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5T: precondiciones de principal PostgreSQL restringido
 
-**Estado:** 5T PREPARADA en rama feature; **pruebas locales pendientes**. El Paso 5 comercial sigue EN PROCESO y el Bloque 3 sigue **4/7**. Rama exclusiva: `feat/saas-multitenant-parcial2`.
+**Estado:** 5T VALIDADA Y CERRADA exclusivamente como preflight de código y pruebas unitarias simuladas; no se ha ensayado un rol SQL real. El Paso 5 comercial sigue EN PROCESO y el Bloque 3 sigue **4/7**. Rama exclusiva: `feat/saas-multitenant-parcial2`.
 
 ## 1. Evidencia de partida y por qué todavía NO crear roles
 
@@ -70,10 +70,27 @@ python -m pytest -q tests_saas
 python .\database\saas\23_validar_diseno_acceso_5q.py
 ```
 
-**Esperado:** `514 passed` (por confirmar en Windows) y validador `5Q MATRIZ CONSISTENTE: 8 recursos, 7 bloqueantes sin resolver`, `5Q BORRADOR NO DESPLEGABLE; RLS POSTGRESQL REAL NO VALIDADO`. No hay script SQL/PowerShell 5T para ejecutar: todas las pruebas de esta subfase usan metadatos simulados y no requieren contraseña.
+**Confirmado:** `514 passed, 2 warnings in 7.64s`, 0 fallos; validador `5Q MATRIZ CONSISTENTE: 8 recursos, 7 bloqueantes sin resolver`, `5Q BORRADOR NO DESPLEGABLE; RLS POSTGRESQL REAL NO VALIDADO`. No hay script SQL/PowerShell 5T para ejecutar: todas las pruebas de esta subfase usan metadatos simulados y no requieren contraseña.
 
 Si pytest falla, compartir la salida completa. **No ejecutar `CREATE ROLE`, `CREATE POLICY`, `GRANT`, `REVOKE`, `CALL`, seed ni migraciones en esta subfase**.
 
 ## 6. Estado
 
-**5T EN VALIDACIÓN LOCAL**, Paso 5 EN PROCESO, Bloque 3 4/7, `SAAS_AUTH_ENABLED=false`. No modificar `main`, Supabase, sandbox, ni `fashionstore_restore_20261023_193554_594`. No avanzar a 5U hasta confirmar pruebas y recibir un nuevo `siguiente`. **No interpretar el preflight como aislamiento ya implementado.**
+**5T CERRADA en alcance de precondiciones Python y pruebas offline**, Paso 5 EN PROCESO, Bloque 3 4/7, `SAAS_AUTH_ENABLED=false`. No modificar `main`, Supabase, sandbox, ni `fashionstore_restore_20261023_193554_594`. No avanzar a 5U hasta confirmar pruebas y recibir un nuevo `siguiente`. **No interpretar el preflight como aislamiento ya implementado.**
+
+
+## 7. Evidencia local y dictamen de cierre 5T (24 de octubre de 2026)
+
+El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2`, fast-forward **`329e799..7302e68`**, y después `python -m pytest -q tests_saas` en el entorno Windows Conda `fashionstore-api`: **`514 passed, 2 warnings in 7.64s`**, cero fallos. Son las 498 pruebas anteriores y las 16 de `tests_saas/test_preflight_principal_restringido_5t.py`. Las dos advertencias se deben a deprecaciones conocidas en Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+La ejecución `python .\\database\\saas\\23_validar_diseno_acceso_5q.py` confirmó literalmente:
+
+```text
+5Q VALIDACION ESTATICA OFFLINE — NO APLICA SQL NI ROLES
+5Q MATRIZ CONSISTENTE: 8 recursos, 7 bloqueantes sin resolver
+5Q BORRADOR NO DESPLEGABLE; RLS POSTGRESQL REAL NO VALIDADO
+```
+
+**Dictamen técnico:** las pruebas unitarias de precondiciones del principal SQL fueron satisfactorias usando metadatos simulados. **No se ejecutó** `evaluar_precondiciones_rls_5t` contra PostgreSQL real; no se creó ningún rol SQL restringido y no se verificaron políticas, ACL, `USING/WITH CHECK` o aislamiento A/B. Un futuro resultado `apto_para_ensayo=true` no probaría aislamiento entre empresas: se necesitarían tests de acceso permitido/denegado con rol sin `BYPASSRLS`, datos exclusivamente ficticios y conexión autenticada como ese rol.
+
+**5T VALIDADA Y CERRADA en alcance de código/tests offline. Los 7 bloqueantes del contrato 5Q siguen abiertos. Paso 5 EN PROCESO, Bloque 3 4/7.** No se autoriza ni ejecuta `CREATE ROLE` (afecta a todo el clúster), `CREATE POLICY`, `GRANT`, `REVOKE`, seed o `CALL`. Mantener `SAAS_AUTH_ENABLED=false`, sin modificar `main`, Supabase, sandbox ni base histórica restaurada. **Esperar un nuevo `siguiente`** antes de la subfase 5U; ninguna orden adicional al estudiante en 5T.
