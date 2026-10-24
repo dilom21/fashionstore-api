@@ -22,10 +22,11 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.ventas.models.models import DetalleVenta, Venta
 
 
-class Devolucion(Base):
+class Devolucion(EmpresaScopedMixin, Base):
     """Devolucion fisica de productos de una venta (sin reembolso financiero)."""
 
     __tablename__ = "devolucion"
@@ -48,7 +49,7 @@ class Devolucion(Base):
     )
 
 
-class DetalleDevolucion(Base):
+class DetalleDevolucion(EmpresaScopedMixin, Base):
     """Linea de la devolucion: cantidad a devolver de un ``detalle_venta``."""
 
     __tablename__ = "detalle_devolucion"
