@@ -78,8 +78,10 @@ SELECT '1_IDENTIDAD_CLUSTER_FUENTE' AS seccion,
        sys.system_identifier::text AS system_identifier_fuente,
        CASE
          WHEN paths.fuente_pgdata = paths.ruta_propuesta
-           OR paths.fuente_pgdata LIKE paths.ruta_propuesta || '/%'
-           OR paths.ruta_propuesta LIKE paths.fuente_pgdata || '/%'
+           OR left(paths.fuente_pgdata, length(paths.ruta_propuesta) + 1)
+              = paths.ruta_propuesta || '/'
+           OR left(paths.ruta_propuesta, length(paths.fuente_pgdata) + 1)
+              = paths.fuente_pgdata || '/'
          THEN 'SOLAPAMIENTO_TEXTUAL_BLOQUEAR'
          ELSE 'SIN_SOLAPAMIENTO_TEXTUAL_NO_CERTIFICA'
        END AS pgdata_vs_ruta_propuesta,
