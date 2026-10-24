@@ -8,7 +8,7 @@ En 5U el estudiante ejecutó **`532 passed, 2 warnings in 7.33s`**, cero fallos,
 
 En 5S se verificó que `postgres` usa `SUPERUSER/BYPASSRLS` y que `row_security_active()=false` en 16 tablas con RLS habilitado. En 5T se preparó un preflight de principal SQL restringido, pero no se ejecutó con un rol real.
 
-**5V no pretende probar RLS:** su objetivo es únicamente identificar las herramientas disponibles en la PC Windows, para elegir después —con autorización expresa— entre clúster PostgreSQL 18 desechable vía Docker o una segunda instancia `initdb` totalmente separada. **NO se ha creado un laboratorio PostgreSQL.**
+**5V no pretende probar RLS:** su objetivo es únicamente identificar las herramientas disponibles en la PC Windows, para elegir después —con autorización explícita y separada— entre clúster PostgreSQL 18 desechable vía Docker o una segunda instancia `initdb` totalmente separada. **NO se ha creado un laboratorio PostgreSQL.**
 
 ## 2. Script nuevo de inspección, sin efectos
 
