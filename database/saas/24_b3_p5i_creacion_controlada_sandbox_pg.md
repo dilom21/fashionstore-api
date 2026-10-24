@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5I — Sandbox PostgreSQL separado (esquema public, SIN DATOS)
 
-**Estado:** suite previa **345 passed, 2 warnings in 6.14s**, pero **RESTORE NO COMPLETADO**. El intento creó el sandbox `fashionstore_saas_reservas_sandbox_5h` y falló en `CREATE SCHEMA public`. Se preparó recuperación NO destructiva y 12 nuevos tests estáticos pendientes; Paso 5 continúa abierto. El Paso 5 global continúa EN PROCESO; Bloque 3, 4/7 pasos completados.
+**Estado:** **SUBFASE 5I VALIDADA** tras recuperar el sandbox vacío: `357 passed, 2 warnings in 6.37s`, recuperación controlada correcta y verificación PostgreSQL READ ONLY independiente con `ROLLBACK`. **Paso 5 global EN PROCESO**, Bloque 3 4/7. Todavía NO se probaron RLS con rol restringido ni procedimientos de reservas.
 
 **Rama EXCLUSIVA:** `feat/saas-multitenant-parcial2`. No tocar `main`, Supabase, ni ejecutar escrituras sobre `fashionstore_restore_20261023_193554_594`. Mantener `SAAS_AUTH_ENABLED=false` y las rutas reales de reservas, ventas y pagos bloqueadas.
 
@@ -50,7 +50,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado confirmado: `345 passed, 2 warnings in 6.14s`** = 332 previas + 13 pruebas de 5I. Tras el error se añadieron 12 casos de regresión; **nuevo resultado esperado, NO confirmado: 357 passed**. No se conecta a PostgreSQL ni ejecuta comandos shell durante la suite.
+**Resultados reales:** inicialmente `345 passed, 2 warnings in 6.14s`; después de las 12 pruebas estáticas de recuperación, **`357 passed, 2 warnings in 6.37s`** (0 fallos). No se conecta a PostgreSQL ni ejecuta comandos shell durante la suite.
 
 Si pytest **no** pasa, no ejecutar el modo creación. Reportar fallo.
 
@@ -130,4 +130,16 @@ Solo después de una recuperación exitosa, verificar de manera independiente:
 .\database\saas\14_verificar_sandbox_pg_reservas_local.ps1
 ```
 
-**Cierre de 5I sigue PENDIENTE** hasta confirmar que la base de ensayo está vacía y el verificador reporta 48 FK, 6 indicadores RLS, 0 SP nuevos y `ROLLBACK`. Esto no valida el funcionamiento de RLS en un rol sin `BYPASSRLS`, ni las transacciones reales de reserva. Conservar `SAAS_AUTH_ENABLED=false`, `main` y Supabase sin cambios.
+**5I CERRADA en su alcance comprobado:** verificador confirmó **46 tablas vacías, 48 FK, 6 indicadores RLS, 0 SP tenant instalados** y `ROLLBACK`. Esto no valida el funcionamiento de RLS en un rol sin `BYPASSRLS`, ni las transacciones reales de reserva. Conservar `SAAS_AUTH_ENABLED=false`, `main` y Supabase sin cambios.
+
+## 8. Evidencia final recibida: sandbox recuperado y verificado
+
+El estudiante sincronizó la rama feature a `b0e65ba` y ejecutó `python -m pytest -q tests_saas`: **357 passed, 2 warnings in 6.37s**, 0 fallos. La inspección READ ONLY del sandbox parcial reportó **0 relaciones, 0 rutinas, 0 tipos y 0 extensiones en `public`**, con resultado `SANDBOX_PARCIAL_VACIO_APTO_PARA_RECUPERACION_CONTROLADA` y `ROLLBACK`.
+
+Con los dos switches expresos de `16_recuperar_sandbox_parcial_local.ps1`, el estudiante autorizó restaurar únicamente objetos del esquema en la base de ensayo existente `127.0.0.1:5432 / fashionstore_saas_reservas_sandbox_5h`, sin datos históricos. El script confirmó la integridad del origen y del destino vacío antes del restore. Finalizó con **`RECUPERACION SANDBOX LOCAL SUPERADA (SIN DATOS HISTORICOS)`**.
+
+El verificador integrado y la ejecución independiente posterior de `14_verificar_sandbox_pg_reservas_local.ps1` coincidieron: **46 tablas vacías, 48 FK tenant validadas, 6 flags RLS y cero SP tenant instalados**, ambos concluyeron en `ROLLBACK`. La verificación externa concluyó con `SANDBOX LOCAL DE ESQUEMA VERIFICADO (READ ONLY)`.
+
+**Límites de certificación:** el rol consultante fue `postgres` con `rolsuper=t`, `rolbypassrls=t`. No se ha verificado aislamiento RLS efectivo con rol no privilegiado; tampoco se han instalado `sp_*_tenant` ni realizado pruebas reales de transacciones, concurrencia, Kardex o roles en PostgreSQL. El origen restaurado se empleó solo para lectura/exportación y no recibió DML; la única restauración fue en el sandbox separado.
+
+**Decisión:** cerrar la subfase **5I VALIDADA**; Paso 5 comercial permanece EN PROCESO. No ejecutar más operaciones ahora; esperar `siguiente` antes de preparar usuarios y datos ficticios con seguridad RLS en sandbox. Conservar `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos.
