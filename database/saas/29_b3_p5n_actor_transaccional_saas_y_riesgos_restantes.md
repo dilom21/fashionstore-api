@@ -52,5 +52,5 @@ Si pytest falla, no ejecutar más comandos; compartir salida completa. No ejecut
 
 - Rama permitida: `feat/saas-multitenant-parcial2`, exclusivamente; **no tocar `main`**.
 - BD local restaurada `fashionstore_restore_20261023_193554_594`: lectura únicamente; BD sandbox `fashionstore_saas_reservas_sandbox_5h`: **sin modificaciones en 5N**.
-- **No modificar Supabase**, no habilitar `SAAS_AUTH_ENABLED=false`, no instalar `sp_*_tenant`, crear roles globales, policies, grants, seed ni ejecutar operaciones comerciales reales.
+- **No modificar Supabase**, mantener `SAAS_AUTH_ENABLED=false`, no instalar `sp_*_tenant`, crear roles globales, policies, grants, seed ni ejecutar operaciones comerciales reales.
 - El trabajo 5N se podrá marcar como validado **solo en su alcance de código/unit tests** tras `424 passed` local y revisión de salida estática. Paso 5 comercial sigue EN PROCESO y Bloque 3 4/7. Esperar `siguiente` antes de iniciar otra subfase.
