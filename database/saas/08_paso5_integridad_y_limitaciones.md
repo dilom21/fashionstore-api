@@ -31,5 +31,8 @@
 ## Criterios de salida del paso
 - Script devuelve `INTEGRIDAD TENANT LOCAL APLICADA Y VERIFICADA`.
 - Se mantienen 46 tablas, 27 triggers y los conteos del Paso 4.
-- Aparecen decenas de claves compuestas `fk_tenant_...`, junto con las 28 (?) restricciones de apoyo para IDs simples (conteo exacto será revisado contra catálogo local).
+- Aparecen decenas de claves compuestas `fk_tenant_...`, junto con 28 restricciones UNIQUE de apoyo para IDs simples (conteo comprobado en el catálogo original). Se esperan 46 FK compuestas entre tablas empresariales más 2 FK de perfiles a membresía = **48** en total.
 - Prueba adicional posterior: una FK compuesta debe bloquear relaciones cruzadas en transacción de prueba con rollback, sin alterar registros históricos. En esta etapa el script comprueba estructura y conteos; **todavía no se ha hecho esa prueba negativa cruzada**.
+
+## Incidente de primera ejecución local (23/10/2026)
+La primera ejecución se detuvo antes del COMMIT debido a la concatenación PL/pgSQL `'+` aplicada indebidamente a identificadores de constraints. Se cambió a `||`. Como se ejecutó bajo `BEGIN` y `ON_ERROR_STOP=1`, al cerrar la sesión se descarta la transacción incompleta. Antes de un nuevo intento el PowerShell ahora requiere 0 FK `fk_tenant_%` y 0 UNIQUE `uq_tenant_%`, además de los conteos históricos. La corrección y estas comprobaciones están en la rama, **no ejecutadas aún en el Windows del usuario**.
