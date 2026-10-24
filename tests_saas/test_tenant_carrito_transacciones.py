@@ -597,3 +597,311 @@ def test_eliminar_y_editar_no_cambian_reservas_ni_movimientos(escenario_carrito)
         assert db.execute(select(
             Inventario.stock_actual, Inventario.stock_reservado
         ).where(Inventario.id == 2222)).one() == (7, 0)
+
+
+# B3/P5D: lecturas del carrito propio sin escribir ni tocar stock.
+
+def test_listar_y_detallar_carrito_propio_con_totales_correctos(escenario_carrito):
+    client, _, factory = escenario_carrito
+    alta = _agregar(client, cantidad=3)
+    assert alta.status_code == 200, alta.text
+    cid = alta.json()["carrito_id"]
+    lista = client.get("/tenant/carritos")
+    assert lista.status_code == 200, lista.text
+    assert lista.json()["total_carritos_activos"] == 1
+    assert len(lista.json()["items"]) == 1
+    resumen = lista.json()["items"][0]
+    assert resumen["carrito_id"] == cid
+    assert resumen["sucursal_nombre"] == "Sucursal Urban"
+    assert resumen["cantidad_lineas"] == 1
+    assert resumen["cantidad_unidades"] == 3
+    assert Decimal(str(resumen["subtotal"])) == Decimal("180.00")
+    detalle = client.get(f"/tenant/carritos/{cid}")
+    assert detalle.status_code == 200, detalle.text
+    body = detalle.json()
+    assert body["estado"] == "ACTIVO"
+    assert body["cantidad_total_unidades"] == 3
+    assert Decimal(str(body["subtotal_carrito"])) == Decimal("180.00")
+    linea = body["items"][0]
+    assert linea["detalle_id"] == alta.json()["detalle_id"]
+    assert linea["producto_nombre"] == "Camisa A"
+    assert linea["sku"] == "A-111"
+    assert linea["temporada_nombre"] == "Temporada A"
+    assert linea["talla_nombre"] == "M"
+    assert linea["color_nombre"] == "Negro"
+    assert linea["stock_disponible"] == 8
+    assert Decimal(str(linea["precio_unitario"])) == Decimal("60.00")
+    assert Decimal(str(linea["subtotal_linea"])) == Decimal("180.00")
+    assert "cliente_id" not in str(body)
+    assert "empresa_id" not in str(body)
+    assert _total(factory, DetalleCarrito.__table__, empresa_id=10) == 1
+
+
+def test_listado_inicial_vacio_para_cliente_valido(escenario_carrito):
+    client, _, _ = escenario_carrito
+    respuesta = client.get("/tenant/carritos")
+    assert respuesta.status_code == 200
+    assert respuesta.json() == {"items": [], "total_carritos_activos": 0}
+
+
+def test_cambiar_tenant_cambia_carritos_y_detalles(escenario_carrito):
+    client, identidad, _ = escenario_carrito
+    a = _agregar(client, cantidad=2).json()
+    identidad["empresa_id"], identidad["usuario_id"] = 20, 88
+    b = _agregar(client, sucursal=2202, inventario=2222, cantidad=1).json()
+    lista_b = client.get("/tenant/carritos")
+    assert lista_b.status_code == 200
+    assert [x["carrito_id"] for x in lista_b.json()["items"]] == [b["carrito_id"]]
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 404
+    propio_b = client.get(f'/tenant/carritos/{b["carrito_id"]}')
+    assert propio_b.status_code == 200, propio_b.text
+    assert propio_b.json()["items"][0]["producto_nombre"] == "Camisa B"
+    identidad["empresa_id"], identidad["usuario_id"] = 10, 99
+    assert [x["carrito_id"] for x in client.get("/tenant/carritos").json()["items"]] == [a["carrito_id"]]
+    assert client.get(f'/tenant/carritos/{b["carrito_id"]}').status_code == 404
+
+
+def test_otro_cliente_misma_empresa_no_ve_carrito(escenario_carrito):
+    client, identidad, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(insert(Cliente.__table__).values(
+            id=1002, empresa_id=10, usuario_id=77,
+            nombre="Otro", apellido="Usuario", estado=True,
+        ))
+    identidad["usuario_id"] = 77
+    assert client.get("/tenant/carritos").json() == {
+        "items": [], "total_carritos_activos": 0,
+    }
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 404
+
+
+def test_query_empresa_y_cliente_no_cambian_identidad(escenario_carrito):
+    client, _, _ = escenario_carrito
+    a = _agregar(client).json()
+    lista = client.get("/tenant/carritos", params={
+        "empresa_id": 20, "cliente_id": 2002,
+    })
+    assert [x["carrito_id"] for x in lista.json()["items"]] == [a["carrito_id"]]
+    detalle = client.get(f'/tenant/carritos/{a["carrito_id"]}', params={
+        "empresa_id": 20, "cliente_id": 2002,
+    })
+    assert detalle.status_code == 200
+    assert detalle.json()["items"][0]["sku"] == "A-111"
+
+
+@pytest.mark.parametrize("estado", ["CONVERTIDO", "ELIMINADO", "EXPIRADO"])
+def test_carrito_no_activo_no_se_muestra_ni_reactiva(escenario_carrito, estado):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(
+            Carrito.__table__.update().where(
+                Carrito.__table__.c.id == a["carrito_id"]
+            ).values(estado=estado)
+        )
+    assert client.get("/tenant/carritos").json()["items"] == []
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 409
+    with factory() as db:
+        assert db.scalar(select(Carrito.estado)) == estado
+
+
+def test_carrito_con_dos_horas_vencidas_no_se_muta_por_get(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    antes = datetime.now(timezone.utc) - timedelta(hours=3)
+    with factory.begin() as db:
+        db.execute(
+            Carrito.__table__.update().where(
+                Carrito.__table__.c.id == a["carrito_id"]
+            ).values(fecha_actualizacion=antes)
+        )
+    assert client.get("/tenant/carritos").json()["items"] == []
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 409
+    with factory() as db:
+        assert db.scalar(select(Carrito.estado)) == "ACTIVO"
+        assert db.scalar(select(DetalleCarrito.cantidad)) == 2
+
+
+def test_get_no_modifica_carrito_ni_inventario(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory() as db:
+        antes = db.execute(
+            select(Carrito.estado, Carrito.fecha_actualizacion)
+            .where(Carrito.id == a["carrito_id"])
+        ).one()
+        stock = db.execute(
+            select(Inventario.stock_actual, Inventario.stock_reservado)
+            .where(Inventario.id == 1111)
+        ).one()
+    assert client.get("/tenant/carritos").status_code == 200
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 200
+    with factory() as db:
+        despues = db.execute(
+            select(Carrito.estado, Carrito.fecha_actualizacion)
+            .where(Carrito.id == a["carrito_id"])
+        ).one()
+        ahora_stock = db.execute(
+            select(Inventario.stock_actual, Inventario.stock_reservado)
+            .where(Inventario.id == 1111)
+        ).one()
+    assert antes == despues
+    assert stock == ahora_stock == (10, 2)
+
+
+def test_paginacion_contador_global_correcto(escenario_carrito):
+    client, _, factory = escenario_carrito
+    _agregar(client)
+    ahora = datetime.now(timezone.utc)
+    with factory.begin() as db:
+        db.execute(insert(Sucursal.__table__).values(
+            id=1102, empresa_id=10, ciudad_id=1,
+            nombre="Sucursal Urbana 2", direccion="Ficticia 2", estado=True,
+        ))
+        db.execute(insert(Carrito.__table__).values(
+            id=7778, empresa_id=10, cliente_id=1001, sucursal_id=1102,
+            fecha_creacion=ahora, fecha_actualizacion=ahora, estado="ACTIVO",
+        ))
+    pagina = client.get("/tenant/carritos", params={"limit": 1, "offset": 1})
+    assert pagina.status_code == 200, pagina.text
+    assert len(pagina.json()["items"]) == 1
+    assert pagina.json()["total_carritos_activos"] == 2
+    completo = client.get("/tenant/carritos")
+    assert completo.json()["total_carritos_activos"] == 2
+    assert len(completo.json()["items"]) == 2
+
+
+@pytest.mark.parametrize("params", [
+    {"limit": 0}, {"limit": 101}, {"offset": -1},
+    {"limit": "invalido"}, {"offset": "invalido"},
+])
+def test_paginacion_invalida_en_get(escenario_carrito, params):
+    client, _, factory = escenario_carrito
+    assert client.get("/tenant/carritos", params=params).status_code == 422
+    assert _total(factory, Carrito.__table__) == 0
+
+
+@pytest.mark.parametrize("tipo,valor", [
+    ("inventario", 2222), ("variante", 222),
+    ("temporada", 222), ("categoria", 222),
+])
+def test_lectura_falla_cerrada_por_relacion_empresarial_ajena(
+    escenario_carrito, tipo, valor,
+):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        if tipo == "inventario":
+            db.execute(
+                DetalleCarrito.__table__.update()
+                .where(DetalleCarrito.__table__.c.id == a["detalle_id"])
+                .values(inventario_id=valor)
+            )
+        elif tipo == "variante":
+            db.execute(
+                Inventario.__table__.update()
+                .where(Inventario.__table__.c.id == 1111)
+                .values(variante_producto_id=valor)
+            )
+        elif tipo == "temporada":
+            db.execute(
+                Inventario.__table__.update()
+                .where(Inventario.__table__.c.id == 1111)
+                .values(temporada_id=valor)
+            )
+        else:
+            db.execute(
+                Producto.__table__.update()
+                .where(Producto.__table__.c.id == 111)
+                .values(categoria_id=valor)
+            )
+    # SQLite de pruebas NO tiene las FK compuestas: forzar cruce deliberado.
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 409
+    assert client.get("/tenant/carritos").status_code == 409
+
+
+def test_linea_adulterada_otro_tenant_se_rechaza_completa(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(insert(DetalleCarrito.__table__).values(
+            empresa_id=20, carrito_id=a["carrito_id"],
+            inventario_id=2222, cantidad=1,
+        ))
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 409
+    assert client.get("/tenant/carritos").status_code == 409
+
+
+def test_sucursal_del_carrito_cruzada_no_revela_detalles(escenario_carrito):
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(
+            Carrito.__table__.update()
+            .where(Carrito.__table__.c.id == a["carrito_id"])
+            .values(sucursal_id=2202)
+        )
+    assert client.get(f'/tenant/carritos/{a["carrito_id"]}').status_code == 404
+    assert client.get("/tenant/carritos").json() == {
+        "items": [], "total_carritos_activos": 0,
+    }
+
+
+def test_no_cliente_en_empresa_no_puede_listar_carrito(escenario_carrito):
+    client, identidad, _ = escenario_carrito
+    identidad["empresa_id"] = 20
+    assert client.get("/tenant/carritos").status_code == 403
+    assert client.get("/tenant/carritos/123").status_code == 403
+
+
+def test_contexto_personal_no_puede_leer_carrito(escenario_carrito):
+    client, identidad, _ = escenario_carrito
+    identidad["contexto"] = "personal"
+    assert client.get("/tenant/carritos").status_code == 403
+    assert client.get("/tenant/carritos/123").status_code == 403
+
+
+def test_sin_token_saas_no_puede_listar_carrito(escenario_carrito):
+    client, _, factory = escenario_carrito
+    app.dependency_overrides.pop(get_current_tenant_context)
+    assert client.get("/tenant/carritos").status_code == 401
+    assert client.get("/tenant/carritos/123").status_code == 401
+    assert _total(factory, Carrito.__table__) == 0
+
+
+def test_flag_apagado_deniega_lectura_nueva(escenario_carrito, monkeypatch):
+    client, _, _ = escenario_carrito
+    app.dependency_overrides.pop(get_current_tenant_context)
+    monkeypatch.setattr(settings, "saas_auth_enabled", False)
+    assert client.get("/tenant/carritos").status_code == 503
+    assert client.get("/tenant/carritos/123").status_code == 503
+
+
+def test_gate_de_lectura_no_abre_subrutas_arbitrarias(escenario_carrito):
+    client, _, _ = escenario_carrito
+    for ruta in (
+        "/tenant/carritos/items", "/tenant/carritos/01",
+        "/tenant/carritos/0", "/tenant/carritos/1/items",
+        "/tenant/carritos/1/extra", "/carritos",
+    ):
+        assert client.get(ruta).status_code == 503, ruta
+    assert client.get("/tenant/carritos/99999").status_code == 404
+
+
+def test_get_no_requiere_producto_actualmente_activo(escenario_carrito):
+    # El CU15 original muestra un item historico incluso si se desactiva el producto.
+    client, _, factory = escenario_carrito
+    a = _agregar(client).json()
+    with factory.begin() as db:
+        db.execute(Producto.__table__.update().where(
+            Producto.__table__.c.id == 111
+        ).values(estado=False))
+    r = client.get(f'/tenant/carritos/{a["carrito_id"]}')
+    assert r.status_code == 200, r.text
+    assert r.json()["items"][0]["producto_nombre"] == "Camisa A"
+    # La escritura PATCH sigue exigiendo que el producto este activo.
+    assert client.patch(
+        f'/tenant/carritos/{a["carrito_id"]}/items/{a["detalle_id"]}',
+        json={"cantidad": 3},
+    ).status_code == 404
