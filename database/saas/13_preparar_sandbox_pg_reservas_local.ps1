@@ -95,7 +95,7 @@ SELECT CASE WHEN current_database()='fashionstore_restore_20261023_193554_594'
     $indice = & $pgrestore --list $dump
     if ($LASTEXITCODE -ne 0) { throw 'No se pudo inspeccionar el dump temporal.' }
     $indiceTexto = $indice -join "`n"
-    if ($indiceTexto -match '(?im)^\\d+;.*\\b(?:TABLE DATA|MATERIALIZED VIEW DATA|BLOBS?)\\b') {
+    if ($indiceTexto -match '(?im)^\d+;.*\b(?:TABLE DATA|MATERIALIZED VIEW DATA|BLOBS?)\b') {
         throw 'El dump contiene datos: abortar antes de crear el sandbox.'
     }
 
