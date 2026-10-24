@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5S — RLS efectivo del principal actual y plan de ensayo limitado
 
-**Estado: 5S PREPARADA, pendiente de la suite local y del informe PostgreSQL READ ONLY.** Paso 5 comercial EN PROCESO, **Bloque 3 4/7**. Rama exclusiva `feat/saas-multitenant-parcial2`.
+**Estado: 5S VALIDADA Y CERRADA solo como diagnóstico real READ ONLY del principal actual y pruebas estáticas. RLS entre empresas NO certificado.** Paso 5 comercial EN PROCESO, **Bloque 3 4/7**. Rama exclusiva `feat/saas-multitenant-parcial2`.
 
 ## 1. Qué recibimos de 5R
 
@@ -56,7 +56,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado: `498 passed`** (no confirmado aún en Windows). Si hay cualquier fallo, detenerse y compartir la salida.
+**Confirmado en Windows: `498 passed, 2 warnings in 6.86s`**, cero fallos. Las dos advertencias son las deprecaciones conocidas Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
 
 Solo después de aprobar la suite:
 
@@ -76,4 +76,21 @@ notepad "$env:TEMP\fashionstore_5s_rls_principal_actual_sandbox_LOCAL_REVISAR.tx
 
 ## 6. Estado pendiente
 
-**5S preparada pero aún sin validación local**. Después de recibir suite y reporte, cerrar solo el diagnóstico `row_security_active()` del principal privilegiado actual; **Paso 5 seguirá EN PROCESO y Bloque 3 4/7**. No iniciar 5T ni Paso 6 antes de `siguiente`.
+**5S VALIDADA Y CERRADA exclusivamente como diagnóstico `row_security_active()` del principal privilegiado actual; NO certifica aislamiento con rol restringido. Paso 5 sigue EN PROCESO y Bloque 3 4/7**. No iniciar 5T ni Paso 6 antes de `siguiente`.
+
+
+## 7. Evidencia final recibida y dictamen de cierre 5S (2026-10-24)
+
+**Sincronización de código:** el estudiante realizó fast-forward `fe19d4d..329e799` en la rama `feat/saas-multitenant-parcial2`. La ejecución local `python -m pytest -q tests_saas` devolvió **`498 passed, 2 warnings in 6.86s`**, cero fallos. Dos advertencias ya conocidas: StarletteDeprecationWarning por `httpx`/`testclient`, y deprecación `HTTP_422_UNPROCESSABLE_ENTITY` del catálogo. Son 486 casos anteriores + 12 pruebas estáticas nuevas.
+
+**Auditoría PostgreSQL de solo lectura:** el estudiante ejecutó `24_auditar_rls_efectivo_sandbox_5s.ps1` contra `127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`. Se recibió la salida completa del informe TEMP directamente en la conversación (el informe NO se publicó en GitHub). El guard devolvió **`5S PREFLIGHT OK: 46 tablas vacias, 48 FK tenant, 0 policies criticas, 0 SP tenant`**. Se observó `BEGIN`, tres `SET`, `DO` y finalmente **`ROLLBACK`**. El wrapper imprimió `AUDITORIA 5S SANDBOX READ ONLY COMPLETADA`.
+
+| Sección | Resultado observado | Interpretación |
+|---|---|---|
+| `1_SQL_PRINCIPAL_ACTUAL` | `session_user=postgres`, `current_user=postgres`, `row_security=on`, `rolsuper=t`, `rolbypassrls=t`, `rolinherit=t`, `rolcanlogin=t` | El principal SQL actual **elude RLS** aunque `row_security=on`. No hay prueba con credencial limitada. |
+| `2_RLS_EFECTIVO_PRINCIPAL_ACTUAL` | **16 de 16** tablas estudiadas muestran `rls_habilitado=t`, `forzar_owner=f`, `rls_aplica_a_este_principal=f`, `numero_policies=0`, `propietario=postgres` | Diferencia demostrada entre activar el flag de tabla y aplicar RLS al principal real. El resultado se limita a las 16 tablas y a `postgres`. |
+| `3_DICTAMEN_ALCANCE` | **`NO_CERTIFICADO: cuenta actual con SUPERUSER/BYPASSRLS`**, sin rol restringido, seed, policies nuevas ni CALL | Es el dictamen **esperado y correcto**, no un fallo de la auditoría. |
+
+**Conclusión técnica verificable:** para `postgres`, el resultado de `row_security_active()` fue **falso en las 16 tablas** con RLS habilitado. Este hallazgo confirma una limitación de seguridad del contexto de pruebas actual. **No demuestra** que otro rol SQL sufra bypass, ni que las políticas futuras aíslen A/B, ni permite cerrar los siete bloqueos arquitectónicos de 5Q.
+
+**Cierre acotado:** subfase **5S VALIDADA Y CERRADA** solo en tests estáticos y diagnóstico PostgreSQL READ ONLY. **Paso 5 comercial EN PROCESO; Bloque 3 4/7**. `SAAS_AUTH_ENABLED=false`, rutas transaccionales cerradas, sandbox sin escrituras solicitadas en esta auditoría, y sin intervención de `main`, Supabase o la base histórica restaurada. **No crear roles ni avanzar a 5T sin el `siguiente` del estudiante**. Si se llega a ensayar con roles sin `BYPASSRLS`, se requiere consentimiento expreso separado por el alcance global de `CREATE ROLE` en el clúster.
