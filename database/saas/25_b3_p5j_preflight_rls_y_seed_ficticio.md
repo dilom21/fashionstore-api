@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5J — Auditoría RLS y preparación de roles/datos ficticios en sandbox
 
-**Estado: pruebas y ejecución del preflight READ ONLY VALIDADAS; análisis del contenido RLS/GRANTS del informe TEMP todavía PENDIENTE.** Paso 5 comercial global EN PROCESO; Bloque 3 sigue 4/7. **NO SEED, NO DDL, NO LOGIN, NO creación de roles o políticas, NO CALL de procedimientos en 5J**.
+**Estado: SUBFASE 5J VALIDADA EN ALCANCE READ ONLY Y DICTAMEN DEL INFORME COMPLETO.** Paso 5 comercial global EN PROCESO; Bloque 3 sigue 4/7. **NO SEED, NO DDL, NO LOGIN, NO creación de roles o políticas, NO CALL de procedimientos en 5J**.
 
 ## 1. Punto de partida confirmado
 
@@ -61,12 +61,42 @@ El script escribe el informe en `$env:TEMP`, **no modifica nada**. Compartir sal
 Al recibir los resultados, documentar qué políticas existen realmente, qué roles/privilegios son apropiados y qué campos exige el seed, sin inventarlos. **5J solo se cerrará como auditoría READ ONLY y diseño**. La creación de roles restringidos y el seed transaccional ficticio requerirán una subfase siguiente, con autorización explícita para escribir SOLO en el sandbox y comprobación de aislamiento con rol sin `BYPASSRLS`. Paso 5 y Bloque 3 seguirán abiertos; detenerse hasta `siguiente`.
 
 
-## 7. Evidencia real recibida de ejecución 5J (sin contenido del informe aún)
+## 7. Ejecución previa: auditoría READ ONLY y pruebas superadas
 
 El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2` y sincronizó el commit `8844e47`. Ejecutó `python -m pytest -q tests_saas` y obtuvo **`370 passed, 2 warnings in 5.91s`**, 0 fallos; las advertencias son las deprecaciones conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
 
 Ejecutó `17_auditar_roles_rls_y_seed_sandbox_local.ps1` contra `127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`. El SQL informó **`5J PREFLIGHT OK: 46 tablas, 48 FK tenant, cero SP SaaS, sin datos centrales`**; el PowerShell informó **`AUDITORIA 5J SANDBOX READ ONLY COMPLETADA`** y guardó el informe en `$env:TEMP\\fashionstore_5j_rls_roles_columnas_sandbox_LOCAL.txt`, fuera del repositorio.
 
-**Advertencia de alcance:** el log de consola no contiene el detalle de `pg_policies`, privilegios `PUBLIC`, roles reservados, columnas `NOT NULL` y restricciones. Por ello, **no puede afirmarse todavía que se hayan revisado las políticas o que RLS de acceso esté validado**. El informe temporal completo debe ser revisado por el estudiante para evitar divulgar literales sensibles y **adjuntado al chat** antes de decidir los permisos y los datos ficticios. No subir el informe a GitHub.
+**Nota histórica:** en esta etapa de ejecución todavía faltaba leer las políticas, permisos y columnas. Ese análisis se completó posteriormente con el archivo compartido, según la sección 8. Aun con el archivo, RLS efectivo bajo rol restringido sigue SIN validar.
 
-La subfase **5J superó las pruebas y la auditoría de lectura**, pero queda **pendiente el dictamen del contenido de la auditoría**. No crear roles, insertar semillas, instalar `sp_*_tenant`, ejecutar reservas, alterar `SAAS_AUTH_ENABLED=false`, ni avanzar a la siguiente subfase antes de ese análisis.
+La auditoría READ ONLY y la suite estaban superadas; el dictamen del contenido del archivo se registra en la sección 8. No crear roles, insertar semillas, instalar `sp_*_tenant` ni ejecutar reservas dentro de 5J; conservar `SAAS_AUTH_ENABLED=false`.
+
+## 8. DICTAMEN FINAL sobre el informe 5J recibido
+
+**Evidencia:** informe local completo `fashionstore_5j_rls_roles_columnas_sandbox_LOCAL.txt` adjuntado por el estudiante (239 líneas de texto). El preflight se ejecutó con `BEGIN`, `SET`, `DO` y terminó en `ROLLBACK`, sin DDL/DML. La suite previa obtuvo **370 passed, 2 warnings in 5.91s**, 0 fallos. Esta sección documenta solo información efectivamente registrada en el archivo, sin ejecutar SQL adicional.
+
+### 8.1 Roles y aislamiento (hallazgo BLOQUEANTE)
+
+- Sección `1_ROLE_CURRENT`: base `fashionstore_saas_reservas_sandbox_5h`, conexión y rol actual `postgres`; `rolsuper=t`, `rolbypassrls=t`, `rolcreaterole=t`, `rolcreatedb=t`. No sirve para certificar RLS ni el comportamiento de una futura sesión de aplicación restringida.
+- Sección `2_ROLE_NAMES_RESERVED`: **cero roles** con nombre `fashionstore_5j_%`. No se ha creado ningún rol de ensayo.
+- Sección `3_RLS_TABLES`: **20/20 tablas examinadas** presentan `rls_enabled=t`, `force_rls=f`, propietario `postgres` y, fundamentalmente, **`numero_politicas=0` EN TODAS**. Se incluyen `empresa`, `plan_saas`, `suscripcion`, `usuario_empresa`, `usuario`, `rol`, `cliente`, `empleado`, `carrito`, `detalle_carrito`, `reserva`, `detalle_reserva`, `inventario`, `movimiento_inventario`, `venta`, `pago`, `categoria`, `producto`, `variante_producto` y `sucursal`.
+- Sección `4_POLICIES_DETAIL`: **0 filas**. En la práctica hay **denegación por defecto para los roles sujetos a RLS** sobre estas tablas, pero `postgres` superusuario lo omite. No equivale a políticas multitenant funcionales. No conceder SELECT/INSERT/UPDATE indiscriminados ni usar el superusuario de la API para sortearlo.
+- Sección `5_PUBLIC_GRANTS`: **0 privilegios para PUBLIC en las 10 tablas examinadas** (`carrito`, `cliente`, `detalle_carrito`, `detalle_reserva`, `empresa`, `inventario`, `movimiento_inventario`, `reserva`, `usuario`, `usuario_empresa`). **No se auditaron aquí todas las 46 tablas ni los privilegios explícitos de otros roles**, por lo que no extender la afirmación al resto.
+
+### 8.2 Dependencias del seed ficticio
+
+- Sección `6_SEED_COLUMNS`: **26 tablas** con catálogo de tipos, nulabilidad, valores por defecto e identidad. IDs de varias tablas son `GENERATED BY DEFAULT AS IDENTITY`. En tablas empresariales como `cliente`, `carrito`, `detalle_carrito`, `reserva`, `detalle_reserva`, `inventario`, `sucursal`, `producto`, `temporada` y `variante_producto`, `empresa_id` es **NOT NULL sin DEFAULT**: el seed deberá establecerlo expresamente en cada INSERT.
+- `usuario` exige `rol_id`, `correo` único y `password_hash` NOT NULL. `usuario_empresa` exige `usuario_id`, `empresa_id` y `rol_id` válidos y únicos por par. Para ensayar los SP, `cliente.usuario_id` debe enlazar con usuario y membresía existentes aunque la columna sea nullable. `empleado` requiere usuario, sucursal, nombres/apellidos, CI, fecha de contratación y empresa.
+- `plan_saas` exige `codigo`, `nombre` y `max_sucursales_activas`; `suscripcion` exige empresa, plan, rango de fechas y estado vigente. Para un SP que verifica reservas se necesita un plan que permita reservas y suscripción ACTIVA, sin usar IDs globales supuestos.
+- Las dependencias comerciales incluyen `ciudad -> sucursal`, `categoria -> producto -> variante_producto`, `talla/color -> variante_producto`, `temporada + sucursal + variante -> inventario`, `usuario_empresa -> cliente/empleado`, `cliente + sucursal -> carrito`, y `carrito + inventario -> detalle_carrito`. El orden exacto se validará dinámicamente antes de cualquier seed.
+- Sección `7_SEED_CONSTRAINTS`: **136 restricciones** (PK, FK, UNIQUE, CHECK) sobre tablas seleccionadas. Destacan las FK tenant compuestas `(empresa_id, ...)`, `uq_reserva_carrito`, los CHECK positivos de cantidades y la invariancia `0 <= stock_reservado <= stock_actual`. Cada inserción deberá ser atómica y respetar estas condiciones.
+- Sección `8_TRIGGERS`: **10 triggers habilitados en las tablas inspeccionadas**; incluyen `fn_registrar_bitacora` (cliente, inventario, reserva, sucursal, usuario), `fn_normalizar_correo_usuario`, `fn_actualizar_actividad_carrito`, `fn_validar_sucursal_detalle_carrito`, `fn_validar_detalle_reserva_sucursal` y `fn_controlar_actualizacion_inventario`. El informe muestra la definición de `CREATE TRIGGER`, **no el cuerpo de las funciones**; deben inspeccionarse antes de probar mutaciones, porque podrían requerir campos de auditoría/contexto.
+
+### 8.3 Decisiones de seguridad para la PRÓXIMA subfase, no cambios actuales
+
+1. Definir contrato de identidad tenant confiable y política mínima para tablas de referencia, membresías y comerciales, con `USING` y `WITH CHECK`; revisar recursión de políticas al consultar `usuario_empresa`. El uso de `current_setting('app.empresa_id')` **por sí solo no acredita identidad** si un llamador puede modificar ese parámetro.
+2. Diseñar role/grants de privilegio mínimo para laboratorio exclusivamente. `CREATE ROLE` afecta todo el clúster, por lo que **no crearlo sin consentimiento expreso ni antes de revisar el alcance y los permisos**, con `NOSUPERUSER`, `NOBYPASSRLS`, `NOCREATEDB`, `NOCREATEROLE`, sin membresías elevadas; no asumir que NOLOGIN basta para demostrar autenticación real.
+3. Auditar en read-only las definiciones **completas** de las funciones de trigger de negocio/auditoría y los privilegios efectivos antes de ejecutar el futuro seed. Mantener el futuro seed de dos empresas, clientes y empleados TOTALMENTE ficticios, sin reutilizar contraseñas, datos personales, NIT o correos reales.
+4. Probar SELECT/INSERT/UPDATE/DELETE permitido y denegado, cruces empresa A/B, errores de FK, y rollback del stock/Kardex bajo usuario SQL restringido en un **PostgreSQL de ensayo separado**, antes de instalar/invocar SP `SECURITY INVOKER` o habilitar rutas.
+
+**CIERRE 5J: VALIDADA como auditoría read-only y dictamen de diseño.** El sandbox sigue sin seed, sin roles de ensayo, sin SP tenant instalados. **No está validada la seguridad RLS de aplicación** ni las transacciones de reservas. Paso 5 global EN PROCESO, Bloque 3 4/7. `SAAS_AUTH_ENABLED=false`, `main`, Supabase y la base restaurada sin cambios. **No solicitar más comandos ahora; esperar la palabra `siguiente`**.
