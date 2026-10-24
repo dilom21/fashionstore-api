@@ -55,6 +55,7 @@ $anterior = [Environment]::GetEnvironmentVariable('PGPASSWORD','Process')
 $sslAnterior = [Environment]::GetEnvironmentVariable('PGSSLMODE','Process')
 $optionsAnterior = [Environment]::GetEnvironmentVariable('PGOPTIONS','Process')
 $dump = Join-Path $env:TEMP 'fashionstore_saas_reservas_5h_SCHEMA_ONLY.dump'
+$toc = Join-Path $env:TEMP 'fashionstore_saas_reservas_5h_SCHEMA_ONLY_RESTAURAR.list'
 $clave = Read-Host 'Contrasena de PostgreSQL LOCAL (no Supabase)' -AsSecureString
 $ptr = [Runtime.InteropServices.Marshal]::SecureStringToBSTR($clave)
 try {
@@ -84,8 +85,8 @@ SELECT CASE WHEN current_database()='fashionstore_restore_20261023_193554_594'
     if ($LASTEXITCODE -ne 0 -or (($existente -join '')).Trim() -ne '0') {
         throw 'El sandbox ya existe o no se pudo consultar. No sobrescribir.'
     }
-    if (Test-Path -LiteralPath $dump) {
-        throw 'Ya existe un dump temporal con ese nombre. Revisar manualmente.'
+    if ((Test-Path -LiteralPath $dump) -or (Test-Path -LiteralPath $toc)) {
+        throw 'Ya existe archivo temporal de dump/lista. No sobrescribir; revisar manualmente.'
     }
     Write-Host 'Exportando SOLO ESQUEMA desde el origen, sin filas...'
     & $pgdump --host=$servidor --port=$puerto --username=$usuario --dbname=$origen --no-password --schema-only --schema=public --format=custom --file=$dump
@@ -99,12 +100,28 @@ SELECT CASE WHEN current_database()='fashionstore_restore_20261023_193554_594'
         throw 'El dump contiene datos: abortar antes de crear el sandbox.'
     }
 
+    # PostgreSQL 18/template0 ya trae esquema public. pg_dump -n public
+    # incluye una segunda sentencia CREATE SCHEMA public, que falla.
+    # Remover SOLO la entrada de SCHEMA public del indice; conservar TODO
+    # el resto de objetos, indices, FK, RLS, funciones y triggers.
+    $patronPublic = '^\d+;\s+\d+\s+\d+\s+SCHEMA\s+-\s+public(?:\s|$)'
+    $entradaPublic = @($indice | Where-Object { $_ -match $patronPublic })
+    if ($entradaPublic.Count -ne 1) {
+        throw 'El dump debe tener exactamente 1 entrada de CREATE SCHEMA public. No restaurar.'
+    }
+    $restaurar = [string[]]@($indice | Where-Object { $_ -notmatch $patronPublic })
+    [System.IO.File]::WriteAllLines(
+        $toc, $restaurar, (New-Object System.Text.UTF8Encoding($false))
+    )
+
     # No se usa el origen como TEMPLATE: se crea DB nueva vacia y se importa
     # exclusivamente el esquema. pg_restore omitira datos historicos.
     $env:PGOPTIONS = '-c statement_timeout=60000'
     & $createdb --host=$servidor --port=$puerto --username=$usuario --no-password --template=template0 $destino
     if ($LASTEXITCODE -ne 0) { throw 'createdb fallo. El origen sigue intacto.' }
-    & $pgrestore --host=$servidor --port=$puerto --username=$usuario --dbname=$destino --no-password --no-owner --no-acl --exit-on-error $dump
+    # Transaccion unica: ante otra incompatibilidad, rollback de TODOS
+    # los objetos importados; no dejar tablas parcialmente restauradas.
+    & $pgrestore --host=$servidor --port=$puerto --username=$usuario --dbname=$destino --no-password --no-owner --no-acl --exit-on-error --single-transaction --use-list=$toc $dump
     if ($LASTEXITCODE -ne 0) {
         throw 'pg_restore fallo: sandbox parcial, no usar; revisar sin eliminar automaticamente.'
     }
@@ -124,6 +141,9 @@ SELECT CASE WHEN current_database()='fashionstore_restore_20261023_193554_594'
     Write-Host "Destino: $servidor/$destino"
     Write-Host 'AUN NO AUTORIZA ejecucion de los SP, roles ni prueba de reservas.'
 } finally {
+    if (Test-Path -LiteralPath $toc) {
+        Remove-Item -LiteralPath $toc -Force -ErrorAction SilentlyContinue
+    }
     if (Test-Path -LiteralPath $dump) {
         Remove-Item -LiteralPath $dump -Force -ErrorAction SilentlyContinue
     }
