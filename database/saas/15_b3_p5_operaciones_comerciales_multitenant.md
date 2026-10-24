@@ -53,12 +53,7 @@ Requiere contraseña `postgres` LOCAL. Destino fijo: `127.0.0.1:5432 / fashionst
 La documentación específica de la siguiente subfase es
 [`16_b3_p5b_carrito_transaccional_tenant.md`](16_b3_p5b_carrito_transaccional_tenant.md).
 
-Se agregó exclusivamente `POST /tenant/carritos/items` para perfil de cliente
-en su empresa, con transacción, validación de inventario y stock disponible,
-pero sin reservar ni descontar existencias. El código y las 24 nuevas pruebas
-se prepararon en GitHub; **NO se ejecutaron aún en Windows**, ni en la copia
-PostgreSQL real. El Paso 5 continúa abierto; no reinterpretar este avance como
-la habilitación de reservas, ventas, pagos, compras o devoluciones.
+Se agregó exclusivamente `POST /tenant/carritos/items` para el perfil de cliente en su empresa, con transacción, validación de inventario y stock disponible, pero sin reservar ni descontar existencias. **Subfase 5B validada:** el estudiante ejecutó `176 passed, 2 warnings in 3.93s` y un preflight PostgreSQL READ ONLY sobre cinco empresas, con `ROLLBACK` y sin modificaciones. Esto **NO prueba una escritura real contra PostgreSQL**. El Paso 5 continúa abierto; no reinterpretar este avance como la habilitación de reservas, ventas, pagos, compras o devoluciones.
 
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
