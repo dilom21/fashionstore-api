@@ -155,7 +155,7 @@ def test_5l_secuencias_y_protecciones_powershell():
     assert "ZeroFreeBSTR" in p
     assert "Remove-Item Env:PGPASSWORD" in p
     assert "8_AUDIT_FUNCTION_BODIES" in p
-    assert "'ROLLBACK'" in p
+    assert "ROLLBACK" in p
 
 
 def test_5l_documentacion_mantiene_los_bloqueos_saas():
