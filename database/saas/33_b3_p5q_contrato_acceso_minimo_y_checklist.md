@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5Q — Contrato de acceso restringido, sin instalar RLS
 
-**Estado: 5Q PREPARADA, PENDIENTE de pruebas locales.** Paso 5 comercial EN PROCESO, Bloque 3 **4/7**. Rama exclusiva `feat/saas-multitenant-parcial2`.
+**Estado: 5Q VALIDADA EXCLUSIVAMENTE COMO DISEÑO Y VALIDACIÓN ESTÁTICA OFFLINE; RLS PostgreSQL NO PROBADO.** Paso 5 comercial EN PROCESO, Bloque 3 **4/7**. Rama exclusiva `feat/saas-multitenant-parcial2`.
 
 ## 1. Evidencia que fundamenta el contrato
 
@@ -53,7 +53,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado: `470 passed`, sin fallo (todavía NO confirmado).**
+**Resultado REAL confirmado en Windows: `470 passed, 2 warnings in 7.55s`, 0 fallos.**
 
 Solo si pytest pasa:
 
@@ -75,4 +75,17 @@ Resultado esperado de la herramienta (no es un resultado de seguridad PostgreSQL
 
 `SAAS_AUTH_ENABLED=false` por defecto y rutas de reserva/pago/venta transaccional bloqueadas. **No se modificaron** `main`, Supabase, la base histórica restaurada ni el sandbox en esta subfase. No crear rol, policy, GRANT, REVOKE, seed, procedimiento ni `CALL` sin acuerdo expreso en una etapa posterior.
 
-Se podrá **cerrar 5Q exclusivamente como diseño y validación estática** cuando pytest confirme las 470 pruebas y el validador acepte la matriz como **no desplegable**. Eso NO resuelve aún el bootstrap RLS, la identidad SQL ni el aislamiento frente a GUC manipulado, y **no completa el Paso 5 comercial** (Bloque 3 permanece **4/7**). Esperar `siguiente` para abrir otra subfase.
+**5Q CERRADA exclusivamente como diseño y validación estática:** pytest confirmó las 470 pruebas y el validador aceptó la matriz como **no desplegable**. Eso NO resuelve aún el bootstrap RLS, la identidad SQL ni el aislamiento frente a GUC manipulado, y **no completa el Paso 5 comercial** (Bloque 3 permanece **4/7**). Esperar `siguiente` para abrir otra subfase.
+
+
+## 6. Resultado de ejecución real y decisión de cierre (Windows, 2026-10-24)
+
+El estudiante ejecutó desde `C:\SI2_Parcial1\fashionstore-api` y Conda `fashionstore-api`:
+
+1. `git pull --ff-only origin feat/saas-multitenant-parcial2`: fast-forward **`0bbed28..a2fc698`**, sin cambios locales conflictivos observados.
+2. `python -m pytest -q tests_saas`: **`470 passed, 2 warnings in 7.55s`**, **0 fallos**. Las 16 pruebas adicionales de 5Q forman parte del total. Dos advertencias conocidas: deprecación Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY` en el router de catálogo.
+3. `python .\\database\\saas\\23_validar_diseno_acceso_5q.py`: imprimió **`5Q VALIDACION ESTATICA OFFLINE — NO APLICA SQL NI ROLES`**, **`5Q MATRIZ CONSISTENTE: 8 recursos, 7 bloqueantes sin resolver`** y **`5Q BORRADOR NO DESPLEGABLE; RLS POSTGRESQL REAL NO VALIDADO`**, sin errores de contrato.
+
+**Dictamen:** el manifiesto de tres principales, ocho grupos de recursos y **siete bloqueantes SIN RESOLVER** pasó las pruebas de coherencia y denegación de configuraciones inseguras. **No se demostró** el aislamiento entre empresas mediante principal SQL restringido, ni se aprobaron o aplicaron `CREATE ROLE`, `CREATE POLICY`, `GRANT`, `REVOKE`, seeds, procedimientos o ejecución de reservas. El contrato sigue `BORRADOR_NO_APLICABLE` / `desplegable=false`; ninguno de los bloques pasó de pendiente a resuelto. No interpretar el `470 passed` como certificación de RLS o seguridad ante inyección SQL.
+
+**5Q VALIDADA Y CERRADA exclusivamente en diseño/pruebas estáticas. Paso 5 comercial EN PROCESO, Bloque 3 4/7.** `SAAS_AUTH_ENABLED=false` y rutas transaccionales cerradas. No se ejecutó ninguna modificación de PostgreSQL, Supabase ni de la BD histórica como parte de 5Q. Esperar instrucción explícita **`siguiente`** antes de abrir 5R; no hay comandos adicionales para el estudiante ahora.
