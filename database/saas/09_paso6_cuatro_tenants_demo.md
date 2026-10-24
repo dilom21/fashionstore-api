@@ -30,7 +30,7 @@ Las cuatro cuentas administrativas se registran con correos bajo el dominio rese
 
 El trigger original `fn_registrar_bitacora` no copiaba el `empresa_id` al registrar eventos. Se reemplaza únicamente su definición, **manteniendo todos los triggers**, para extraer `empresa_id` de la fila afectada (`NEW`/`OLD`) y grabar eventos empresariales con dueño. Eventos de identidades globales `usuario` carecen de empresa y quedan como auditoría de plataforma (`NULL`).
 
-En esta siembra se esperan 34 nuevos eventos (4 registros de usuarios globales + 9 sucursales + 4 productos + 4 variantes + 9 inventarios + 4 empleados). De los 34, 30 llevan `empresa_id` y 4 son eventos globales. Se conservan los 806 eventos históricos de Vanter Men.
+En esta siembra se esperan **38 nuevos eventos** (4 registros de usuarios globales + **4 clientes** + 9 sucursales + 4 productos + 4 variantes + 9 inventarios + 4 empleados). De los 38, **34 llevan `empresa_id`** y 4 son eventos globales. El primer intento falló porque omitimos los 4 eventos del trigger `trg_bitacora_cliente` en el cálculo esperado. Se conservan los 806 eventos históricos de Vanter Men.
 
 ## Conteos globales esperados después de ejecutarse con éxito
 
@@ -50,7 +50,7 @@ En esta siembra se esperan 34 nuevos eventos (4 registros de usuarios globales +
 | Ventas | 40 | 40 |
 | Pagos | 30 | 30 |
 | Reservas | 11 | 11 |
-| Bitácora | 806 | 840 |
+| Bitácora | 806 | 844 |
 | FK empresariales nuevas | 48 | 48 |
 | Triggers | 27 | 27 |
 
@@ -63,3 +63,6 @@ En esta siembra se esperan 34 nuevos eventos (4 registros de usuarios globales +
 - No exponer el esquema SaaS ni activar `SAAS_AUTH_ENABLED`; Supabase de producción y la rama main quedan sin modificar.
 
 **Próxima acción:** ejecutar el script PowerShell en Windows y enviar el resultado para comprobar si el Paso 6 se completó. No pasar al Paso 7 sin esa evidencia.
+
+## Corrección tras primer intento (23/10/2026)
+El seed inicial ejecutó las inserciones en una transacción, pero su comprobación final esperaba incorrectamente 34 eventos nuevos. Las inserciones también invocan `trg_bitacora_cliente` cuatro veces; el total correcto es 38 nuevos (806+38=844). La transacción fallida no llegó a COMMIT. Se corrigieron el SQL, el script PowerShell y las comprobaciones para exigir **4 eventos globales de usuario** y **34 eventos empresariales**, distribuidos por entidad (cliente:4, producto:4, variante_producto:4, empleado:4, sucursal:9, inventario:9). La nueva versión NO se ha ejecutado todavía en el equipo del estudiante.
