@@ -304,3 +304,15 @@ Se recibió el archivo de auditoría READ ONLY del sandbox (`BEGIN`, `SET`, `DO`
 - **Decisión:** no crear aún `CREATE ROLE` (global al clúster), `CREATE POLICY`, `GRANT`, seed, SP ni rutas transaccionales. La próxima subfase deberá preparar el diseño de permisos con rol `NOSUPERUSER/NOBYPASSRLS`, la política `USING/WITH CHECK`, lectura de funciones de trigger y datos inventados exclusivamente para el sandbox. Los argumentos de tenant o variables SQL definibles por el llamador no prueban identidad sin un modelo de confianza validado.
 
 **5J VALIDADA para auditoría read-only + dictamen.** **Paso 5 EN PROCESO; Bloque 3 4/7.** El sandbox permanece sin seed ni procedimientos nuevos; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y PostgreSQL restaurado intactos. Se detiene el trabajo hasta `siguiente`. Informe detallado: [`25_b3_p5j_preflight_rls_y_seed_ficticio.md`](25_b3_p5j_preflight_rls_y_seed_ficticio.md).
+
+
+## Continuación: subfase 5K — auditoría de cuerpos de triggers y diseño de permisos restringidos (PREPARADA)
+
+Después de cerrar 5J con **370 passed, 2 warnings in 5.91s** y el dictamen de **20/20 tablas RLS habilitadas pero ninguna política**, se prepararon archivos nuevos para revisar el código SQL original de los triggers y los privilegios efectivos sobre rutinas, tablas y secuencias **solo dentro del sandbox** `127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`.
+
+- `18_auditar_cuerpos_triggers_y_privilegios_sandbox.sql`: guardas 46 tablas, 48 FK tenant, cero políticas, cero `sp_*_tenant`, sin seed central; `BEGIN TRANSACTION READ ONLY`, `ROLLBACK`. Lista triggers/funciones y extrae sus cuerpos con `pg_get_functiondef` sin ejecutarlas, consulta `SECURITY DEFINER`, owner, `search_path`/proconfig, `EXECUTE` a PUBLIC y privilegios de roles existentes.
+- `18_auditar_cuerpos_triggers_y_privilegios_sandbox.ps1`: cliente `psql` sobre sandbox local, obliga `default_transaction_read_only=on` y guarda salida en TEMP Windows, revisable antes de compartir.
+- `26_b3_p5k_cuerpos_triggers_diseno_rls_privilegios.md`: matriz de permisos deseados, modelo de confianza de la API (contexto token validado vs. parámetros SQL modificables) y prueba futura de acceso cruzado, rollback y concurrencia; no otorga privilegios ni crea policies.
+- `tests_saas/test_trigger_privilegios_preflight_5k.py`: **14 pruebas nuevas ESTÁTICAS**, resultado esperado **384 passed**, pendiente de que el estudiante las ejecute.
+
+**5K PENDIENTE DE PRUEBAS/INFORME ORIGINAL.** No se crearon roles globales ni LOGIN, no se otorgaron GRANT, no se instalaron políticas RLS, triggers, procedimientos nuevos ni seed. Continúan prohibidas las operaciones reales de reserva; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y PostgreSQL restaurado intactos. No avanzar Paso 6. Revisar los cuerpos originales antes de cualquier plan SQL ejecutable o acceso de rol restringido.
