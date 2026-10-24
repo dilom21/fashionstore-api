@@ -58,18 +58,21 @@ def login_tenant(
 ):
     """Autenticacion con empresa explicita; no acepta empresa_id/rol externos."""
     comprobar_saas_habilitado()
-    usuario = AuthService.autenticar_credenciales(
-        db, datos.correo, datos.password
-    )
-    if usuario is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Credenciales invalidas o empresa no autorizada",
-        )
+    # Bootstrap 5R: consulta SOLO usuario_id y password_hash y verifica
+    # Argon2 en backend; evita cargar Usuario/Rol ORM del primer parcial.
+    # NO equivale a contar con un rol PostgreSQL restringido ni RLS aplicado.
     try:
+        usuario_id = AuthService.autenticar_credenciales_tenant(
+            db, datos.correo, datos.password
+        )
+        if usuario_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas o empresa no autorizada",
+            )
         registro = TenantAuthRepository.obtener_membresia_vigente(
             db,
-            usuario_id=usuario.id,
+            usuario_id=usuario_id,
             empresa_slug=datos.empresa_slug,
             contexto=datos.contexto,
         )
@@ -86,7 +89,7 @@ def login_tenant(
         )
 
     token = emitir_token_empresa(
-        usuario_id=usuario.id,
+        usuario_id=usuario_id,
         empresa_id=int(registro["empresa_id"]),
         contexto=datos.contexto,
     )
