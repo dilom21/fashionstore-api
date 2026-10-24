@@ -64,6 +64,9 @@ _RUTAS_CATALOGO_DETALLE = re.compile(
 def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
+    # Primera transaccion CU15 migrada: cliente validado, POST exacto.
+    if (metodo, ruta) == ("POST", "/tenant/carritos/items"):
+        return True
     if metodo == "GET":
         return (
             ruta in _RUTAS_CATALOGO_LISTADO
