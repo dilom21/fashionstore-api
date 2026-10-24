@@ -43,7 +43,7 @@ Antes de solicitar autorización para crear roles del clúster, diseñar una pru
 
 Los siete controles del manifiesto 5Q continúan **sin resolver**: bootstrap RLS, exposición de hashes bajo credencial bootstrap, principal autenticado en `CALL`, GUC modificables, policies/grants, procedimientos legacy `EXECUTE PUBLIC` e integración transaccional PostgreSQL real. `current_setting('app.usuario_id')` o `current_setting('app.empresa_id')` no autentican frente a SQL arbitrario bajo la misma credencial de servicio. Los constructores HTTP de 5O son una capa de backend confiable, no control criptográfico de identidad SQL.
 
-**No activar `SAAS_AUTH_ENABLED=false`**: mantener exactamente `SAAS_AUTH_ENABLED=false` y no abrir las rutas de reserva, pago o venta SaaS. No crear roles, policies, grants, seed ni SP. Mantener `main`, Supabase y `fashionstore_restore_20261023_193554_594` fuera de cualquier modificación; el sandbox tampoco recibe escrituras en 5S.
+**No activar SaaS**: mantener exactamente `SAAS_AUTH_ENABLED=false` y no abrir las rutas de reserva, pago o venta SaaS. No crear roles, policies, grants, seed ni SP. Mantener `main`, Supabase y `fashionstore_restore_20261023_193554_594` fuera de cualquier modificación; el sandbox tampoco recibe escrituras en 5S.
 
 ## 5. Comandos para el estudiante
 
