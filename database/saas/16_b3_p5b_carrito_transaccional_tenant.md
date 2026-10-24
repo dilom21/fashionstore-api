@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5B — Primera transacción de carrito SaaS (CU15)
 
-**Estado:** código y pruebas preparados en rama `feat/saas-multitenant-parcial2`; **PENDIENTE de pruebas Windows del estudiante**. Paso 5 completo sigue abierto. No modificar `main` ni Supabase.
+**Estado:** **SUBFASE 5B VALIDADA** mediante 176 pruebas SaaS y preflight PostgreSQL local de solo lectura. **Paso 5 completo continúa abierto** porque faltan las demás transacciones comerciales y pruebas de escritura sobre PostgreSQL. No modificar `main` ni Supabase.
 
 ## Principio conservado del primer parcial
 CU15 **NO descuenta `stock_actual` ni incrementa `stock_reservado`** al agregar al carrito. El carrito expresa intención de compra y tiene vigencia de 2 horas. La reserva ocurre más tarde dentro del procedimiento PostgreSQL `sp_crear_reserva_desde_carrito` (CU16), que todavía no se ha migrado en SaaS y sigue BLOQUEADO. Los SP de venta/pago y todo cambio de stock también permanecen bloqueados.
@@ -38,7 +38,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado, no ejecutado aquí:** **176 passed** (152 anteriores + 24 nuevas).
+**Resultado confirmado por el estudiante:** `176 passed, 2 warnings in 3.93s` (152 pruebas anteriores y 24 nuevas). Las dos advertencias de Starlette/FastAPI son deprecaciones, sin fallos.
 
 Solo si pytest pasa:
 ```powershell
@@ -55,4 +55,21 @@ Pedirá contraseña **LOCAL** de PostgreSQL. Comprueba exclusivamente `127.0.0.1
 - Las claves tenant definitivas de PostgreSQL se validaron en Bloque 2; todavía falta RLS con rol sin `BYPASSRLS`.
 - **Prohibido desplegar, habilitar `SAAS_AUTH_ENABLED` o usar los cinco tenants con endpoints legacy abiertos.**
 
-**Criterio de cierre de la SUBFASE 5B:** recibir salida de 176 tests y preflight PG exitosos. **Paso 5 global seguirá EN PROCESO**, sin salto a Paso 6. Esperar `siguiente` para abordar la próxima subfase.
+## Resultados observados en PostgreSQL local
+
+El estudiante ejecutó `09_preflight_carrito_tenant_local.ps1` apuntando a `127.0.0.1:5432`, base `fashionstore_restore_20261023_193554_594`. El script devolvió los tres avisos `PREFLIGHT OK`, confirmó índice de carrito activo, trigger de actividad, 48 FK tenant, relaciones sin cruces y consistencia entre stock actual y reservado.
+
+| Empresa | Carritos | Inventarios | Detalles de carrito |
+|---|---:|---:|---:|
+| vanter-men | 48 | 265 | 53 |
+| urbanwear | 0 | 1 | 0 |
+| elegancia-sur | 0 | 3 | 0 |
+| denim-house | 0 | 2 | 0 |
+| sportline | 0 | 3 | 0 |
+| **Total** | **48** | **274** | **53** |
+
+La sentencia final fue `ROLLBACK` y el PowerShell mostró `PREFLIGHT CARRITO LOCAL SUPERADO (SIN ESCRITURAS)`. No se modificaron datos del PostgreSQL local.
+
+**Criterio de cierre de la SUBFASE 5B:** alcanzado para tests SQLite y preflight de solo lectura. **No queda validada aún una escritura real de carrito contra PostgreSQL** ni ejecución concurrente, triggers durante escritura o autenticación empresarial con usuarios habilitados.
+
+**Paso 5 global sigue EN PROCESO**, sin salto a Paso 6. Esperar `siguiente` para preparar la próxima subfase. Mantener `SAAS_AUTH_ENABLED=false`, no desplegar, no hacer `supabase db push`.
