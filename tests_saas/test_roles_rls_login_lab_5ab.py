@@ -93,7 +93,7 @@ def test_5ab_no_declara_catorce_casos_reales():
 
 
 def test_5ab_no_perturba_otro_cluster_o_supabase():
-    for banned in ("5432 -U postgres", "supabase db", "DROP DATABASE",
+    for banned in ("-p 5432 ", "supabase db", "DROP DATABASE",
                    "DROP ROLE", "rm -rf", "initdb", "pg_ctl", "pg_dump"):
         assert banned not in PS
     assert "fashionstore_restore_20261023_193554_594" not in SQL
