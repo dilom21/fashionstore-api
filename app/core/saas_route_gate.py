@@ -43,6 +43,19 @@ _RUTA_CATALOGO_POST_VARIANTE = re.compile(
     r"^/tenant/catalogo/productos/[1-9][0-9]*/variantes$"
 )
 
+# Solo los seis recursos aprobados para consultas administrativas de solo lectura.
+_RECURSOS_COMERCIALES_SAAS = frozenset({
+    "/tenant/comercial/carritos",
+    "/tenant/comercial/reservas",
+    "/tenant/comercial/ventas",
+    "/tenant/comercial/pagos",
+    "/tenant/comercial/compras",
+    "/tenant/comercial/devoluciones",
+})
+_DETALLE_COMERCIAL_SAAS = re.compile(
+    r"^/tenant/comercial/(?:carritos|reservas|ventas|pagos|compras|devoluciones)/[1-9][0-9]*$"
+)
+
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
 )
@@ -52,7 +65,12 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
     if metodo == "GET":
-        return ruta in _RUTAS_CATALOGO_LISTADO or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
+        return (
+            ruta in _RUTAS_CATALOGO_LISTADO
+            or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
+            or ruta in _RECURSOS_COMERCIALES_SAAS
+            or _DETALLE_COMERCIAL_SAAS.fullmatch(ruta) is not None
+        )
     if (metodo, ruta) in _RUTAS_CATALOGO_ESCRITURA:
         return True
     if metodo == "POST":
