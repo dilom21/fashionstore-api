@@ -1,11 +1,12 @@
-from sqlalchemy import BigInteger, Boolean, ForeignKey, String
+from sqlalchemy import BigInteger, Boolean, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.catalogo.models.models import Producto, Temporada
 
 
-class Coleccion(Base):
+class Coleccion(EmpresaScopedMixin, Base):
     """Coleccion de productos asociada a una temporada.
 
     No define ``back_populates`` hacia ``Temporada`` para no modificar el
@@ -13,6 +14,9 @@ class Coleccion(Base):
     """
 
     __tablename__ = "coleccion"
+    __table_args__ = (
+        UniqueConstraint("temporada_id", "nombre", name="uq_coleccion_temporada_nombre"),
+    )
 
     id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
     temporada_id: Mapped[int] = mapped_column(
@@ -28,7 +32,7 @@ class Coleccion(Base):
     )
 
 
-class ProductoColeccion(Base):
+class ProductoColeccion(EmpresaScopedMixin, Base):
     """Relacion N:M entre producto y coleccion (PK compuesta)."""
 
     __tablename__ = "producto_coleccion"
