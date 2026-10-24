@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5D: consulta segura de carritos propios (CU15)
 
-**Estado:** implementación y pruebas preparadas en la rama `feat/saas-multitenant-parcial2`; **pendientes de ejecución en Windows del estudiante**. Paso 5 continúa EN PROCESO. No tocar `main`, Supabase ni PostgreSQL local; mantener `SAAS_AUTH_ENABLED=false`.
+**Estado:** **SUBFASE 5D VALIDADA** por el estudiante en Windows: `231 passed, 2 warnings in 5.16s` (203 previas + 28 nuevas), sin fallos. Paso 5 continúa EN PROCESO. No tocar `main`, Supabase ni PostgreSQL local; mantener `SAAS_AUTH_ENABLED=false`.
 
 ## Objetivo
 
@@ -42,7 +42,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado previsto, todavía no confirmado:** **231 passed** (203 anteriores + 28 nuevas). No ejecutar una migración ni pruebas DML contra PostgreSQL para esta lectura. No es necesario repetir el preflight local: la integridad de carrito e inventario (48 FK tenant, 48 carritos, 274 inventarios) ya se verificó con READ ONLY en 5B.
+**Resultado confirmado en PowerShell:** **231 passed, 2 warnings in 5.16s** (203 anteriores + 28 nuevas), 0 fallos. El `git pull --ff-only` sincronizó la rama hasta `de12222` antes de ejecutar pytest. No ejecutar una migración ni pruebas DML contra PostgreSQL para esta lectura. No es necesario repetir el preflight local: la integridad de carrito e inventario (48 FK tenant, 48 carritos, 274 inventarios) ya se verificó con READ ONLY en 5B.
 
 ## Límites no resueltos
 
@@ -51,4 +51,10 @@ python -m pytest -q tests_saas
 - Las consultas de cliente de reserva, compra digital, stock reservado, pago, compras y devoluciones no se habilitan por estas rutas. El acceso de administrador a resúmenes comerciales sigue separado.
 - El Paso 5 sigue EN PROCESO después de 5D, porque falta adaptar `sp_crear_reserva_desde_carrito` y el resto de transacciones comerciales. No pasar a Paso 6.
 
-**Criterio de salida de 5D:** confirmar suite completa de 231 pruebas sin fallos, documentar resultado y detenerse hasta que el estudiante diga `siguiente`.
+**Criterio de salida de 5D: ALCANZADO** para la suite SQLite con identidades simuladas. El Paso 5 sigue EN PROCESO porque no están migradas ni verificadas las transacciones de reserva, venta, pago, compra y devolución. Detenerse hasta que el estudiante diga `siguiente`.
+
+## Evidencia de ejecución recibida
+
+Con el entorno Conda `fashionstore-api`, el estudiante ejecutó `python -m pytest -q tests_saas` y obtuvo **231 aprobadas, 0 fallos, 2 advertencias en 5.16 segundos**. Las advertencias son `StarletteDeprecationWarning` por `httpx`/`starlette.testclient` y por `HTTP_422_UNPROCESSABLE_ENTITY`, ya conocidas de subfases anteriores.
+
+No se ejecutó ninguna sentencia SQL ni prueba nueva contra PostgreSQL en esta subfase. La verificación de integridad local de la subfase 5B fue READ ONLY y no demuestra aún las lecturas SaaS con autenticación real en PostgreSQL. **Cierre: 5D validada dentro de su alcance ficticio; mantener `SAAS_AUTH_ENABLED=false`, `main` intacta y Supabase sin cambios.**
