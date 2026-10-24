@@ -104,7 +104,7 @@ def require_tenant_permission(funcion: str, accion: str):
 def get_current_tenant_admin(
     tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
 ) -> TenantContext:
-    if tenant.rol_nombre != "ADMINISTRADOR":
+    if tenant.contexto != "personal" or tenant.rol_nombre != "ADMINISTRADOR":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Se requiere ADMINISTRADOR de esta empresa",
