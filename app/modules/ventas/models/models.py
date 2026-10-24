@@ -5,11 +5,12 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, Numeric, Strin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
 
 
-class Venta(Base):
+class Venta(EmpresaScopedMixin, Base):
     """Venta digital preparada por CU19 (aun no confirmada ni pagada).
 
     La tabla real ``venta`` posee:
@@ -56,7 +57,7 @@ class Venta(Base):
     )
 
 
-class DetalleVenta(Base):
+class DetalleVenta(EmpresaScopedMixin, Base):
     """Linea de venta: snapshot economico de una fila de inventario.
 
     La tabla real ``detalle_venta`` posee:
