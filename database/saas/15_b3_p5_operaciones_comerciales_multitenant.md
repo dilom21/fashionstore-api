@@ -80,7 +80,7 @@ Se añadieron 28 pruebas nuevas al fixture SQLite ficticio. **El estudiante las 
 El Paso 5 continúa en proceso; **no abrir reservas, pagos, ventas ni otros
 procedimientos** hasta validarlos con PostgreSQL de forma segura.
 
-## Continuación: subfase 5E de CU16 preparada, PENDIENTE de pruebas
+## Continuación: subfase 5E de CU16 VALIDADA en prevalidación y auditoría
 
 La revisión del repositorio legacy halló que la llamada
 `sp_crear_reserva_desde_carrito(carrito_id, fecha_atencion, observacion,
@@ -94,11 +94,11 @@ carrito y líneas propias, productos activos, disponibilidad calculada
 `stock_actual - stock_reservado` y revisión de reserva duplicada.
 **NO crea ni cancela reservas, NO mueve stock ni llama SP**; es una
 fotografía preliminar sin garantía de disponibilidad futura. Se
-agregaron 31 pruebas nuevas a SQLite, aún pendientes de ejecución.
+agregaron 31 pruebas nuevas a SQLite, **aprobadas por el estudiante en su ejecución de `262 passed, 2 warnings in 6.11s`** (231 anteriores + 31 nuevas).
 
 La guía [`19_b3_p5e_prevalidacion_reserva_y_sp.md`](19_b3_p5e_prevalidacion_reserva_y_sp.md)
 incluye una auditoría READ ONLY de firmas y texto de los 3 SP en
-PostgreSQL local. Las marcas de texto no acreditan seguridad tenant.
+PostgreSQL local. La auditoría local terminó con `ROLLBACK` y halló tres SP CU16/CU18: **ninguno menciona literalmente `empresa_id` ni `app.empresa_id`** (`f`, `f`), los tres mencionan `FOR UPDATE` y `stock_reservado` (`t`, `t`). Esto requiere revisión del SQL completo; los marcadores no acreditan seguridad tenant.
 **El Paso 5 permanece EN PROCESO**. La reserva real, cancelación, venta,
 pago y modificaciones de stock siguen cerradas en modo SaaS.
 
@@ -118,7 +118,7 @@ La ejecución de `08_verificar_consultas_comerciales_local.ps1` confirmó conexi
 
 **Valores efectivamente observados:** `vanter-men` tiene 48 carritos, 11 reservas, 40 ventas, 30 pagos, 4 órdenes de compra y 4 devoluciones. `denim-house`, `elegancia-sur`, `sportline` y `urbanwear` tienen 0 registros en cada una de las seis tablas. El SQL finalizó con `ROLLBACK` y PowerShell informó `AUDITORIA COMERCIAL LOCAL SUPERADA (SIN ESCRITURAS)`.
 
-**Resultado del Paso 5:** se han validado las subfases **5A (lectura administrativa y pertenencia), 5B (alta de líneas de carrito en SQLite), 5C (modificación y eliminación de carrito en SQLite) y 5D (lectura del carrito del propio cliente en SQLite)**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
+**Resultado del Paso 5:** se han validado las subfases **5A (lectura administrativa y pertenencia), 5B (alta de líneas de carrito en SQLite), 5C (modificación y eliminación de carrito en SQLite), 5D (lectura del carrito del propio cliente en SQLite) y 5E (prevalidación de reserva en SQLite y auditoría de SP PostgreSQL READ ONLY)**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
 
 **Siguiente intervención:** cuando el estudiante escriba `siguiente`, continuar exclusivamente dentro del Paso 5, comenzando por revisión de reglas, dependencias y transacciones de reserva sobre PostgreSQL sin cambios remotos. No saltar al Paso 6.
 
@@ -129,3 +129,9 @@ El estudiante sincronizó la rama feature hasta `cacaa06` y ejecutó `python -m 
 ## Evidencia incorporada de la subfase 5D
 
 El estudiante actualizó mediante `git pull --ff-only` hasta `de12222` y ejecutó `python -m pytest -q tests_saas` con **231 passed, 2 warnings in 5.16s**. Las 28 pruebas nuevas comprueban lectura aislada de carrito y líneas, paginación, subtotales y ausencia de mutaciones con identidades empresariales ficticias. **No se ejecutaron operaciones PostgreSQL en 5D.** El Paso 5 sigue EN PROCESO porque aún no están migradas y comprobadas las transacciones de reservas, ventas, pagos, compras, devoluciones y RLS/integración PostgreSQL con rol sin `BYPASSRLS`.
+
+## Evidencia incorporada de la subfase 5E
+
+El estudiante actualizó la rama hasta `eff4ee3` y ejecutó `python -m pytest -q tests_saas`: **262 passed, 2 warnings in 6.11s**, sin fallos. Después auditó `sp_crear_reserva_desde_carrito`, `sp_cancelar_reserva` y `sp_finalizar_reserva_sin_compra` mediante `10_auditar_procedimientos_reservas_local.ps1`, exclusivamente en PostgreSQL local, `BEGIN TRANSACTION READ ONLY` y `ROLLBACK`. Los tres SP existen y tienen referencias textuales a `FOR UPDATE` y `stock_reservado`, pero **no presentan coincidencias literales `empresa_id` ni `app.empresa_id`**. Las cinco empresas y 48 FK tenant se conservaron. `vanter-men` mantiene 11 reservas, 16 líneas y 3 unidades reservadas, las otras cuatro 0 reservas/0 líneas/0 unidades reservadas. **No se ejecutaron SP ni se cambió stock**.
+
+**Resultado:** 5E validada en alcance de prevalidación e inspección read-only, **Paso 5 EN PROCESO**. No habilitar reservas reales, cancelar, finalizar, ventas ni pagos hasta examinar el cuerpo SQL íntegro, añadir controles empresariales transaccionales y verificar en PostgreSQL aislado con pruebas autorizadas. Esperar `siguiente`; sin activación SaaS, sin modificar `main` ni Supabase.
