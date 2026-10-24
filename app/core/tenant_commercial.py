@@ -4,8 +4,6 @@ No ejecuta procedimientos almacenados ni operaciones que cambien stock,
 reservas, ventas o pagos. Una nueva operacion comercial debe reutilizar
 estas comprobaciones de pertenencia, NO invocar handlers legacy.
 """
-from dataclasses import dataclass
-
 from sqlalchemy import and_, select
 from sqlalchemy.orm import Session
 
@@ -18,12 +16,6 @@ from app.modules.proveedores.models.models import Proveedor
 from app.modules.reservas.models.models import Reserva
 from app.modules.sucursales.models.models import Sucursal
 from app.modules.ventas.models.models import Venta
-
-
-@dataclass(frozen=True)
-class TipoOperacion:
-    tabla: object
-    padres: tuple[object, ...]
 
 
 def _igual_tenant(tabla, empresa_id: int):
