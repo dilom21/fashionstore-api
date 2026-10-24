@@ -571,7 +571,7 @@ def test_gate_restringe_metodos_y_urls_de_carrito(escenario_carrito):
     for metodo, ruta in (
         ("PUT", "/tenant/carritos/1/items/1"),
         ("POST", "/tenant/carritos/1/items/1"),
-        ("GET", "/tenant/carritos/1"),
+        ("GET", "/tenant/carritos/1/items"),
         ("PATCH", "/tenant/carritos/0/items/1"),
         ("DELETE", "/tenant/carritos/01"),
         ("DELETE", "/tenant/carritos/1/extra"),
