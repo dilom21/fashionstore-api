@@ -14,7 +14,7 @@ El estudiante confirmó en 5X **`574 passed, 2 warnings in 7.21s`**, cero fallos
 
 - `database/saas/41_b3_p5y_instancia_nativa_NO_EJECUTAR.json`: manifiesto `PLAN_NO_EJECUTAR` con `ejecucion_autorizada=false`, `entorno_autorizado=false`, `operaciones_sql_autorizadas=false` y `limpieza_autorizada=false`. Conserva como referencia **solo nombres de rutas y bases, no secretos ni ID real de clúster**. Destino PROYECTADO `127.0.0.1:55432` y PGDATA `C:\SI2_Parcial1\fashionstore-rls-lab-5v-data`, sin crearlos.
 - `database/saas/29_validar_plan_instancia_nativa_5y.py`: verificador **totalmente offline**. Comprueba puertos, rutas, SCRAM-SHA-256, restricciones de red, compuertas pendientes y flags desactivados. Ni importa la aplicación ni crea motor SQL, proceso, archivo o conexión. Rechaza marcar el plan autorizado o completado sin ejecución posterior aprobada.
-- `tests_saas/test_plan_instancia_pg18_5y.py`: **14 pruebas A/B? No: 14 pruebas unitarias del CONTRATO**, no las 14 pruebas reales de aislamiento A/B aún pendientes. Son pruebas mutacionales sobre JSON, sin PostgreSQL. Suite esperada **`588 passed`** = 574 anteriores +14 nuevas; **no confirmado aún en Windows**.
+- `tests_saas/test_plan_instancia_pg18_5y.py`: **14 pruebas unitarias del CONTRATO (no las 14 pruebas A/B reales)**, no las 14 pruebas reales de aislamiento A/B aún pendientes. Son pruebas mutacionales sobre JSON, sin PostgreSQL. Suite esperada **`588 passed`** = 574 anteriores +14 nuevas; **no confirmado aún en Windows**.
 
 ## 3. Diez compuertas de una ejecución FUTURA
 
@@ -31,7 +31,7 @@ El estudiante confirmó en 5X **`574 passed, 2 warnings in 7.21s`**, cero fallos
 | G08 | Solo en el clúster desechable, revisar grants, revocaciones, policies y triggers; ningún acceso comercial a `usuario.password_hash` ni `EXECUTE PUBLIC` de SP legacy |
 | G09 | Ejecutar realmente los **14 casos A/B** (consulta propia, ajena, `WITH CHECK`, cambio adversarial de GUC, bitácora, integridad, rollback, concurrencia). Documentar también un plan de limpieza, con consentimiento separado para eliminar el laboratorio |
 
-**Reglas no negociables:** Nunca ejecutar `SET ROLE` desde `postgres` del servidor original para simular autenticación SQL de tenant. No importar clientes, contraseñas, ventas, inventario histórico ni filas privadas. No copiar `PGDATA` físico; si en un futuro se necesita esquema, debe partir **exclusivamente del sandbox vacío** por una operación `--schema-only` revisada y expresamente autorizada. No crear roles en el clúster 5432; PostgreSQL gestiona roles a nivel de clúster. No comenzar pruebas reales con una GUC editable como identidad independiente de SQL.
+**Reglas no negociables:** Cada cambio futuro requiere **autorización explícita y separada** para su alcance. Nunca ejecutar `SET ROLE` desde `postgres` del servidor original para simular autenticación SQL de tenant. No importar clientes, contraseñas, ventas, inventario histórico ni filas privadas. No copiar `PGDATA` físico; si en un futuro se necesita esquema, debe partir **exclusivamente del sandbox vacío** por una operación `--schema-only` revisada y expresamente autorizada. No crear roles en el clúster 5432; PostgreSQL gestiona roles a nivel de clúster. No comenzar pruebas reales con una GUC editable como identidad independiente de SQL.
 
 ## 4. Fundamento en documentación de PostgreSQL
 
