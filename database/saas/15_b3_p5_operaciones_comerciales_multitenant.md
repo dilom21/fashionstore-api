@@ -55,6 +55,18 @@ La documentación específica de la siguiente subfase es
 
 Se agregó exclusivamente `POST /tenant/carritos/items` para el perfil de cliente en su empresa, con transacción, validación de inventario y stock disponible, pero sin reservar ni descontar existencias. **Subfase 5B validada:** el estudiante ejecutó `176 passed, 2 warnings in 3.93s` y un preflight PostgreSQL READ ONLY sobre cinco empresas, con `ROLLBACK` y sin modificaciones. Esto **NO prueba una escritura real contra PostgreSQL**. El Paso 5 continúa abierto; no reinterpretar este avance como la habilitación de reservas, ventas, pagos, compras o devoluciones.
 
+## Continuación: subfase 5C de CU15 preparada, PENDIENTE de pytest
+
+Se implementaron `PATCH /tenant/carritos/{carrito_id}/items/{detalle_id}`,
+`DELETE /tenant/carritos/{carrito_id}/items/{detalle_id}` y
+`DELETE /tenant/carritos/{carrito_id}`, siempre con cliente y tenant
+validados, límite de dos horas y sin movimientos de stock. Se agregaron
+27 pruebas nuevas a SQLite en memoria; **todavía no fueron ejecutadas por el
+estudiante**. La guía específica está en
+[`17_b3_p5c_edicion_eliminacion_carrito_tenant.md`](17_b3_p5c_edicion_eliminacion_carrito_tenant.md).
+Aun con esas pruebas aprobadas, el Paso 5 seguirá abierto hasta migrar
+reservas, ventas, pagos, compras, devoluciones y procedimientos transaccionales.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
