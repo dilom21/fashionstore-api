@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5J — Auditoría RLS y preparación de roles/datos ficticios en sandbox
 
-**Estado: preparado en la rama `feat/saas-multitenant-parcial2`, PENDIENTE de ejecutar la auditoría en Windows.** Paso 5 comercial global EN PROCESO; Bloque 3 sigue 4/7. **NO SEED, NO DDL, NO LOGIN, NO creación de roles o políticas, NO CALL de procedimientos en 5J**.
+**Estado: pruebas y ejecución del preflight READ ONLY VALIDADAS; análisis del contenido RLS/GRANTS del informe TEMP todavía PENDIENTE.** Paso 5 comercial global EN PROCESO; Bloque 3 sigue 4/7. **NO SEED, NO DDL, NO LOGIN, NO creación de roles o políticas, NO CALL de procedimientos en 5J**.
 
 ## 1. Punto de partida confirmado
 
@@ -44,7 +44,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado: `370 passed`.** Si falla la suite, detenerse; no ejecutar scripts adicionales.
+**Confirmado en Windows: `370 passed, 2 warnings in 5.91s`, cero fallos.** El informe del script se generó correctamente, pero su contenido detallado aún no se ha proporcionado al chat; sin él no concluir sobre políticas, grants ni columnas.
 
 Si pytest pasa:
 
@@ -59,3 +59,14 @@ El script escribe el informe en `$env:TEMP`, **no modifica nada**. Compartir sal
 ## 6. Criterio de validación y próxima subfase
 
 Al recibir los resultados, documentar qué políticas existen realmente, qué roles/privilegios son apropiados y qué campos exige el seed, sin inventarlos. **5J solo se cerrará como auditoría READ ONLY y diseño**. La creación de roles restringidos y el seed transaccional ficticio requerirán una subfase siguiente, con autorización explícita para escribir SOLO en el sandbox y comprobación de aislamiento con rol sin `BYPASSRLS`. Paso 5 y Bloque 3 seguirán abiertos; detenerse hasta `siguiente`.
+
+
+## 7. Evidencia real recibida de ejecución 5J (sin contenido del informe aún)
+
+El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2` y sincronizó el commit `8844e47`. Ejecutó `python -m pytest -q tests_saas` y obtuvo **`370 passed, 2 warnings in 5.91s`**, 0 fallos; las advertencias son las deprecaciones conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+Ejecutó `17_auditar_roles_rls_y_seed_sandbox_local.ps1` contra `127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`. El SQL informó **`5J PREFLIGHT OK: 46 tablas, 48 FK tenant, cero SP SaaS, sin datos centrales`**; el PowerShell informó **`AUDITORIA 5J SANDBOX READ ONLY COMPLETADA`** y guardó el informe en `$env:TEMP\\fashionstore_5j_rls_roles_columnas_sandbox_LOCAL.txt`, fuera del repositorio.
+
+**Advertencia de alcance:** el log de consola no contiene el detalle de `pg_policies`, privilegios `PUBLIC`, roles reservados, columnas `NOT NULL` y restricciones. Por ello, **no puede afirmarse todavía que se hayan revisado las políticas o que RLS de acceso esté validado**. El informe temporal completo debe ser revisado por el estudiante para evitar divulgar literales sensibles y **adjuntado al chat** antes de decidir los permisos y los datos ficticios. No subir el informe a GitHub.
+
+La subfase **5J superó las pruebas y la auditoría de lectura**, pero queda **pendiente el dictamen del contenido de la auditoría**. No crear roles, insertar semillas, instalar `sp_*_tenant`, ejecutar reservas, alterar `SAAS_AUTH_ENABLED=false`, ni avanzar a la siguiente subfase antes de ese análisis.
