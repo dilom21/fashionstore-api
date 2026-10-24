@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5M — Contrato de identidad y diseño de políticas RLS, **NO EJECUTABLE**
 
-**Estado: PROPUESTA PARA REVISION ESTATICA, sin instalación de SQL ni cambios de autenticación.** Rama `feat/saas-multitenant-parcial2`. Paso 5 de operaciones comerciales sigue EN PROCESO, Bloque 3 4/7.
+**Estado: SUBFASE 5M VALIDADA solo como diseño y revisión estática del contrato de identidad/RLS; ninguna política ni rol aplicado en PostgreSQL.** Rama `feat/saas-multitenant-parcial2`. Paso 5 de operaciones comerciales sigue EN PROCESO, Bloque 3 4/7.
 
 **Prohibido en 5M:** `CREATE ROLE`, `CREATE POLICY`, `GRANT`, `REVOKE`, `ALTER TABLE`, seed, `CALL` o ejecución de tres borradores `sp_*_tenant.sql.txt`; NO modificar BD restaurada, sandbox, Supabase, `main` ni `SAAS_AUTH_ENABLED=false`.
 
@@ -60,7 +60,7 @@ Según la documentación oficial PostgreSQL 18, con RLS activo y ninguna políti
 
 `database/saas/20_revision_estatica_contrato_rls_5m.py` analiza **solo archivos fuente**: flag inactivo, dependencia de JWT+membresía, GUC empresa, listener de transacciones, bloqueo de rutas y borradores `SECURITY INVOKER`; muestra los contratos de seguridad aún pendientes. **No importa FastAPI ni SQLAlchemy, no conecta a BD, no escribe archivos ni lee `.env`.** Una salida con `GUARDA OK` prueba consistencia estática únicamente; **NO certifica RLS**. Los riesgos señalados requieren diseño y pruebas PostgreSQL futuras.
 
-Pruebas adicionales: `tests_saas/test_contrato_confianza_rls_5m.py`, **12 nuevos casos estáticos**, total esperado **412 passed** (400 confirmados anteriores + 12 nuevos), **NO ejecutado por el estudiante todavía**.
+Pruebas adicionales: `tests_saas/test_contrato_confianza_rls_5m.py`, **12 nuevos casos estáticos**; suite completa confirmada en Windows: **`412 passed, 2 warnings in 8.81s`** (400 anteriores + 12 nuevos), cero fallos.
 
 Comandos seguros para el estudiante desde `C:\SI2_Parcial1\fashionstore-api`:
 
@@ -74,4 +74,23 @@ python .\database\saas\20_revision_estatica_contrato_rls_5m.py
 
 ## 7. Estado de cierre
 
-**5M PREPARADA, pendiente de ejecución de la suite/revisor en Windows.** No se han implementado ni probado policies, GRANT, revocaciones, SP ni cuentas SQL restringidas. No modificar `main`, Supabase ni la base restaurada; sandbox sigue sin seed ni SP tenant; `SAAS_AUTH_ENABLED=false`. Paso 5 en proceso (Bloque 3 4/7). Detenerse hasta recibir el resultado y después esperar `siguiente`.
+**5M CERRADA en su alcance documental y estático** tras `412 passed, 2 warnings in 8.81s` y ejecución satisfactoria del revisor (5 guardas OK; 5 bloqueantes de diseño detectados intencionalmente). No se han implementado ni probado policies, GRANT, revocaciones, SP ni cuentas SQL restringidas. No modificar `main`, Supabase ni la base restaurada; sandbox sigue sin seed ni SP tenant; `SAAS_AUTH_ENABLED=false`. Paso 5 en proceso (Bloque 3 4/7). Detenerse hasta recibir el resultado y después esperar `siguiente`.
+
+
+## 8. Evidencia real de cierre 5M recibida en PowerShell
+
+El estudiante sincronizó `feat/saas-multitenant-parcial2` al commit `68a0621` y ejecutó `python -m pytest -q tests_saas`: **`412 passed, 2 warnings in 8.81s`**, cero fallos. Las dos advertencias son las ya conocidas de deprecaciones Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+Ejecutó `python .\\database\\saas\\20_revision_estatica_contrato_rls_5m.py`. La herramienta informó **cinco `GUARDA OK`**: (1) flag SaaS inactivo por defecto, (2) login JWT y comprobación de membresía, (3) contexto empresa establecido solo después de membresía, (4) rutas transaccionales de reserva bloqueadas y (5) tres procedimientos nuevos aún como borradores `SECURITY INVOKER`.
+
+También informó **cinco `BLOQUEANTE DE DISENO`** (diagnósticos esperados, NO fallos de pytest ni excepciones):
+
+1. `bootstrap_login_sin_politicas_definidas`: autorización inicial debe acceder a identidad/membresía antes del tenant.
+2. `actor_auditoria_no_automatizado_en_dependencia_saas`: dependencia de tenant todavía no automatiza `app.usuario_id`.
+3. `actor_no_reaplicado_automaticamente_tras_nueva_transaccion`: listener de SQLAlchemy no repone actor al abrir otra transacción.
+4. `args_sp_no_vinculados_al_principal_sql_autenticado`: argumentos `p_usuario_id`/`p_empresa_id` de SP no demuestran el principal autenticado por sí mismos.
+5. `guc_empresa_no_es_identidad_independiente`: `app.empresa_id` no puede tratarse como autenticación contra SQL arbitrario.
+
+La salida terminó exactamente con `5M ANALISIS DE CODIGO COMPLETADO; RLS REAL TODAVIA NO VALIDADO`. **El revisor no resuelve los cinco bloqueantes**, solo los deja documentados y verifica los cierres vigentes. **No se ejecutó SQL ni se creó/modificó ningún rol, GRANT, policy, seed o SP en el sandbox**; `SAAS_AUTH_ENABLED=false` y endpoints de reservas siguen bloqueados. Los pasos futuros deben resolver el modelo de confianza y ensayar posteriormente RLS con una identidad SQL no privilegiada y datos ficticios, solo tras nueva autorización.
+
+**Decisión:** cerrar 5M como revisión estática y diseño; **Paso 5 comercial EN PROCESO, Bloque 3 en 4/7 pasos**. Mantener `main`, Supabase y base restaurada sin cambios. Esperar que el estudiante diga `siguiente` antes de avanzar a la próxima subfase.
