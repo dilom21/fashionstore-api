@@ -353,3 +353,19 @@ El estudiante actualizó la rama a `ac411b5`, ejecutó `python -m pytest -q test
 - **Implicación:** antes de ensayar SP de reserva de tipo `SECURITY INVOKER`, diseñar permisos INSERT/RLS WITH CHECK seguros para el evento de bitácora (incluido el trigger transitivo), y para UPDATE de `carrito` y movimientos de stock/Kardex; no permitir GUC manipulables como autenticación. Probar cruces A/B, caso sin IP, auditoría inválida y rollback bajo rol sin `BYPASSRLS` SOLO en sandbox y con datos totalmente ficticios cuando se autoricen explícitamente.
 
 **5L CERRADA en alcance de auditoría y diseño**, no como prueba transaccional, RLS o confiabilidad de IP/actor. **Paso 5 global EN PROCESO, Bloque 3 4/7**. No hay roles de ensayo, policies, seed ni SP SaaS instalados; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y base restaurada sin cambios. Guía: [`27_b3_p5l_bitacora_rls_permisos_readonly.md`](27_b3_p5l_bitacora_rls_permisos_readonly.md). Detenerse hasta `siguiente`.
+
+
+## Continuación: subfase 5M — contrato de identidad/RLS y análisis offline (PREPARADO)
+
+Después del cierre 5L con **`400 passed, 2 warnings in 6.48s`** y el informe de bitácora, se revisaron los archivos de autenticación SaaS, listener de transacciones y los tres SP `SECURITY INVOKER` redactados en 5G. Se identificaron **tres BLOQUEADORES de seguridad** antes de configurar policies reales:
+
+1. **Bootstrap de autenticación:** `tenant_router.login_tenant` autentica usuario y obtiene membresía mediante consultas a `usuario`, `usuario_empresa`, `rol`, `empresa`, `suscripcion`, `plan_saas`, perfiles `cliente/empleado` y sucursal **ANTES** de `set_config('app.empresa_id',...)`. Deny-by-default RLS bloquearía login si no existe ruta dedicada de consulta mínima y no recursiva; una policy general `USING(true)` sería insegura.
+2. **Actor y GUC:** `tenant_dependencies` solo aplica `app.empresa_id` centralmente, y `database.after_begin` reaplica tenant e IP, pero no `app.usuario_id` validado. El GUC de actor sirve para auditoría, pero la identidad de la sesión SQL no se demuestra con `set_config`, pues SQL arbitrario puede modificar esos valores.
+3. **Suplantación potencial vía argumentos SQL:** los SP tenant comprueban que `p_usuario_id` sea un miembro válido de `p_empresa_id`, pero no vinculan estos argumentos al principal autenticado de la llamada. Si se concediera CALL a clientes SQL o a una credencial compartida vulnerable, un actor podría proporcionar otro par de IDs con membresía válida. `SECURITY INVOKER` tampoco protege contra ese supuesto de confianza equivocado.
+
+Se prepararon **SIN DDL, SIN MIGRACIONES, SIN DATOS y SIN conexión PostgreSQL**:
+- `28_b3_p5m_contrato_identidad_politicas_rls_no_ejecutable.md`: modelos comparados (bootstrap dedicado, rol SQL de servicio limitado, separación de login y operación, RLS `USING/WITH CHECK`, bitácora, SP, defensa en profundidad y limitaciones de GUC), matriz por tablas y criterios obligatorios de seguridad.
+- `20_revision_estatica_contrato_rls_5m.py`: revisión local del **código fuente solamente**, con guardas de feature flag/routers y lista de dependencias; imprime advertencias y NO importa la API, no lee `.env`, no ejecuta SQL ni instala roles.
+- `tests_saas/test_contrato_confianza_rls_5m.py`: **12 pruebas ESTÁTICAS adicionales**. Suite esperada **`412 passed`** = 400 anteriores + 12; **todavía no ejecutada por el estudiante**.
+
+**5M PENDIENTE de pruebas locales y revisión de salida del revisor**. Los tres borradores `sp_*_tenant.sql.txt` siguen INACTIVOS; no se han creado roles, GRANT, policies ni seed; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y la BD restaurada sin modificaciones. **Paso 5 global EN PROCESO; Bloque 3 4/7.** No habilitar reservas ni avanzar al Paso 6.
