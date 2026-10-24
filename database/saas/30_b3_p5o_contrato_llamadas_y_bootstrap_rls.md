@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5O: Contrato seguro de invocación backend y bootstrap RLS
 
-**Estado: CÓDIGO INERTE PREPARADO EN RAMA FEATURE, PRUEBAS LOCALES PENDIENTES.** Paso 5 comercial EN PROCESO. Bloque 3 4/7. Aún quedan pendientes de resolver y probar los bloqueos de identidad SQL/RLS.
+**Estado: SUBFASE 5O VALIDADA exclusivamente como código inerte, contrato de llamadas y pruebas unitarias.** Paso 5 comercial EN PROCESO. Bloque 3 4/7. Aún quedan pendientes de resolver y probar los bloqueos de identidad SQL/RLS.
 
 ## Alcance protegido
 
@@ -61,7 +61,7 @@ Para exigir resistencia frente a SQL arbitrario, estudiar en una fase futura un 
 
 Nuevo archivo `tests_saas/test_contrato_invocacion_sp_5o.py`: **16 pruebas unitarias aisladas** de construcción de argumentos, contextos válidos e inválidos, IDs, fecha con zona, inmutabilidad del mapa, firmas de borradores y ausencia de operaciones SQL. No crean BD ni llaman procedimientos.
 
-Suite anterior: **424 passed** confirmados. Esperado ahora: **440 passed**; todavía NO validado en Windows.
+Suite anterior: **424 passed** confirmados. **Resultado confirmado en Windows: `440 passed, 2 warnings in 7.17s`**, sin fallos.
 
 ```powershell
 git pull --ff-only origin feat/saas-multitenant-parcial2
@@ -72,4 +72,15 @@ No ejecutar más scripts SQL/psql o automatizaciones en 5O. Si pytest falla, com
 
 ## 6. Estado
 
-**5O PREPARADA**, sin integración ejecutable de reservas ni políticas/roles. **Paso 5 EN PROCESO y Bloque 3 4/7**. `SAAS_AUTH_ENABLED=false`; no alterar `main`, Supabase o bases PostgreSQL. Tras confirmar las pruebas, evaluar cuidadosamente cuál es el próximo cambio mínimo sin credenciales SQL nuevas. Esperar a que el estudiante diga **`siguiente`** antes de avanzar a 5P.
+**5O CERRADA en alcance de contrato Python y pruebas unitarias**, sin integración ejecutable de reservas ni políticas/roles. **Paso 5 EN PROCESO y Bloque 3 4/7**. `SAAS_AUTH_ENABLED=false`; no alterar `main`, Supabase o bases PostgreSQL. Tras confirmar las pruebas, evaluar cuidadosamente cuál es el próximo cambio mínimo sin credenciales SQL nuevas. Esperar a que el estudiante diga **`siguiente`** antes de avanzar a 5P.
+
+
+## 7. Evidencia de ejecución y dictamen de cierre 5O (Windows)
+
+El estudiante sincronizó la rama **`feat/saas-multitenant-parcial2`** con fast-forward `cfa09b0..73e4de8`, ejecutó `python -m pytest -q tests_saas` y obtuvo **`440 passed, 2 warnings in 7.17s`**, con **cero fallos**. Las advertencias son las deprecaciones previamente conocidas en `fastapi.testclient` (Starlette/httpx) y `HTTP_422_UNPROCESSABLE_ENTITY`. No representan fallo de la suite.
+
+Los **16 casos nuevos** de `tests_saas/test_contrato_invocacion_sp_5o.py` validan el armado inerte y parametrizado de los tres `CALL` futuros, su origen en `TenantContext`, la validación de rol/contexto/IDs/fecha y las firmas de los borradores. **Los casos no invocan los SP, no conceden permisos SQL ni demuestran seguridad RLS**. `TenantContext` puede ser instanciado por código y `app.usuario_id`/`app.empresa_id` pueden ser modificados por SQL arbitrario; por tanto, un constructor que obtiene IDs de ese objeto no elimina la posibilidad de suplantación SQL cuando se compromete la conexión. `INOUT p_reserva_id` sigue sin ensayo real PostgreSQL.
+
+**Bloqueos para 5P y siguientes:** (1) definir bootstrap restringido bajo RLS sin facilitar acceso global a `usuario`/membresías, (2) elegir un contrato de identidad SQL comprobable antes de `CALL` real y (3) explicitar el modelo de amenaza frente a GUC mutables/SQL injection, distinguiendo defensa en profundidad del aislamiento ante SQL arbitrario.
+
+**Cierre 5O:** VALIDADA solo como desarrollo inerte y pruebas unitarias locales; **Paso 5 sigue EN PROCESO, Bloque 3 en 4/7**. No se ejecutaron en esta subfase scripts ni operaciones de cambio en PostgreSQL, y no se habilitaron rutas de reservas. `SAAS_AUTH_ENABLED=false`, `main`, Supabase, el sandbox y la base restaurada permanecen fuera del alcance de modificación. **Esperar `siguiente`** antes de la próxima subfase; no solicitar nuevos comandos ahora.
