@@ -88,7 +88,7 @@ SELECT CASE WHEN current_database()='fashionstore_restore_20261023_193554_594'
         throw 'Ya existe un dump temporal con ese nombre. Revisar manualmente.'
     }
     Write-Host 'Exportando SOLO ESQUEMA desde el origen, sin filas...'
-    & $pgdump --host=$servidor --port=$puerto --username=$usuario --dbname=$origen --no-password --schema-only --format=custom --file=$dump
+    & $pgdump --host=$servidor --port=$puerto --username=$usuario --dbname=$origen --no-password --schema-only --schema=public --format=custom --file=$dump
     if ($LASTEXITCODE -ne 0) { throw 'pg_dump schema-only fallo; no se creo base de destino.' }
     # Revisar indice del archivo antes de crear cualquier base: solo objetos
     # del esquema, sin entradas de datos. pg_restore --list no restaura nada.
