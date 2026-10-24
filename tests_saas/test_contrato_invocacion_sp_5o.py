@@ -76,10 +76,10 @@ def test_5o_creacion_rechaza_fecha_sin_zona_horaria():
         )
 
 
-@pytest.mark.parametrize("carrito", [0, -1, True, "123"])
-def test_5o_creacion_rechaza_ids_carrito_invalidos(carrito):
-    with pytest.raises(ValueError):
-        preparar_creacion_reserva(tenant=ficticio(), carrito_id=carrito, fecha_atencion=cita())
+def test_5o_creacion_rechaza_ids_carrito_invalidos():
+    for carrito in (0, -1, True, "123"):
+        with pytest.raises(ValueError):
+            preparar_creacion_reserva(tenant=ficticio(), carrito_id=carrito, fecha_atencion=cita())
 
 
 def test_5o_cancelacion_cliente_toma_usuario_y_empresa_del_contexto():
@@ -99,12 +99,12 @@ def test_5o_cancelacion_personal_administrador():
     assert call.parametros["observacion"] == "Prueba académica"
 
 
-@pytest.mark.parametrize("rol", ["CAJERO", "VISITANTE"])
-def test_5o_cancelacion_rechaza_personal_no_autorizado(rol):
-    with pytest.raises(PermissionError):
-        preparar_cancelacion_reserva(
-            tenant=ficticio(contexto="personal", rol=rol), reserva_id=31,
-        )
+def test_5o_cancelacion_rechaza_personal_no_autorizado():
+    for rol in ("CAJERO", "VISITANTE"):
+        with pytest.raises(PermissionError):
+            preparar_cancelacion_reserva(
+                tenant=ficticio(contexto="personal", rol=rol), reserva_id=31,
+            )
 
 
 def test_5o_finalizacion_personal_cajero():
@@ -128,12 +128,12 @@ def test_5o_constructor_rechaza_contexto_no_tenant():
         preparar_cancelacion_reserva(tenant={"empresa_id": 1, "usuario_id": 2}, reserva_id=3)
 
 
-@pytest.mark.parametrize("empresa,usuario", [(0, 12), (15, False), (-1, 1)])
-def test_5o_constructor_rechaza_identidad_invalida(empresa, usuario):
-    with pytest.raises(ValueError):
-        preparar_cancelacion_reserva(
-            tenant=ficticio(usuario=usuario, empresa=empresa), reserva_id=33,
-        )
+def test_5o_constructor_rechaza_identidad_invalida():
+    for empresa, usuario in ((0, 12), (15, False), (-1, 1)):
+        with pytest.raises(ValueError):
+            preparar_cancelacion_reserva(
+                tenant=ficticio(usuario=usuario, empresa=empresa), reserva_id=33,
+            )
 
 
 def test_5o_parametros_inmutables_para_evitar_sustitucion_tardia():
