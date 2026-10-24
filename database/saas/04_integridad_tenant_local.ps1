@@ -39,7 +39,8 @@ SELECT json_build_object(
  'ventas',(SELECT count(*) FROM public.venta),
  'pagos',(SELECT count(*) FROM public.pago),
  'bitacora',(SELECT count(*) FROM public.bitacora),
- 'fk_compuestas',(SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND c.contype='f' AND c.conname LIKE 'fk_tenant_%')
+ 'fk_compuestas',(SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND c.contype='f' AND c.conname LIKE 'fk_tenant_%'),
+ 'unique_tenant',(SELECT count(*) FROM pg_constraint c JOIN pg_class t ON t.oid=c.conrelid JOIN pg_namespace n ON n.oid=t.relnamespace WHERE n.nspname='public' AND c.contype='u' AND c.conname LIKE 'uq_tenant_%')
 )::text;
 '@
  $antes=Comprobar -SQL $antesSQL
@@ -49,6 +50,7 @@ SELECT json_build_object(
  if ([int]$antes.tablas -ne 46 -or [int]$antes.empresas -ne 1 -or
      [int]$antes.plan_profesional -ne 1 -or [int]$antes.membresias -ne 9 -or
      [int]$antes.triggers -ne 27 -or [int]$antes.fk_compuestas -ne 0 -or
+     [int]$antes.unique_tenant -ne 0 -or
      [int]$antes.ventas -ne 40 -or [int]$antes.pagos -ne 30) {
   throw 'Preverificacion fallida. No se aplico la migracion.'
  }
@@ -73,7 +75,8 @@ SELECT json_build_object(
                      'ventas','pagos','bitacora')) {
   if ($antes.$campo -ne $despues.$campo) { $fallos+="Cambio inesperado en $campo" }
  }
- if ([int]$despues.fk_compuestas -le 30) { $fallos+='Faltan FK tenant compuestas' }
+ if ([int]$despues.fk_compuestas -ne 48) { $fallos+='Se esperaban 48 FK tenant (46 relaciones comerciales + 2 membresias)' }
+ if ([int]$despues.unique_tenant -ne 28) { $fallos+='Se esperaban 28 UNIQUE (empresa_id,id) en tablas con PK id' }
  Write-Host ('DESPUES: '+($despues|ConvertTo-Json -Compress))
  if ($fallos.Count -gt 0) { throw ('Verificacion incompleta: '+($fallos -join '; ')) }
  Write-Host ''
