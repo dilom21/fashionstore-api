@@ -8,6 +8,7 @@ from app.modules.vestidor_virtual.api.router import (
     router as vestidor_virtual_router,
 )
 from app.core.database import engine
+from app.core.saas_route_gate import BloqueoRutasLegacySaaS
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.autenticacion_seguridad.api.tenant_router import router as tenant_auth_router
 from app.modules.bitacora.api.router import router as bitacora_router
@@ -36,6 +37,12 @@ from app.modules.usuarios.api.router import router as usuarios_router
 from app.modules.ventas.api.router import router as ventas_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
+
+# Bloque 3 (paso 1): en modo SaaS no se pueden utilizar endpoints heredados
+# que aun consultan sin empresa_id. Se conserva el contrato legacy cuando el
+# feature flag esta desactivado; las rutas nuevas /auth/tenant permanecen.
+# Este guard se registra antes de CORS para preservar headers de CORS.
+app.add_middleware(BloqueoRutasLegacySaaS)
 
 # CORS habilitado unicamente para el frontend Angular en desarrollo.
 # La autenticacion usa JWT por header Authorization (sin cookies de sesion),
