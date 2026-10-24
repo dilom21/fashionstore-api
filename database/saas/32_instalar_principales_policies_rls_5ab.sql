@@ -17,8 +17,8 @@ BEGIN
      OR session_user <> 'postgres'
      OR current_user <> 'postgres'
      OR current_setting('server_version_num')::int / 10000 <> 18
-     OR replace(current_setting('data_directory'), chr(92), '/')
-       <> 'C:/SI2_Parcial1/fashionstore-rls-lab-5v-data'
+     OR lower(replace(rtrim(current_setting('data_directory'), '/\\'), chr(92), '/'))
+       <> lower('C:/SI2_Parcial1/fashionstore-rls-lab-5v-data')
   THEN
     RAISE EXCEPTION '5AB: identificador de laboratorio o principal incorrectos';
   END IF;
