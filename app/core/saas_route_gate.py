@@ -32,6 +32,17 @@ _RUTAS_CATALOGO_LISTADO = frozenset({
     "/tenant/catalogo/categorias",
     "/tenant/catalogo/productos",
 })
+_RUTAS_CATALOGO_ESCRITURA = frozenset({
+    ("POST", "/tenant/catalogo/categorias"),
+    ("POST", "/tenant/catalogo/productos"),
+})
+_RUTA_CATALOGO_PATCH = re.compile(
+    r"^/tenant/catalogo/(?:categorias|productos|variantes)/[1-9][0-9]*$"
+)
+_RUTA_CATALOGO_POST_VARIANTE = re.compile(
+    r"^/tenant/catalogo/productos/[1-9][0-9]*/variantes$"
+)
+
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
 )
@@ -42,6 +53,12 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         return True
     if metodo == "GET":
         return ruta in _RUTAS_CATALOGO_LISTADO or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
+    if (metodo, ruta) in _RUTAS_CATALOGO_ESCRITURA:
+        return True
+    if metodo == "POST":
+        return _RUTA_CATALOGO_POST_VARIANTE.fullmatch(ruta) is not None
+    if metodo == "PATCH":
+        return _RUTA_CATALOGO_PATCH.fullmatch(ruta) is not None
     return False
 
 
