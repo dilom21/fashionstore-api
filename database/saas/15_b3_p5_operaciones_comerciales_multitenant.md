@@ -118,6 +118,32 @@ Se prepararon:
 
 Esta subfase **ya validó revisión/diseño y extracción de definiciones**, pero **NO implementó ni validó seguridad funcional de reservas**. Los SP vigentes, inventario, RLS y datos restaurados permanecen intactos; `SAAS_AUTH_ENABLED=false`, sin deploy ni escrituras. Esperar confirmación del estudiante antes de diseñar SQL nuevo según las funciones reales.
 
+## Continuación: subfase 5G de CU16/CU17/CU18 preparada (NO INSTALADA)
+
+Tras la revisión real de los cuerpos SQL en 5F, se crearon **tres borradores
+inertes de nuevos SP multitenant** (`.sql.txt`) exclusivamente dentro de
+`database/saas/borradores`. Su código introduce `p_empresa_id`,
+verificación de usuario/membresía/suscripción/perfil o empleado y permisos
+según CU16/CU17/CU18, `empresa_id` explícito en los INSERT y UPDATE,
+control de estados y stock, `FOR UPDATE` sobre recursos propios, Kardex
+y un `REVOKE ... FROM PUBLIC` destinado a la futura migración.
+
+**Los borradores NO se ejecutaron, instalaron ni probaron con PostgreSQL**.
+Se detectó un posible deadlock por el orden desigual de locks entre la
+operación de carrito 5B y el borrador de conversión a reserva; exige
+corrección y prueba dinámica antes de habilitar transacciones. Además,
+quedan por validar permisos efectivos, triggers, RLS y autenticación.
+
+Se incorporaron 40 pruebas **solo estáticas** y un preflight de **solo
+lectura** de columnas, constraints, triggers y rol RLS de PostgreSQL
+local. Pendiente la ejecución en Windows del estudiante, resultado esperado
+`320 passed`; no se declara la subfase completada.
+
+Documento de 5G:
+[`22_b3_p5g_borradores_sp_tenant.md`](22_b3_p5g_borradores_sp_tenant.md).
+El Paso 5 sigue abierto; las reservas reales y ventas/pagos/compras/
+devoluciones continúan bloqueadas en SaaS, sin avance al Paso 6.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
