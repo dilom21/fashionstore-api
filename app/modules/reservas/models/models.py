@@ -4,12 +4,13 @@ from sqlalchemy import BigInteger, DateTime, ForeignKey, Integer, String, Text, 
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.autenticacion_seguridad.models.models import Cliente
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
 
 
-class Reserva(Base):
+class Reserva(EmpresaScopedMixin, Base):
     """Reserva de prendas de un cliente en una sucursal (CU16).
 
     La tabla real ``reserva`` posee:
@@ -50,7 +51,7 @@ class Reserva(Base):
     )
 
 
-class DetalleReserva(Base):
+class DetalleReserva(EmpresaScopedMixin, Base):
     """Linea de reserva: fila de inventario reservada y su cantidad.
 
     La tabla real ``detalle_reserva`` posee:
