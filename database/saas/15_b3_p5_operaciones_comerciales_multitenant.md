@@ -279,9 +279,16 @@ Tras la validación de 5I (suite **357 passed, 2 warnings in 6.37s**, sandbox in
 Archivos nuevos:
 - `17_auditar_roles_rls_y_seed_sandbox_local.sql`: solo sandbox `fashionstore_saas_reservas_sandbox_5h`, `BEGIN TRANSACTION READ ONLY`, guardas 46 tablas / 48 FK / cero SP nuevos / tablas centrales vacías; reporta `pg_policies`, RLS, PUBLIC grants, roles globales con prefijo de ensayo, columnas obligatorias, FK y triggers, `ROLLBACK`.
 - `17_auditar_roles_rls_y_seed_sandbox_local.ps1`: conexión localhost, password local, `default_transaction_read_only=on`, salida de auditoría únicamente al TEMP local de Windows y NO al repositorio.
-- `tests_saas/test_rls_roles_seed_preflight_5j.py`: 13 tests estáticos nuevos; **370 passed esperado, NO ejecutado aún por el estudiante**.
+- `tests_saas/test_rls_roles_seed_preflight_5j.py`: 13 tests estáticos nuevos; **370 passed, 2 warnings in 5.91s** confirmados por el estudiante.
 - `25_b3_p5j_preflight_rls_y_seed_ficticio.md`: criterios de seguridad y diseño preliminar de roles/datos inventados, sin DDL ni DML.
 
 **Advertencia:** `CREATE ROLE` es GLOBAL a todo el clúster PostgreSQL, no solo a una base. En 5J no se crea ninguno; el rol futuro requiere `NOSUPERUSER, NOBYPASSRLS, NOLOGIN` (para ensayo sin autenticación) o un LOGIN restringido autorizado aparte, y grants/políticas sujetos a una inspección previa. No confiar en `postgres` superusuario para pruebas RLS ni conceder BYPASSRLS. El seed futuro usará identidades inventadas, previa revisión de columnas NOT NULL y triggers; **NO SEED en 5J**.
 
-**5J EN PREPARACIÓN/PRUEBAS PENDIENTES; Paso 5 global EN PROCESO; Bloque 3 4/7**. Mantener reservas reales cerradas y `SAAS_AUTH_ENABLED=false`; `main`, Supabase y base restaurada intactos. Esperar salida de PowerShell y el informe TEMP revisado antes de avanzar con roles/datos en sandbox. Guía: [`25_b3_p5j_preflight_rls_y_seed_ficticio.md`](25_b3_p5j_preflight_rls_y_seed_ficticio.md).
+**5J CON PRUEBAS Y AUDITORÍA READ ONLY SUPERADAS; análisis de políticas/permisos del informe TEMP PENDIENTE. Paso 5 global EN PROCESO; Bloque 3 4/7**. Mantener reservas reales cerradas y `SAAS_AUTH_ENABLED=false`; `main`, Supabase y base restaurada intactos. Esperar salida de PowerShell y el informe TEMP revisado antes de avanzar con roles/datos en sandbox. Guía: [`25_b3_p5j_preflight_rls_y_seed_ficticio.md`](25_b3_p5j_preflight_rls_y_seed_ficticio.md).
+
+
+## Evidencia de consola: auditoría 5J ejecutada, informe interno aún sin examinar
+
+El estudiante sincronizó `8844e47` y obtuvo **`370 passed, 2 warnings in 5.91s`** (0 fallos). Ejecutó en PostgreSQL local el preflight `17_auditar_roles_rls_y_seed_sandbox_local.ps1`, que emitió **`5J PREFLIGHT OK: 46 tablas, 48 FK tenant, cero SP SaaS, sin datos centrales`** y **`AUDITORIA 5J SANDBOX READ ONLY COMPLETADA`**. El informe se guardó en TEMP local con el nombre `fashionstore_5j_rls_roles_columnas_sandbox_LOCAL.txt`.
+
+**Todavía NO está disponible el contenido detallado** del archivo de auditoría RLS/roles/privilegios/columnas. Con solo el log se confirma la ejecución de lectura y los contadores indicados, no el aislamiento efectivo RLS ni la compatibilidad del futuro seed. Solicitar al estudiante el archivo TEMP revisado antes de diseñar/autorizarnos a ejecutar roles o datos ficticios. No hubo DDL/DML adicional, no instalar `sp_*_tenant`, no modificar `main`, Supabase ni la base restaurada; mantener `SAAS_AUTH_ENABLED=false`. **5J pendiente del dictamen de contenido, Paso 5 EN PROCESO**.
