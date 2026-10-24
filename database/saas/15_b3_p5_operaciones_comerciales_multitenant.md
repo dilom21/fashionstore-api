@@ -366,6 +366,15 @@ Después del cierre 5L con **`400 passed, 2 warnings in 6.48s`** y el informe de
 Se prepararon **SIN DDL, SIN MIGRACIONES, SIN DATOS y SIN conexión PostgreSQL**:
 - `28_b3_p5m_contrato_identidad_politicas_rls_no_ejecutable.md`: modelos comparados (bootstrap dedicado, rol SQL de servicio limitado, separación de login y operación, RLS `USING/WITH CHECK`, bitácora, SP, defensa en profundidad y limitaciones de GUC), matriz por tablas y criterios obligatorios de seguridad.
 - `20_revision_estatica_contrato_rls_5m.py`: revisión local del **código fuente solamente**, con guardas de feature flag/routers y lista de dependencias; imprime advertencias y NO importa la API, no lee `.env`, no ejecuta SQL ni instala roles.
-- `tests_saas/test_contrato_confianza_rls_5m.py`: **12 pruebas ESTÁTICAS adicionales**. Suite esperada **`412 passed`** = 400 anteriores + 12; **todavía no ejecutada por el estudiante**.
+- `tests_saas/test_contrato_confianza_rls_5m.py`: **12 pruebas ESTÁTICAS adicionales**. Suite completa confirmada por el estudiante: **`412 passed, 2 warnings in 8.81s`** = 400 anteriores + 12, sin fallos.
 
-**5M PENDIENTE de pruebas locales y revisión de salida del revisor**. Los tres borradores `sp_*_tenant.sql.txt` siguen INACTIVOS; no se han creado roles, GRANT, policies ni seed; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y la BD restaurada sin modificaciones. **Paso 5 global EN PROCESO; Bloque 3 4/7.** No habilitar reservas ni avanzar al Paso 6.
+**5M VALIDADA en alcance documental y estático, con 5 guardas OK y 5 bloqueantes de seguridad intencionalmente detectados; pendientes de resolución posterior**. Los tres borradores `sp_*_tenant.sql.txt` siguen INACTIVOS; no se han creado roles, GRANT, policies ni seed; `SAAS_AUTH_ENABLED=false`, `main`, Supabase y la BD restaurada sin modificaciones. **Paso 5 global EN PROCESO; Bloque 3 4/7.** No habilitar reservas ni avanzar al Paso 6.
+
+
+## Evidencia final 5M: 412 pruebas y contrato de confianza RLS (NO implementado)
+
+El estudiante sincronizó la rama feature a `68a0621` y ejecutó en Windows `python -m pytest -q tests_saas`: **`412 passed, 2 warnings in 8.81s`**, 0 fallos. El revisor offline `20_revision_estatica_contrato_rls_5m.py` produjo 5 `GUARDA OK` (flag SaaS inactivo, login con token+membresía, contexto establecido después de autorizar empresa, gate de reservas cerrado y 3 SP tenant inactivos `SECURITY INVOKER`).
+
+Informó **5 `BLOQUEANTE DE DISENO` esperados**: `bootstrap_login_sin_politicas_definidas`, `actor_auditoria_no_automatizado_en_dependencia_saas`, `actor_no_reaplicado_automaticamente_tras_nueva_transaccion`, `args_sp_no_vinculados_al_principal_sql_autenticado` y `guc_empresa_no_es_identidad_independiente`. Terminó con `5M ANALISIS DE CODIGO COMPLETADO; RLS REAL TODAVIA NO VALIDADO`. Estos bloqueantes **no son fallos de pytest y NO están corregidos**; son riesgos de diseño pendientes antes de crear policies `USING/WITH CHECK`, rol SQL restringido o instalar SP tenant.
+
+**5M CERRADA** solo como auditoría estática/diseño de autenticación y RLS, sin ejecutar SQL en PostgreSQL ni crear roles, policies, grants, seed o SP nuevos. El Paso 5 comercial sigue EN PROCESO y Bloque 3 en **4/7 pasos**. `SAAS_AUTH_ENABLED=false` y rutas comerciales transaccionales bloqueadas. `main`, Supabase y BD restaurada sin modificaciones. Informe detallado: [`28_b3_p5m_contrato_identidad_politicas_rls_no_ejecutable.md`](28_b3_p5m_contrato_identidad_politicas_rls_no_ejecutable.md). No avanzar a otra subfase hasta `siguiente`.
