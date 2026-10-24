@@ -7,7 +7,7 @@
 ## Hallazgo arquitectónico
 Los flujos de CU15–CU25 involucran inventario, reservas, ventas, cobros, devoluciones y procedimientos almacenados/triggers de PostgreSQL. Habilitar directamente las rutas heredadas o reproducir precipitadamente esos procedimientos en Python crearía riesgo de operaciones cruzadas, inventario inconsistente, doble pago y auditoría incompleta. En la base PostgreSQL local del Bloque 2 las 48 FK tenant refuerzan la integridad, pero no impiden una lectura `SELECT` sin filtro de empresa.
 
-**Decisión:** migrar primero el acceso de consulta y prevalidación de propietario de los seis dominios. Las operaciones transaccionales (POST/PATCH de carrito, stock, reserva, venta, pago, compra, devolución) siguen **bloqueadas (503)** en modo SaaS hasta diseñar su transacción y probar los procedimientos `sp_*` con contexto tenant. Esto NO completa todavía los casos de uso comerciales en SaaS.
+**Decisión:** migrar primero el acceso de consulta y prevalidación de propietario de los seis dominios. Las transacciones de reserva, venta, pago, compra, devolución y movimiento de stock siguen **bloqueadas (503)** en modo SaaS. Solo se habilitaron las operaciones CU15 de carrito con validación tenant propias de las subfases 5B/5C; todavía necesitan integración PostgreSQL y revisión transaccional completa. Esto NO completa todavía los casos de uso comerciales en SaaS.
 
 ## Cambios implementados en esta fase
 1. `app/core/tenant_commercial.py`: `TenantComercialRepository` de lectura con SQLAlchemy Core, tenant obligatorio positivo, `INNER JOIN` de padres con `padre.empresa_id = empresa_id` y `hija.empresa_id = empresa_id`. No admite un tipo de recurso arbitrario: catálogo cerrado de seis familias.
@@ -66,7 +66,7 @@ validados, límite de dos horas y sin movimientos de stock. Se agregaron
 Aun con esas pruebas aprobadas, el Paso 5 seguirá abierto hasta migrar
 reservas, ventas, pagos, compras, devoluciones y procedimientos transaccionales.
 
-## Continuación: subfase 5D de CU15 preparada, pendiente de pytest
+## Continuación: subfase 5D de CU15 VALIDADA en SQLite
 
 Se implementó la **lectura exclusiva del carrito por el propio cliente**:
 `GET /tenant/carritos` y `GET /tenant/carritos/{carrito_id}`. Ambos exigen
@@ -75,8 +75,7 @@ completa de las líneas. Solo realizan `SELECT`, sin expirar carritos ni
 modificar stock; rechazan con 409 un carrito con referencias cruzadas
 deliberadamente corruptas, sin mostrar información parcial.
 
-Se añadieron 28 pruebas nuevas al fixture SQLite ficticio. **Todavía no
-fueron ejecutadas por el estudiante**. Consultar
+Se añadieron 28 pruebas nuevas al fixture SQLite ficticio. **El estudiante las ejecutó y obtuvo `231 passed, 2 warnings in 5.16s`**, 0 fallos. Consultar
 [`18_b3_p5d_lectura_carritos_cliente.md`](18_b3_p5d_lectura_carritos_cliente.md).
 El Paso 5 continúa en proceso; **no abrir reservas, pagos, ventas ni otros
 procedimientos** hasta validarlos con PostgreSQL de forma segura.
@@ -97,10 +96,14 @@ La ejecución de `08_verificar_consultas_comerciales_local.ps1` confirmó conexi
 
 **Valores efectivamente observados:** `vanter-men` tiene 48 carritos, 11 reservas, 40 ventas, 30 pagos, 4 órdenes de compra y 4 devoluciones. `denim-house`, `elegancia-sur`, `sportline` y `urbanwear` tienen 0 registros en cada una de las seis tablas. El SQL finalizó con `ROLLBACK` y PowerShell informó `AUDITORIA COMERCIAL LOCAL SUPERADA (SIN ESCRITURAS)`.
 
-**Resultado del Paso 5:** se han validado las subfases **5A (lectura administrativa y pertenencia), 5B (alta de líneas de carrito en SQLite) y 5C (modificación y eliminación de carrito en SQLite)**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
+**Resultado del Paso 5:** se han validado las subfases **5A (lectura administrativa y pertenencia), 5B (alta de líneas de carrito en SQLite), 5C (modificación y eliminación de carrito en SQLite) y 5D (lectura del carrito del propio cliente en SQLite)**. El Paso 5 sigue **EN PROCESO**, y el Bloque 3 permanece en **4/7 pasos finalizados**, hasta adaptar y probar las transacciones de los seis módulos. La evidencia no verifica RLS con rol sin `BYPASSRLS`, ni operaciones financieras, ni login real contra PostgreSQL con cuentas demo. Quedan prohibidos los despliegues y la activación de `SAAS_AUTH_ENABLED`.
 
-**Siguiente intervención:** cuando el estudiante escriba `siguiente`, continuar exclusivamente dentro del Paso 5, comenzando por diseño/validación de transacciones del carrito o inventario. No saltar al Paso 6.
+**Siguiente intervención:** cuando el estudiante escriba `siguiente`, continuar exclusivamente dentro del Paso 5, comenzando por revisión de reglas, dependencias y transacciones de reserva sobre PostgreSQL sin cambios remotos. No saltar al Paso 6.
 
 ## Evidencia incorporada de la subfase 5C
 
 El estudiante sincronizó la rama feature hasta `cacaa06` y ejecutó `python -m pytest -q tests_saas` con **203 pruebas aprobadas, 0 fallos y 2 advertencias deprecatorias en 4.77 s**. No se realizó ninguna escritura o prueba nueva en PostgreSQL durante esta subfase. Las 48 FK y la coherencia de stock de la copia local habían sido verificadas previamente mediante el preflight de solo lectura 5B. La subfase 5C se da por validada **solo en su alcance probado**. El Paso 5 sigue EN PROCESO hasta finalizar reservas, ventas, pagos, compras, devoluciones y ensayos PostgreSQL pertinentes.
+
+## Evidencia incorporada de la subfase 5D
+
+El estudiante actualizó mediante `git pull --ff-only` hasta `de12222` y ejecutó `python -m pytest -q tests_saas` con **231 passed, 2 warnings in 5.16s**. Las 28 pruebas nuevas comprueban lectura aislada de carrito y líneas, paginación, subtotales y ausencia de mutaciones con identidades empresariales ficticias. **No se ejecutaron operaciones PostgreSQL en 5D.** El Paso 5 sigue EN PROCESO porque aún no están migradas y comprobadas las transacciones de reservas, ventas, pagos, compras, devoluciones y RLS/integración PostgreSQL con rol sin `BYPASSRLS`.
