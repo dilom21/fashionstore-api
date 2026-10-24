@@ -11,6 +11,7 @@ from app.core.database import engine
 from app.core.saas_route_gate import BloqueoRutasLegacySaaS
 from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.autenticacion_seguridad.api.tenant_router import router as tenant_auth_router
+from app.modules.catalogo.api.tenant_router import router as tenant_catalogo_router
 from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
 from app.modules.catalogo.api.router import router as catalogo_router
@@ -68,6 +69,8 @@ app.include_router(inventario_router)
 app.include_router(auth_router)
 # Modo SaaS apagado por defecto; rutas nuevas devuelven 503 hasta migrar DB.
 app.include_router(tenant_auth_router)
+# Lecturas de catalogo con empresa_id obligatorio desde el JWT.
+app.include_router(tenant_catalogo_router)
 app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
