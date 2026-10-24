@@ -8,6 +8,8 @@ y endpoints publicos estaticos mientras se migran los routers por etapas.
 No es reemplazo de RLS ni de autorizacion tenant en cada servicio.
 Con SAAS_AUTH_ENABLED=false conserva el comportamiento del primer parcial.
 """
+import re
+
 from starlette.responses import JSONResponse
 from starlette.types import ASGIApp, Receive, Scope, Send
 
@@ -22,6 +24,25 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/auth/tenant/me"),
     }
 )
+
+
+# Solo rutas NUEVAS con dependencia tenant obligatoria. No usar startswith,
+# ya que permitiria subrutas no auditadas y acceso a endpoints legacy.
+_RUTAS_CATALOGO_LISTADO = frozenset({
+    "/tenant/catalogo/categorias",
+    "/tenant/catalogo/productos",
+})
+_RUTAS_CATALOGO_DETALLE = re.compile(
+    r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
+)
+
+
+def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
+    if _ruta_saas_permitida(metodo, ruta):
+        return True
+    if metodo == "GET":
+        return ruta in _RUTAS_CATALOGO_LISTADO or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
+    return False
 
 
 class BloqueoRutasLegacySaaS:
