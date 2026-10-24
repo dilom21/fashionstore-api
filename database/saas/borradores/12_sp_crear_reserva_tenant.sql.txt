@@ -1,0 +1,168 @@
+-- BORRADOR 5G / CU16 — NO EJECUTAR. NO es migracion ni script de psql.
+-- Depende de validacion con PostgreSQL aislado, triggers, permisos y RLS.
+-- No usar en Supabase ni en BD restaurada. Mantener legacy bloqueado.
+-- SQL propuesto para futura instalacion por DBA, sin GRANT a PUBLIC.
+CREATE OR REPLACE PROCEDURE public.sp_crear_reserva_tenant(
+    IN p_empresa_id bigint,
+    IN p_carrito_id bigint,
+    IN p_usuario_id bigint,
+    IN p_fecha_atencion timestamptz,
+    IN p_observacion text,
+    INOUT p_reserva_id bigint
+)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO public, pg_temp
+AS $sp_reserva_tenant$
+DECLARE
+    v_carrito record;
+    v_detalle record;
+    v_inventario record;
+    v_total integer;
+    v_validas integer;
+    v_rol_id bigint;
+BEGIN
+    IF p_empresa_id IS NULL OR p_empresa_id <= 0
+       OR p_usuario_id IS NULL OR p_usuario_id <= 0
+       OR p_carrito_id IS NULL OR p_carrito_id <= 0 THEN
+        RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+    END IF;
+    IF p_fecha_atencion IS NULL OR p_fecha_atencion <= clock_timestamp() THEN
+        RAISE EXCEPTION 'Fecha de atencion invalida' USING ERRCODE='22007';
+    END IF;
+
+    -- Fijar membresia y suscripcion durante la operacion, no confiar en JSON.
+    SELECT ue.rol_id INTO v_rol_id
+    FROM public.usuario_empresa ue
+    JOIN public.usuario u ON u.id=ue.usuario_id AND u.estado IS TRUE
+    JOIN public.empresa e ON e.id=ue.empresa_id AND e.estado IS TRUE
+    JOIN public.rol r ON r.id=ue.rol_id AND r.estado IS TRUE
+    JOIN public.suscripcion ss ON ss.empresa_id=e.id AND ss.estado='ACTIVA'
+    JOIN public.plan_saas pl ON pl.id=ss.plan_saas_id
+    WHERE ue.empresa_id=p_empresa_id AND ue.usuario_id=p_usuario_id
+      AND ue.estado IS TRUE AND r.nombre='CLIENTE'
+      AND pl.estado IS TRUE AND pl.permite_reservas IS TRUE
+      AND (clock_timestamp() AT TIME ZONE 'America/La_Paz')::date
+          BETWEEN ss.fecha_inicio AND ss.fecha_vencimiento
+    FOR SHARE OF ue, ss;
+    IF v_rol_id IS NULL THEN
+        RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+    END IF;
+
+    -- El bloqueo de carrito serializa conversiones del mismo carrito.
+    SELECT ca.id,ca.cliente_id,ca.sucursal_id,ca.estado,ca.fecha_actualizacion
+    INTO v_carrito
+    FROM public.carrito ca
+    JOIN public.cliente cl ON cl.id=ca.cliente_id
+       AND cl.empresa_id=p_empresa_id AND cl.usuario_id=p_usuario_id
+       AND cl.estado IS TRUE
+    JOIN public.sucursal su ON su.id=ca.sucursal_id
+       AND su.empresa_id=p_empresa_id AND su.estado IS TRUE
+    WHERE ca.id=p_carrito_id AND ca.empresa_id=p_empresa_id
+    FOR UPDATE OF ca;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Carrito no encontrado' USING ERRCODE='P0002';
+    END IF;
+    IF v_carrito.estado <> 'ACTIVO'
+       OR v_carrito.fecha_actualizacion IS NULL
+       OR v_carrito.fecha_actualizacion <= clock_timestamp()-interval '2 hours' THEN
+        RAISE EXCEPTION 'Carrito vencido o no activo' USING ERRCODE='23514';
+    END IF;
+    IF EXISTS(SELECT 1 FROM public.reserva re WHERE re.carrito_id=p_carrito_id) THEN
+        RAISE EXCEPTION 'Carrito ya reservado' USING ERRCODE='23505';
+    END IF;
+
+    SELECT count(*) INTO v_total FROM public.detalle_carrito dc
+       WHERE dc.carrito_id=p_carrito_id;
+    IF v_total=0 THEN
+        RAISE EXCEPTION 'Carrito sin prendas' USING ERRCODE='23514';
+    END IF;
+    -- No se aceptan lineas rotas ni relaciones entre empresas: contar TODAS.
+    SELECT count(*) INTO v_validas
+    FROM public.detalle_carrito dc
+    JOIN public.inventario i ON i.id=dc.inventario_id
+       AND i.empresa_id=p_empresa_id AND i.sucursal_id=v_carrito.sucursal_id
+    JOIN public.variante_producto vp ON vp.id=i.variante_producto_id
+       AND vp.empresa_id=p_empresa_id AND vp.estado IS TRUE
+    JOIN public.producto pr ON pr.id=vp.producto_id
+       AND pr.empresa_id=p_empresa_id AND pr.estado IS TRUE
+    JOIN public.categoria cat ON cat.id=pr.categoria_id
+       AND cat.empresa_id=p_empresa_id AND cat.estado IS TRUE
+    JOIN public.temporada tem ON tem.id=i.temporada_id AND tem.empresa_id=p_empresa_id
+    JOIN public.talla ta ON ta.id=vp.talla_id AND ta.estado IS TRUE
+    JOIN public.color co ON co.id=vp.color_id AND co.estado IS TRUE
+    WHERE dc.carrito_id=p_carrito_id AND dc.empresa_id=p_empresa_id
+      AND dc.cantidad > 0;
+    IF v_total<>v_validas THEN
+        RAISE EXCEPTION 'Lineas empresariales inconsistentes' USING ERRCODE='23514';
+    END IF;
+
+    -- Sin COMMIT interno. Un fallo posterior revierte TODA la reserva.
+    INSERT INTO public.reserva (
+        empresa_id, cliente_id, sucursal_id, carrito_id,
+        fecha_reserva, fecha_atencion, estado, observacion
+    ) VALUES (
+        p_empresa_id, v_carrito.cliente_id, v_carrito.sucursal_id,
+        p_carrito_id, clock_timestamp(), p_fecha_atencion, 'PENDIENTE', p_observacion
+    ) RETURNING id INTO p_reserva_id;
+
+    -- Orden estable de locks contra competencia por distintos carritos.
+    FOR v_detalle IN
+        SELECT dc.inventario_id,dc.cantidad
+        FROM public.detalle_carrito dc
+        WHERE dc.carrito_id=p_carrito_id AND dc.empresa_id=p_empresa_id
+        ORDER BY dc.inventario_id
+    LOOP
+        SELECT i.stock_actual,i.stock_reservado
+        INTO v_inventario
+        FROM public.inventario i
+        WHERE i.id=v_detalle.inventario_id
+          AND i.empresa_id=p_empresa_id
+          AND i.sucursal_id=v_carrito.sucursal_id
+        FOR UPDATE OF i;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Inventario no disponible' USING ERRCODE='23514';
+        END IF;
+        IF v_detalle.cantidad <= 0 OR v_detalle.cantidad IS NULL
+           OR v_detalle.cantidad > v_inventario.stock_actual-v_inventario.stock_reservado THEN
+            RAISE EXCEPTION 'Stock insuficiente' USING ERRCODE='23514';
+        END IF;
+
+        UPDATE public.inventario i
+        SET stock_reservado=i.stock_reservado+v_detalle.cantidad,
+            fecha_actualizacion=clock_timestamp()
+        WHERE i.id=v_detalle.inventario_id AND i.empresa_id=p_empresa_id
+          AND i.sucursal_id=v_carrito.sucursal_id
+          AND i.stock_actual-i.stock_reservado>=v_detalle.cantidad;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'Stock cambiado concurrentemente' USING ERRCODE='23514';
+        END IF;
+
+        INSERT INTO public.detalle_reserva (
+            empresa_id, reserva_id, inventario_id, cantidad
+        ) VALUES (
+            p_empresa_id, p_reserva_id, v_detalle.inventario_id, v_detalle.cantidad
+        );
+        INSERT INTO public.movimiento_inventario (
+            empresa_id, inventario_id, usuario_id, tipo, cantidad,
+            fecha_hora, observaciones, referencia_tipo, referencia_id
+        ) VALUES (
+            p_empresa_id,v_detalle.inventario_id,p_usuario_id,'RESERVA',
+            v_detalle.cantidad,clock_timestamp(),'Stock reservado para cliente',
+            'RESERVA',p_reserva_id
+        );
+    END LOOP;
+
+    UPDATE public.carrito ca
+    SET estado='CONVERTIDO',fecha_actualizacion=clock_timestamp()
+    WHERE ca.id=p_carrito_id AND ca.empresa_id=p_empresa_id
+      AND ca.cliente_id=v_carrito.cliente_id AND ca.estado='ACTIVO';
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Carrito modificado concurrentemente' USING ERRCODE='23514';
+    END IF;
+END;
+$sp_reserva_tenant$;
+
+-- Si se instala en una migracion FUTURA, revocar EXECUTE a PUBLIC
+-- en la MISMA transaccion y conceder exclusivamente al rol API no-BYPASSRLS.
+-- NO incluir GRANT antes de conocer el rol real y comprobar RLS.
