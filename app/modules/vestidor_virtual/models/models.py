@@ -26,6 +26,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 
 # Se importan para que SQLAlchemy registre las entidades referenciadas por las
 # ForeignKey y las relaciones (el modulo no debe asumir que otro import ya las
@@ -37,7 +38,7 @@ from app.modules.catalogo.models.models import (  # noqa: F401
 )
 
 
-class ConfiguracionVestidorAR(Base):
+class ConfiguracionVestidorAR(EmpresaScopedMixin, Base):
     """Configuracion AR de un ``recurso_producto`` (CU26).
 
     Restricciones reales de la tabla:
@@ -72,7 +73,7 @@ class ConfiguracionVestidorAR(Base):
     recurso: Mapped["RecursoProducto"] = relationship()
 
 
-class SesionVestidorAR(Base):
+class SesionVestidorAR(EmpresaScopedMixin, Base):
     """Sesion de vestidor virtual de un CLIENTE (CU26).
 
     Restricciones reales de la tabla:
@@ -101,7 +102,7 @@ class SesionVestidorAR(Base):
     )
 
 
-class PruebaVestidorAR(Base):
+class PruebaVestidorAR(EmpresaScopedMixin, Base):
     """Prueba de una prenda dentro de una sesion de vestidor (CU26).
 
     Restricciones reales de la tabla:
