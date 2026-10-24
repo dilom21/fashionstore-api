@@ -3,8 +3,32 @@
 La consulta usa SQL parametrizado, nunca concatenacion de IDs o slugs.
 Requiere la expansion del esquema empresarial del paso posterior.
 """
+from dataclasses import dataclass, field
+
 from sqlalchemy import text
 from sqlalchemy.orm import Session
+
+
+@dataclass(frozen=True, slots=True)
+class CredencialesBootstrapTenant:
+    """Hash solo para verificar Argon2 en backend; nunca incluir en HTTP/JWT."""
+
+    usuario_id: int
+    password_hash: str = field(repr=False)
+
+
+# 5R: lectura mínima antes de conocer la empresa; no carga Usuario ORM,
+# Rol ni otras columnas. No exponer esta consulta a clientes SQL directos.
+# AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquí.
+_SQL_CREDENCIALES_BOOTSTRAP_TENANT = text(
+    """
+    SELECT u.id AS usuario_id, u.password_hash
+    FROM public.usuario AS u
+    WHERE u.correo = :correo
+      AND u.estado IS TRUE
+    LIMIT 2
+    """
+)
 
 _SQL_CONTEXTO_TENANT = text(
     """
@@ -57,6 +81,32 @@ _SQL_CONTEXTO_TENANT = text(
 
 
 class TenantAuthRepository:
+    @staticmethod
+    def obtener_credenciales_bootstrap(
+        db: Session, correo: str
+    ) -> CredencialesBootstrapTenant | None:
+        """Proyección mínima: solo usuario_id/hash; sin seleccionar el ORM entero.
+
+        La contraseña se verifica en AuthService, nunca aquí.
+        Los permisos de tabla/columna y RLS para un rol bootstrap REAL
+        siguen pendientes; SQL parametrizado no sustituye esos controles.
+        """
+        correo_normalizado = correo.strip().lower()
+        if not correo_normalizado:
+            return None
+        rows = db.execute(
+            _SQL_CREDENCIALES_BOOTSTRAP_TENANT,
+            {"correo": correo_normalizado},
+        ).mappings().all()
+        # Fail closed: un usuario activo por correo como máximo.
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        return CredencialesBootstrapTenant(
+            usuario_id=int(row["usuario_id"]),
+            password_hash=str(row["password_hash"]),
+        )
+
     @staticmethod
     def obtener_membresia_vigente(
         db: Session,
