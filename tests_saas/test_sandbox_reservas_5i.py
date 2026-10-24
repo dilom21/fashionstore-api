@@ -77,6 +77,7 @@ def test_5i_preparador_solo_lee_fuente_sin_ejecutar_sp():
     ps = CREAR.read_text(encoding="utf-8")
     assert "default_transaction_read_only=on" in ps
     assert "--schema-only" in ps
+    assert "--schema=public" in ps
     assert "--template=template0" in ps
     assert "--no-owner --no-acl" in ps
     assert "CALL public." not in ps
