@@ -154,3 +154,8 @@ END;
 $sp_cancelar_tenant$;
 
 -- Borrador inerte. No ejecutar. Sin concesion EXECUTE.
+
+-- OBLIGATORIO al instalar mas adelante: CREATE y REVOKE en la MISMA
+-- transaccion; PostgreSQL concede EXECUTE a PUBLIC por defecto.
+REVOKE ALL ON PROCEDURE public.sp_cancelar_reserva_tenant(bigint,bigint,bigint,text) FROM PUBLIC;
+-- No se ha elegido el rol API minimo ni se ha otorgado GRANT.
