@@ -173,7 +173,7 @@ def test_modo_saas_bloquea_urls_legacy_y_metodos_no_migrados(cliente_tenant):
     client, _ = cliente_tenant
     for ruta in ("/productos", "/categorias", "/productos/2002", "/openapi.json"):
         assert client.get(ruta).status_code == 503
-    assert client.post("/tenant/catalogo/productos", json={}).status_code == 503
+    assert client.put("/tenant/catalogo/productos", json={}).status_code == 503
     assert client.get("/tenant/catalogo/productos/2002/extra").status_code == 503
 
 
