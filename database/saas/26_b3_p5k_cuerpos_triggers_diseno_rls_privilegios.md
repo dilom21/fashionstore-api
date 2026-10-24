@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5K — Cuerpos de triggers y diseño de permisos RLS (SOLO LECTURA)
 
-**Estado: PREPARADO, pendiente de pruebas Windows y del informe SQL completo.** Paso 5 sigue EN PROCESO (Bloque 3 4/7). Rama exclusiva `feat/saas-multitenant-parcial2`.
+**Estado: SUBFASE 5K VALIDADA exclusivamente como tests estáticos, auditoría READ ONLY y análisis de cuerpos reales de triggers/permisos.** Paso 5 sigue EN PROCESO (Bloque 3 4/7). Rama exclusiva `feat/saas-multitenant-parcial2`.
 
 **Prohibiciones 5K:** NO crear roles, usuarios, GRANT, REVOKE, CREATE POLICY, ENABLE/DISABLE RLS, migraciones, seed ficticio, SP ni invocaciones CALL. No tocar `main`, Supabase o la base restaurada `fashionstore_restore_20261023_193554_594`; preservar `SAAS_AUTH_ENABLED=false`. Toda comprobación SQL es en `127.0.0.1:5432 / fashionstore_saas_reservas_sandbox_5h`, exclusivamente READ ONLY y ROLLBACK.
 
@@ -71,7 +71,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado y NO confirmado: `384 passed`** = 370 anteriores + 14 verificaciones estáticas de 5K.
+**Resultado observado en Windows: `384 passed, 2 warnings in 6.05s`, cero fallos** = 370 anteriores + 14 verificaciones estáticas de 5K.
 
 Solo si pytest pasa:
 
@@ -85,4 +85,38 @@ No ejecutar `CREATE ROLE`, `GRANT`, `CREATE POLICY`, `INSERT`, `CALL`, ni `sp_*_
 
 ## 6. Criterio de cierre de 5K
 
-Se marcará como validada **solo** la preparación de modelo de seguridad + extracción READ ONLY de código de triggers cuando se reciban las pruebas `384 passed` y el contenido del informe sea analizado. Hasta entonces 5K EN PROCESO, Paso 5 EN PROCESO, Bloque 3 4/7. No ejecutar cambios en el sandbox hasta que el siguiente paso sea expresamente autorizado; esperar `siguiente`.
+**5K VALIDADA dentro del alcance estático/read-only y con informe SQL analizado**: recibidos `384 passed`, auditoría 5K READ ONLY completada y cuerpos originales examinados. El Paso 5 sigue EN PROCESO, Bloque 3 4/7. No ejecutar cambios en el sandbox hasta autorización explícita en una subfase posterior; esperar `siguiente`.
+
+## 7. RESULTADO REAL 5K: análisis de la auditoría íntegra (sin escrituras)
+
+Se recibió salida de Windows después de fast-forward de `8844e47` a `89dfea6` y `python -m pytest -q tests_saas`: **`384 passed, 2 warnings in 6.05s`**, cero fallos. Las dos advertencias conocidas son Starlette/httpx y el nombre de `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+El estudiante ejecutó `18_auditar_cuerpos_triggers_y_privilegios_sandbox.ps1` EXCLUSIVAMENTE en `127.0.0.1:5432 / fashionstore_saas_reservas_sandbox_5h`. El SQL informó `5K PREFLIGHT OK: sandbox, 46 tablas, 48 FK, 0 policies, 0 SP tenant, sin seed principal`; la auditoría terminó con `ROLLBACK`, `AUDITORIA 5K SANDBOX READ ONLY COMPLETADA` y un reporte TEMP revisado y adjuntado por el estudiante. No se ejecutó ninguna función de trigger ni se instaló SP.
+
+### 7.1 Resultado de las seis funciones reales referenciadas por diez triggers
+
+- `fn_registrar_bitacora()` (5 triggers sobre `cliente`, `inventario`, `reserva`, `sucursal`, `usuario`): **SECURITY INVOKER**, `search_path=public, pg_temp`, propietario `postgres`. Recoge `app.usuario_id` desde `current_setting(...,TRUE)` y toma `empresa_id` del JSON de `NEW/OLD`; escribe `public.bitacora` en el mismo flujo. **Riesgo pendiente:** el parámetro `app.usuario_id` es modificable por sesiones SQL; su valor no prueba identidad ni pertenencia a empresa. El rol real necesitará permisos/política compatibles para escribir `bitacora`; inspeccionar su RLS y grants específicos. En tablas de identidad global `usuario`, `empresa_id` puede quedar NULL, situación esperada por el cuerpo.
+- `fn_actualizar_actividad_carrito()`: **SECURITY INVOKER**, **sin `SET search_path` propio**, propietario `postgres`. Tras INSERT/UPDATE/DELETE en `detalle_carrito` ejecuta `UPDATE public.carrito SET fecha_actualizacion=NOW() WHERE id=v_carrito_id`. La modificación lateral exige UPDATE permitido a `carrito` según rol/policy y altera el **orden efectivo de bloqueos**; ensayar RLS y deadlocks con CU15 y CU16 antes de operar.
+- `fn_validar_sucursal_detalle_carrito()`: **SECURITY INVOKER**, **sin `SET search_path` propio** (cuerpo referencia `public.carrito` y `public.inventario`). Verifica que exista carrito e inventario y que `sucursal_id` coincida, pero NO valida por sí sola `empresa_id`. Las FK compuestas tenant presentes complementan esta protección; no asumir que el trigger por sí solo garantiza aislamiento.
+- `fn_validar_detalle_reserva_sucursal()`: **SECURITY INVOKER**, `search_path=public, pg_temp`. Compara `sucursal_id` de reserva/inventario sin revisar expresamente tenant. Las FK compuestas `(empresa_id, id)` cubren integridad de referencias, no SELECT permitido al rol.
+- `fn_controlar_actualizacion_inventario()`: **SECURITY INVOKER**, `search_path=public, pg_temp`. Prohíbe alterar `sucursal_id`, `variante_producto_id` y `temporada_id`; actualiza timestamp si cambia `stock_actual` o `stock_reservado`. **No prohíbe explícitamente cambiar `empresa_id`**, ni valida por sí sola autorización o incremento/reserva legítimos; CHECK y RLS/grants/negocio son controles independientes.
+- `fn_normalizar_correo_usuario()`: **SECURITY INVOKER**, `search_path=public, pg_temp`; obliga correo no vacío y normaliza usando `LOWER(BTRIM(...))`. Con `usuario.correo` UNIQUE, los correos ficticios deben ser únicos incluso tras normalización.
+
+**Las seis funciones tienen `prosecdef=f` y owner `postgres`; ninguna de estas seis es `SECURITY DEFINER`.** Los dos triggers sin `search_path` fijado son los de actividad del carrito y validación de sucursal de detalle de carrito. No ejecutar ni modificar cuerpos aún.
+
+### 7.2 Privilegios efectivos y riesgo de rutinas heredadas
+
+- Sección `3_ROUTINE_EXECUTE_PUBLIC`: **10/10 rutinas examinadas con `execute_public=t`**, de las cuales son las 6 funciones de trigger y **4 procedimientos antiguos**: `sp_cancelar_reserva`, `sp_crear_reserva`, `sp_crear_reserva_desde_carrito` y `sp_finalizar_reserva_sin_compra`. Todos figuran con `prosecdef=f` y propietario `postgres`. **Esto habilita el privilegio EXECUTE a PUBLIC, pero NO acredita acceso a tablas/RLS ni ejecución exitosa desde roles limitados**. Antes de permitir conexiones SQL del backend se requerirá revisar y restringir la invocación de rutinas heredadas en el sandbox, con una estrategia validada y sin tocar otras bases.
+- Sección `4_ROLES_WITH_ACCESS`: solo `postgres` coincidió con roles solicitados y tiene `rolcanlogin=t`, `rolsuper=t`, `rolbypassrls=t` y todos los permisos consultados. No hay una sesión de aplicación sin `BYPASSRLS` probada.
+- Sección `5_ID_SEQUENCES`: **14 secuencias** de identidad catalogadas, todas propiedad de `postgres`, ACL mostrada `<DEFAULT>`; habrá que verificar uso de IDENTITY y grants mínimos en futuras pruebas. No interpretar automáticamente `<DEFAULT>` como permisos amplios.
+- Sección `6_SECURITY_FUNCTIONS`: `fn_completar_ip_bitacora()`, `fn_controlar_actualizacion_inventario()`, `fn_registrar_bitacora()` y `sp_ajustar_inventario(...)` tienen `prosecdef=f` y `search_path=public, pg_temp`; el informe muestra sus metadatos, **no cuerpo de `sp_ajustar_inventario` ni de `fn_completar_ip_bitacora`**.
+
+### 7.3 Bloqueos de seguridad y acciones de una subfase POSTERIOR
+
+1. Auditar `public.bitacora`: política RLS, grants INSERT/SELECT, trigger auxiliar `fn_completar_ip_bitacora`, campos obligatorios y si un rol de reserva puede mantener auditoría sin permisos amplios de lectura.
+2. Diseñar aislamiento tenant con contexto confiable desde la API y políticas `USING`/`WITH CHECK` sobre las tablas necesarias. `app.usuario_id`/`app.empresa_id` definidos por la conexión son datos no autenticados de por sí; evitar depender únicamente de GUC configurables por usuario.
+3. Diseñar revocación controlada de `EXECUTE` sobre cuatro SP heredados a `PUBLIC` sin afectar la aplicación legacy; controlar concesiones a rutinas de trigger, RLS y secuencias por rol SQL limitado.
+4. Planificar los permisos transaccionales de `SECURITY INVOKER` teniendo en cuenta el `UPDATE carrito` desde trigger y `INSERT bitacora`; revisar riesgos de deadlock con triggers completos antes de probar stock real.
+5. No crear `CREATE ROLE` ni `CREATE POLICY` ni seeds hasta autorización expresa. `CREATE ROLE` es global al clúster y **no** se puede deshacer con una simple transacción de sandbox. Preservar la base restaurada, `main` y Supabase.
+
+**CIERRE 5K: VALIDADA** solo en su alcance estático, lectura y dictamen del SQL existente. **No están validados los permisos efectivos de rol restringido, RLS multitenant aplicado o seguridad de CALL/stock real**. `SAAS_AUTH_ENABLED=false` y endpoints transaccionales bloqueados. **Paso 5 EN PROCESO; Bloque 3 sigue 4/7. Esperar `siguiente`.**
