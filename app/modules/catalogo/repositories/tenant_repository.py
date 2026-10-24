@@ -32,6 +32,23 @@ class TenantCatalogoRepository:
         return [dict(row) for row in db.execute(statement).mappings().all()]
 
     @classmethod
+    def obtener_categoria(
+        cls, db: Session, *, empresa_id: int, categoria_id: int
+    ) -> dict | None:
+        tenant_id = cls._empresa_valida(empresa_id)
+        c = Categoria.__table__
+        statement = (
+            select(c.c.id, c.c.nombre, c.c.descripcion)
+            .where(
+                c.c.empresa_id == tenant_id,
+                c.c.id == categoria_id,
+                c.c.estado.is_(True),
+            )
+        )
+        row = db.execute(statement).mappings().one_or_none()
+        return dict(row) if row is not None else None
+
+    @classmethod
     def listar_productos(
         cls,
         db: Session,
