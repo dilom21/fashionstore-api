@@ -1,0 +1,59 @@
+# Bloque 3 — Paso 5/7: base segura para operaciones comerciales
+
+**Estado:** preparada la FASE DE CONSULTA Y PERTENENCIA del Paso 5, pendiente de las pruebas Windows y de la migración transaccional. El paso completo de operaciones comerciales NO se considera concluido con esta fase de solo lectura.
+
+**Rama exclusiva:** `feat/saas-multitenant-parcial2`. No tocar `main` ni Supabase remoto. Mantener `SAAS_AUTH_ENABLED=false`.
+
+## Hallazgo arquitectónico
+Los flujos de CU15–CU25 involucran inventario, reservas, ventas, cobros, devoluciones y procedimientos almacenados/triggers de PostgreSQL. Habilitar directamente las rutas heredadas o reproducir precipitadamente esos procedimientos en Python crearía riesgo de operaciones cruzadas, inventario inconsistente, doble pago y auditoría incompleta. En la base PostgreSQL local del Bloque 2 las 48 FK tenant refuerzan la integridad, pero no impiden una lectura `SELECT` sin filtro de empresa.
+
+**Decisión:** migrar primero el acceso de consulta y prevalidación de propietario de los seis dominios. Las operaciones transaccionales (POST/PATCH de carrito, stock, reserva, venta, pago, compra, devolución) siguen **bloqueadas (503)** en modo SaaS hasta diseñar su transacción y probar los procedimientos `sp_*` con contexto tenant. Esto NO completa todavía los casos de uso comerciales en SaaS.
+
+## Cambios implementados en esta fase
+1. `app/core/tenant_commercial.py`: `TenantComercialRepository` de lectura con SQLAlchemy Core, tenant obligatorio positivo, `INNER JOIN` de padres con `padre.empresa_id = empresa_id` y `hija.empresa_id = empresa_id`. No admite un tipo de recurso arbitrario: catálogo cerrado de seis familias.
+2. `app/modules/ventas/api/tenant_commercial_router.py`: `GET /tenant/comercial/{tipo}` y `GET /tenant/comercial/{tipo}/{recurso_id}` con `tipo` limitado a `carritos|reservas|ventas|pagos|compras|devoluciones`. Solo devuelve `id` y `estado` (sin monto, total, PII, token ni otros recursos relacionados). Paginación 1–100; recurso ajeno o inexistente devuelve indistintamente 404.
+3. `get_current_tenant_admin` ya implementado exige JWT/membresía y rol ADMINISTRADOR en contexto personal (sin alterar permisos globales). Los clientes y empleados normales no reciben acceso a estas vistas administrativas.
+4. `app/core/saas_route_gate.py`: allowlist exacta solo para GET de estos seis tipos y IDs positivos sin ceros iniciales. Todos los POST/PATCH/DELETE/PUT comerciales heredados siguen dando 503 en modo SaaS.
+5. `app/main.py`: registra el router separado del servicio de ventas legado.
+6. `tests_saas/test_tenant_comercial_consultas.py`: SQLite en memoria con dos empresas ficticias y seis dominios. Se prueban 404 por ID ajeno, GET propio, cambio de contexto, manipulación `?empresa_id=`, falta de rol, métodos cerrados, paginación, JWT ausente, flag apagado y un pago cuyo `empresa_id` no coincide con el de la venta padre.
+7. `database/saas/08_verificar_consultas_comerciales_local.sql` y `.ps1`: auditoría de **solo lectura** sobre cinco empresas reales de la copia local, con `BEGIN TRANSACTION READ ONLY`, conteos históricos, control de las seis tablas y relaciones padre, cierre `ROLLBACK`.
+
+## Relaciones comerciales cubiertas por las consultas
+| Recurso empresarial | Padre(s) cuyos `empresa_id` deben coincidir |
+|---|---|
+| Carritos | Cliente y sucursal |
+| Reservas | Cliente y sucursal |
+| Ventas | Sucursal |
+| Pagos | Venta |
+| Compras / órdenes | Proveedor y sucursal |
+| Devoluciones | Venta |
+
+Los detalles, stock, líneas de compra, pagos electrónicos y procesamiento financiero no quedan habilitados por esta fase.
+
+## Ejecución local
+En PowerShell con entorno conda `fashionstore-api` y rama feature:
+
+```powershell
+git pull --ff-only origin feat/saas-multitenant-parcial2
+python -m pytest -q tests_saas
+```
+
+**Resultado esperado si todas pasan:** **152** pruebas (115 anteriores + 37 nuevas); no afirmar éxito sin la consola del estudiante.
+
+Solo si pasan, ejecutar la auditoría en la copia PostgreSQL local:
+
+```powershell
+.\database\saas\08_verificar_consultas_comerciales_local.ps1
+```
+
+Requiere contraseña `postgres` LOCAL. Destino fijo: `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594`. El SQL no modifica registros, no ejecuta procedimientos con efectos ni cambia suscripciones.
+
+## Trabajo PENDIENTE dentro de la migración comercial
+- Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
+- Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
+- Hacer pruebas de operaciones comerciales en PostgreSQL local usando `ROLLBACK` y cuentas de prueba seguras; verificar simultaneidad, reservas de stock, doble cargo y auditoría.
+- Aplicar permisos `usuario_empresa` por función/acción a roles distintos del administrador; vistas de cliente limitadas a su `cliente_id` propio, no permitir listas globales del tenant por ser miembro.
+- Desplegar RLS y usar un rol de conexión sin `BYPASSRLS`; falta verificar SELECT/UPDATE cross-tenant en la conexión real.
+- No activar `SAAS_AUTH_ENABLED`, no usar base SaaS como backend legacy, no ejecutar `supabase db push`.
+
+**Criterio de esta fase:** aprobar pytest + SQL READ ONLY; la implementación completa de casos de uso comerciales seguirá pendiente incluso si ambas pruebas pasan. No proceder a otro paso sin revisión de la salida y el próximo `siguiente`.
