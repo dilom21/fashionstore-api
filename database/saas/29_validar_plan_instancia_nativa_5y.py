@@ -1,6 +1,6 @@
 """B3/5Y: validar plan NO EJECUTABLE de segunda instancia PostgreSQL 18.
 
-Solo JSON y ficheros de codigo del repositorio: sin conexiones, subprocess,
+Solo JSON y ficheros de codigo del repositorio: sin conexiones ni procesos,
 escrituras, credenciales o comprobaciones en Windows. NO inicia laboratorio.
 """
 from __future__ import annotations
