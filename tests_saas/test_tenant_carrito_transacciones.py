@@ -30,6 +30,7 @@ from app.modules.catalogo.models.models import (
     Categoria, Color, Producto, Talla, Temporada, VarianteProducto,
 )
 from app.modules.inventario.models.models import Inventario
+from app.modules.reservas.models.models import Reserva
 from app.modules.sucursales.models.models import Ciudad, Sucursal
 
 
@@ -59,6 +60,7 @@ def escenario_carrito(monkeypatch):
         Categoria.__table__, Producto.__table__, Talla.__table__,
         Color.__table__, Temporada.__table__, VarianteProducto.__table__,
         Inventario.__table__, Carrito.__table__, DetalleCarrito.__table__,
+        Reserva.__table__,
     ])
     ahora = datetime.now(timezone.utc).replace(microsecond=0)
     with motor.begin() as c:
