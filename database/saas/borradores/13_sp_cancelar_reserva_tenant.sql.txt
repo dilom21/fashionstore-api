@@ -1,0 +1,156 @@
+-- BORRADOR 5G / CU16+CU17 — NO EJECUTAR, SIN INSTALACION EN PG.
+-- Cancelacion: CLIENTE dueño o ADMINISTRADOR/ENCARGADO_SUCURSAL
+-- autorizado y asignado a sucursal (scope de CU17). Sin GRANT a PUBLIC.
+CREATE OR REPLACE PROCEDURE public.sp_cancelar_reserva_tenant(
+    IN p_empresa_id bigint,
+    IN p_reserva_id bigint,
+    IN p_usuario_id bigint,
+    IN p_observacion text
+)
+LANGUAGE plpgsql
+SECURITY INVOKER
+SET search_path TO public, pg_temp
+AS $sp_cancelar_tenant$
+DECLARE
+    v_reserva record;
+    v_linea record;
+    v_rol text;
+    v_rol_id bigint;
+    v_stock integer;
+    v_total integer;
+    v_validas integer;
+BEGIN
+    IF p_empresa_id IS NULL OR p_empresa_id<=0
+       OR p_reserva_id IS NULL OR p_reserva_id<=0
+       OR p_usuario_id IS NULL OR p_usuario_id<=0 THEN
+       RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+    END IF;
+
+    SELECT r.nombre,ue.rol_id INTO v_rol,v_rol_id
+    FROM public.usuario_empresa ue
+    JOIN public.usuario u ON u.id=ue.usuario_id AND u.estado IS TRUE
+    JOIN public.empresa e ON e.id=ue.empresa_id AND e.estado IS TRUE
+    JOIN public.rol r ON r.id=ue.rol_id AND r.estado IS TRUE
+    JOIN public.suscripcion ss ON ss.empresa_id=e.id AND ss.estado='ACTIVA'
+    JOIN public.plan_saas pl ON pl.id=ss.plan_saas_id
+    WHERE ue.empresa_id=p_empresa_id AND ue.usuario_id=p_usuario_id
+      AND ue.estado IS TRUE AND pl.estado IS TRUE AND pl.permite_reservas IS TRUE
+      AND (clock_timestamp() AT TIME ZONE 'America/La_Paz')::date
+          BETWEEN ss.fecha_inicio AND ss.fecha_vencimiento
+    FOR SHARE OF ue,ss;
+    IF v_rol IS NULL THEN
+       RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+    END IF;
+
+    SELECT re.id,re.cliente_id,re.sucursal_id,re.estado,re.observacion
+    INTO v_reserva FROM public.reserva re
+    JOIN public.sucursal su ON su.id=re.sucursal_id AND su.empresa_id=p_empresa_id
+    WHERE re.id=p_reserva_id AND re.empresa_id=p_empresa_id
+    FOR UPDATE OF re;
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE='P0002';
+    END IF;
+
+    IF v_rol='CLIENTE' THEN
+        IF NOT EXISTS(
+            SELECT 1 FROM public.cliente cl
+            WHERE cl.id=v_reserva.cliente_id
+              AND cl.empresa_id=p_empresa_id
+              AND cl.usuario_id=p_usuario_id AND cl.estado IS TRUE
+        ) THEN
+            RAISE EXCEPTION 'Reserva no encontrada' USING ERRCODE='P0002';
+        END IF;
+    ELSIF v_rol IN ('ADMINISTRADOR','ENCARGADO_SUCURSAL') THEN
+        IF NOT EXISTS(
+            SELECT 1 FROM public.empleado em
+            WHERE em.usuario_id=p_usuario_id AND em.empresa_id=p_empresa_id
+              AND em.estado IS TRUE
+              AND (v_rol='ADMINISTRADOR'
+                   OR em.sucursal_id=v_reserva.sucursal_id)
+        ) OR NOT EXISTS(
+            SELECT 1 FROM public.rol_funcion rf
+            JOIN public.funcion f ON f.id=rf.funcion_id AND f.estado IS TRUE
+            JOIN public.accion a ON a.id=rf.accion_id AND a.estado IS TRUE
+            WHERE rf.rol_id=v_rol_id AND f.nombre='GESTIONAR_RESERVAS'
+              AND a.nombre='EJECUTAR'
+        ) THEN
+            RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+        END IF;
+    ELSE
+        RAISE EXCEPTION 'Acceso no autorizado' USING ERRCODE='42501';
+    END IF;
+
+    IF v_reserva.estado NOT IN ('PENDIENTE','CONFIRMADA') THEN
+        RAISE EXCEPTION 'Estado de reserva no cancelable' USING ERRCODE='23514';
+    END IF;
+    -- Conservador: una venta vinculada podría comprometer el stock reservado.
+    IF EXISTS (
+        SELECT 1 FROM public.venta ve WHERE ve.reserva_id=p_reserva_id
+           AND ve.empresa_id=p_empresa_id
+    ) THEN
+        RAISE EXCEPTION 'Reserva con venta asociada' USING ERRCODE='23514';
+    END IF;
+
+    SELECT count(*) INTO v_total
+    FROM public.detalle_reserva dr WHERE dr.reserva_id=p_reserva_id;
+    SELECT count(*) INTO v_validas
+    FROM public.detalle_reserva dr
+    JOIN public.inventario i ON i.id=dr.inventario_id
+       AND i.empresa_id=p_empresa_id
+       AND i.sucursal_id=v_reserva.sucursal_id
+    WHERE dr.reserva_id=p_reserva_id AND dr.empresa_id=p_empresa_id
+      AND dr.cantidad>0;
+    IF v_total=0 OR v_validas<>v_total THEN
+        RAISE EXCEPTION 'Lineas de reserva inconsistentes' USING ERRCODE='23514';
+    END IF;
+
+    FOR v_linea IN
+        SELECT dr.inventario_id,dr.cantidad FROM public.detalle_reserva dr
+        WHERE dr.reserva_id=p_reserva_id AND dr.empresa_id=p_empresa_id
+        ORDER BY dr.inventario_id
+    LOOP
+        SELECT i.stock_reservado INTO v_stock
+        FROM public.inventario i
+        WHERE i.id=v_linea.inventario_id AND i.empresa_id=p_empresa_id
+          AND i.sucursal_id=v_reserva.sucursal_id
+        FOR UPDATE OF i;
+        IF NOT FOUND OR v_stock<v_linea.cantidad THEN
+            RAISE EXCEPTION 'Stock reservado inconsistente' USING ERRCODE='23514';
+        END IF;
+
+        UPDATE public.inventario i
+        SET stock_reservado=i.stock_reservado-v_linea.cantidad,
+            fecha_actualizacion=clock_timestamp()
+        WHERE i.id=v_linea.inventario_id AND i.empresa_id=p_empresa_id
+          AND i.sucursal_id=v_reserva.sucursal_id
+          AND i.stock_reservado>=v_linea.cantidad;
+        IF NOT FOUND THEN
+            RAISE EXCEPTION 'No se pudo liberar stock' USING ERRCODE='23514';
+        END IF;
+        INSERT INTO public.movimiento_inventario (
+            empresa_id,inventario_id,usuario_id,tipo,cantidad,fecha_hora,
+            observaciones,referencia_tipo,referencia_id
+        ) VALUES (
+            p_empresa_id,v_linea.inventario_id,p_usuario_id,
+            'LIBERACION_RESERVA',v_linea.cantidad,clock_timestamp(),
+            COALESCE(p_observacion,'Reserva cancelada'),'RESERVA',p_reserva_id
+        );
+    END LOOP;
+
+    UPDATE public.reserva re
+    SET estado='CANCELADA',
+        observacion=CASE
+            WHEN p_observacion IS NULL THEN re.observacion
+            WHEN re.observacion IS NULL THEN p_observacion
+            ELSE re.observacion || ' | ' || p_observacion
+        END
+    WHERE re.id=p_reserva_id AND re.empresa_id=p_empresa_id
+      AND re.estado IN ('PENDIENTE','CONFIRMADA');
+    IF NOT FOUND THEN
+        RAISE EXCEPTION 'Estado de reserva cambiado' USING ERRCODE='23514';
+    END IF;
+    -- El carrito queda CONVERTIDO; nunca se reactiva.
+END;
+$sp_cancelar_tenant$;
+
+-- Borrador inerte. No ejecutar. Sin concesion EXECUTE.
