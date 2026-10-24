@@ -118,7 +118,7 @@ Se prepararon:
 
 Esta subfase **ya validó revisión/diseño y extracción de definiciones**, pero **NO implementó ni validó seguridad funcional de reservas**. Los SP vigentes, inventario, RLS y datos restaurados permanecen intactos; `SAAS_AUTH_ENABLED=false`, sin deploy ni escrituras. Esperar confirmación del estudiante antes de diseñar SQL nuevo según las funciones reales.
 
-## Continuación: subfase 5G de CU16/CU17/CU18 preparada (NO INSTALADA)
+## Continuación: subfase 5G de CU16/CU17/CU18 VALIDADA como borradores estáticos y preflight READ ONLY (NO INSTALADA)
 
 Tras la revisión real de los cuerpos SQL en 5F, se crearon **tres borradores
 inertes de nuevos SP multitenant** (`.sql.txt`) exclusivamente dentro de
@@ -134,10 +134,7 @@ operación de carrito 5B y el borrador de conversión a reserva; exige
 corrección y prueba dinámica antes de habilitar transacciones. Además,
 quedan por validar permisos efectivos, triggers, RLS y autenticación.
 
-Se incorporaron 40 pruebas **solo estáticas** y un preflight de **solo
-lectura** de columnas, constraints, triggers y rol RLS de PostgreSQL
-local. Pendiente la ejecución en Windows del estudiante, resultado esperado
-`320 passed`; no se declara la subfase completada.
+Se incorporaron 40 pruebas **solo estáticas** y un preflight de **solo lectura** de columnas, constraints, triggers y rol RLS de PostgreSQL local. El estudiante confirmó **`320 passed, 2 warnings in 6.30s`** y **`PREFLIGHT SP TENANT LOCAL SUPERADO (SIN ESCRITURAS)`** con `ROLLBACK`. La subfase 5G queda **validada solo en este alcance estático y de metadatos**, sin ejecutar los nuevos procedimientos.
 
 Documento de 5G:
 [`22_b3_p5g_borradores_sp_tenant.md`](22_b3_p5g_borradores_sp_tenant.md).
@@ -185,3 +182,13 @@ El estudiante ejecutó con éxito **280 tests, 2 advertencias en 6.40s** y la ex
 La inspección REAL confirmó ausencia de `empresa_id` en todas las tres definiciones, `p_usuario_id` utilizado solo como autor del movimiento de Kardex, `INSERT` sin `empresa_id`, falta de validación de las 2 horas del carrito, `SECURITY INVOKER` (no definer), propietario `postgres`, y `EXECUTE` a `PUBLIC`. Se mantienen `FOR UPDATE` y reglas de disponibilidad/liberación originales. No se declara una explotación confirmada; permisos efectivos, RLS y triggers requieren auditoría. Informe específico: [`21_b3_p5f_hallazgos_sql_legacy.md`](21_b3_p5f_hallazgos_sql_legacy.md).
 
 **5F VALIDADA dentro de revisión y diseño, Paso 5 aún EN PROCESO.** Próxima subfase, únicamente cuando el estudiante diga `siguiente`, será preparar versiones `sp_*_tenant` seguras y ensayos aislados, no desplegar ni activar nada. `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos.
+
+## Evidencia incorporada de la subfase 5G
+
+El estudiante ejecutó `git pull --ff-only origin feat/saas-multitenant-parcial2` (hasta `5c6e21e`) y `python -m pytest -q tests_saas` desde PowerShell: **320 pruebas aprobadas, 0 fallos, 2 advertencias en 6.30 s**. Las 40 pruebas nuevas son estáticas sobre tres borradores inertes `.sql.txt`, validación de filtros por empresa y bloqueo de rutas; **no ejecutaron SQL PL/pgSQL real**.
+
+El preflight `12_preflight_borradores_reservas_local.ps1` se realizó exclusivamente en `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594` y confirmó **5 empresas, 48 FK tenant, 57 columnas de metadatos, 77 restricciones, 23 índices y 8 triggers no internos habilitados** en las tablas consultadas. La auditoría cerró en `ROLLBACK` y notificó **`PREFLIGHT SP TENANT LOCAL SUPERADO (SIN ESCRITURAS)`**. Se preservaron CHECK de stock y UNIQUE `uq_reserva_carrito`.
+
+**Bloqueador RLS:** el usuario de PostgreSQL observado fue `postgres` con `rolsuper=t` y `rolbypassrls=t`. Las seis tablas comerciales revisadas tienen `relrowsecurity=t` y `relforcerowsecurity=f`, con propietario `postgres`. **La comprobación no certifica las políticas ni el aislamiento RLS efectivo en el rol de aplicación**. Falta revisar triggers internos, permisos efectivos, corregir orden de bloqueos entre carrito y reserva y ejecutar ensayos de los SP nuevos en PostgreSQL separado con rol sin `BYPASSRLS` antes de habilitar reservas SaaS.
+
+**Cierre 5G: VALIDADA como preparación estática y auditoría READ ONLY**, sin instalación ni DML, pero **Paso 5 global EN PROCESO (Bloque 3 sigue 4/7)**. No ejecutar los tres borradores `.sql.txt`, no desplegar ni activar `SAAS_AUTH_ENABLED`, no modificar `main` ni Supabase. Esperar `siguiente` para la continuación controlada dentro del Paso 5.
