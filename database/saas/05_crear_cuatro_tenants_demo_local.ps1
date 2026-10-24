@@ -102,7 +102,7 @@ SELECT json_build_object(
     tablas=46; empresas=5; planes=2; suscripciones=5; membresias=13;
     usuarios=13; empleados=8; clientes=9; sucursales=13; productos=18;
     variantes=124; inventarios=274; ventas=40; pagos=30; reservas=11;
-    bitacora=840; auditoria_global=4; fk_tenant=48; unique_tenant=28;
+    bitacora=844; auditoria_global=4; fk_tenant=48; unique_tenant=28;
     triggers=27; admins_demo=4
   }
   $fallos=@()
