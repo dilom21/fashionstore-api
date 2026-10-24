@@ -73,6 +73,9 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
     if (metodo, ruta) == ("POST", "/tenant/carritos/items"):
         return True
+    # CU16: SOLO prevalidacion sin DML; crear/cancelar reserva siguen 503.
+    if (metodo, ruta) == ("POST", "/tenant/reservas/prevalidar"):
+        return True
     if metodo == "PATCH" and _RUTA_CARRITO_LINEA.fullmatch(ruta) is not None:
         return True
     if metodo == "DELETE" and (
