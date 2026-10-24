@@ -141,7 +141,7 @@ Documento de 5G:
 El Paso 5 sigue abierto; las reservas reales y ventas/pagos/compras/
 devoluciones continúan bloqueadas en SaaS, sin avance al Paso 6.
 
-## Continuación: subfase 5H de CU15/CU16 preparada, PENDIENTE DE PRUEBAS
+## Continuación: subfase 5H de CU15/CU16 VALIDADA en pruebas SQLite y modo plan
 
 Se reordenó `CarritoTenantRepository.agregar_item` en CU15: bloquea primero el
 cliente y luego el **carrito propio**, antes de adquirir el bloqueo de
@@ -152,12 +152,12 @@ Esta secuencia se acerca al orden del borrador de CU16
 
 Se añadieron cuatro pruebas que inspeccionan el orden de SQL emitido y el
 rollback en SQLite, y ocho pruebas estáticas del preparador de sandbox.
-**Resultado esperado: 332 passed; pendiente de ejecución del estudiante.**
+**Resultado confirmado: `332 passed, 2 warnings in 6.49s`, 0 fallos.**
 
 `database/saas/13_preparar_sandbox_pg_reservas_local.ps1` es una
 herramienta **futura** para preparar una copia LOCAL SOLO DE ESQUEMA, sin
 filas históricas, en una base distinta. Por defecto funciona solo en
-**modo plan sin conexiones ni contraseña**; requiere un doble opt-in para
+**modo plan sin conexiones ni contraseña**; el estudiante lo ejecutó sin parámetros y obtuvo `MODO PLAN SIN CAMBIOS: aun NO se creo ninguna base`. Requiere un doble opt-in para
 crear nada y **NO se autoriza ejecutar ese modo** en 5H. La nueva guía
 [`23_b3_p5h_orden_bloqueos_y_sandbox_pg.md`](23_b3_p5h_orden_bloqueos_y_sandbox_pg.md)
 contiene el alcance, riesgos y comandos seguros.
@@ -220,3 +220,9 @@ El preflight `12_preflight_borradores_reservas_local.ps1` se realizó exclusivam
 **Bloqueador RLS:** el usuario de PostgreSQL observado fue `postgres` con `rolsuper=t` y `rolbypassrls=t`. Las seis tablas comerciales revisadas tienen `relrowsecurity=t` y `relforcerowsecurity=f`, con propietario `postgres`. **La comprobación no certifica las políticas ni el aislamiento RLS efectivo en el rol de aplicación**. Falta revisar triggers internos, permisos efectivos, corregir orden de bloqueos entre carrito y reserva y ejecutar ensayos de los SP nuevos en PostgreSQL separado con rol sin `BYPASSRLS` antes de habilitar reservas SaaS.
 
 **Cierre 5G: VALIDADA como preparación estática y auditoría READ ONLY**, sin instalación ni DML, pero **Paso 5 global EN PROCESO (Bloque 3 sigue 4/7)**. No ejecutar los tres borradores `.sql.txt`, no desplegar ni activar `SAAS_AUTH_ENABLED`, no modificar `main` ni Supabase. Esperar `siguiente` para la continuación controlada dentro del Paso 5.
+
+## Evidencia incorporada de la subfase 5H
+
+Se recibió salida PowerShell del estudiante con `git pull --ff-only` hasta `947d848`, seguida de la suite SaaS completa: **`332 passed, 2 warnings in 6.49s`** (320 anteriores y 12 casos nuevos), sin fallos. El script `13_preparar_sandbox_pg_reservas_local.ps1` se ejecutó **sin parámetros** y emitió `MODO PLAN SIN CAMBIOS: aun NO se creo ninguna base`; no solicitó contraseña, no abrió conexión de escritura ni creó el sandbox propuesto. Sigue intacta la base restaurada de PostgreSQL y la instancia Supabase.
+
+**5H VALIDADA únicamente como corrección del orden de SQL emitido por CU15 y revisión estática/modo plan del script local**. No se ha comprobado la ausencia de deadlocks en PostgreSQL ni se han ejecutado los borradores `sp_*_tenant`. Mantener los endpoints transaccionales de reserva bloqueados y `SAAS_AUTH_ENABLED=false`. **Paso 5 EN PROCESO; Bloque 3 en 4/7 pasos**, esperando la palabra `siguiente` antes de una posible fase de entorno PostgreSQL de ensayo independiente y pruebas con rol sin `BYPASSRLS`.
