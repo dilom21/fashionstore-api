@@ -141,6 +141,34 @@ Documento de 5G:
 El Paso 5 sigue abierto; las reservas reales y ventas/pagos/compras/
 devoluciones continúan bloqueadas en SaaS, sin avance al Paso 6.
 
+## Continuación: subfase 5H de CU15/CU16 preparada, PENDIENTE DE PRUEBAS
+
+Se reordenó `CarritoTenantRepository.agregar_item` en CU15: bloquea primero el
+cliente y luego el **carrito propio**, antes de adquirir el bloqueo de
+inventario. Al fallar validación de stock/inventario, el router revierte el
+carrito recién creado junto con cualquier expiración, sin alterar stock.
+Esta secuencia se acerca al orden del borrador de CU16
+`sp_crear_reserva_tenant`: **carrito -> inventario**.
+
+Se añadieron cuatro pruebas que inspeccionan el orden de SQL emitido y el
+rollback en SQLite, y ocho pruebas estáticas del preparador de sandbox.
+**Resultado esperado: 332 passed; pendiente de ejecución del estudiante.**
+
+`database/saas/13_preparar_sandbox_pg_reservas_local.ps1` es una
+herramienta **futura** para preparar una copia LOCAL SOLO DE ESQUEMA, sin
+filas históricas, en una base distinta. Por defecto funciona solo en
+**modo plan sin conexiones ni contraseña**; requiere un doble opt-in para
+crear nada y **NO se autoriza ejecutar ese modo** en 5H. La nueva guía
+[`23_b3_p5h_orden_bloqueos_y_sandbox_pg.md`](23_b3_p5h_orden_bloqueos_y_sandbox_pg.md)
+contiene el alcance, riesgos y comandos seguros.
+
+**Precaución:** esto reduce una inversión de orden conocida, pero **no
+demuestra ausencia de deadlocks en PostgreSQL**. Siguen sin examinarse
+triggers/locks implícitos mediante pruebas concurrentes con rol restringido.
+No se instalaron SP, no se ejecutó DML sobre PostgreSQL restaurado y se
+mantiene `SAAS_AUTH_ENABLED=false`, reservas reales bloqueadas 503,
+`main` y Supabase intactos. **Paso 5 sigue EN PROCESO**.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
