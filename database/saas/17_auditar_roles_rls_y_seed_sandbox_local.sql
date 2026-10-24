@@ -100,7 +100,7 @@ FROM pg_policies WHERE schemaname='public'
   ) ORDER BY tablename,policyname;
 
 -- Privilegios efectivamente otorgados a PUBLIC sobre tablas comerciales.
-SELECT '5_PUBLIC_GRANTS' AS seccion,t.table_name,
+SELECT '5_PUBLIC_GRANTS' AS seccion,todas.table_name,
        coalesce(string_agg(t.privilege_type,',' ORDER BY t.privilege_type),
          '<NINGUNO>') AS privilegios_public
 FROM (
