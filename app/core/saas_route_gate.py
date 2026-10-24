@@ -56,6 +56,12 @@ _DETALLE_COMERCIAL_SAAS = re.compile(
     r"^/tenant/comercial/(?:carritos|reservas|ventas|pagos|compras|devoluciones)/[1-9][0-9]*$"
 )
 
+# Solo tres mutaciones de carrito CU15 revisadas; sin abrir CRUD legacy.
+_RUTA_CARRITO_LINEA = re.compile(
+    r"^/tenant/carritos/[1-9][0-9]*/items/[1-9][0-9]*$"
+)
+_RUTA_CARRITO = re.compile(r"^/tenant/carritos/[1-9][0-9]*$")
+
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
 )
@@ -66,6 +72,13 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         return True
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
     if (metodo, ruta) == ("POST", "/tenant/carritos/items"):
+        return True
+    if metodo == "PATCH" and _RUTA_CARRITO_LINEA.fullmatch(ruta) is not None:
+        return True
+    if metodo == "DELETE" and (
+        _RUTA_CARRITO_LINEA.fullmatch(ruta) is not None
+        or _RUTA_CARRITO.fullmatch(ruta) is not None
+    ):
         return True
     if metodo == "GET":
         return (
