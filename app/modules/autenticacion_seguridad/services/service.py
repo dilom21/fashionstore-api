@@ -18,6 +18,9 @@ from app.modules.autenticacion_seguridad.models.models import (
 from app.modules.autenticacion_seguridad.repositories.repository import (
     AuthRepository,
 )
+from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
+    TenantAuthRepository,
+)
 from app.modules.autenticacion_seguridad.schemas.schemas import (
     ClientePerfilResponse,
     ClientePerfilUpdateRequest,
@@ -119,6 +122,25 @@ class AuthService:
         if usuario is None or not verify_password(password, usuario.password_hash):
             return None
         return usuario
+
+    @staticmethod
+    def autenticar_credenciales_tenant(
+        db: Session, correo: str, password: str
+    ) -> int | None:
+        """Login SaaS con proyeccion minima; no modifica el login legacy.
+
+        Devuelve solo ID despues de verificar Argon2. No retorna el hash
+        ni carga la relacion ORM Rol. Sigue pendiente un rol SQL bootstrap
+        NO BYPASSRLS para utilizarlo en PostgreSQL real.
+        """
+        credenciales = TenantAuthRepository.obtener_credenciales_bootstrap(
+            db, correo.strip().lower()
+        )
+        if credenciales is None:
+            return None
+        if not verify_password(password, credenciales.password_hash):
+            return None
+        return credenciales.usuario_id
 
     @staticmethod
     def login_cliente(
