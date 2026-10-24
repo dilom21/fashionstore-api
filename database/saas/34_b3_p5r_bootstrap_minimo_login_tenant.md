@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5R — Bootstrap mínimo de credenciales en el login SaaS
 
-**Estado: IMPLEMENTADO EN LA RAMA FEATURE, PENDIENTE DE EJECUCIÓN DE TESTS EN WINDOWS.** Paso 5 comercial EN PROCESO; Bloque 3 4/7. Solo `feat/saas-multitenant-parcial2`.
+**Estado: 5R VALIDADA Y CERRADA únicamente como refactor de login SaaS y pruebas unitarias locales. PostgreSQL RLS real NO validado.** Paso 5 comercial EN PROCESO; Bloque 3 4/7. Solo `feat/saas-multitenant-parcial2`.
 
 ## Antecedentes verificados
 
@@ -17,7 +17,7 @@ El login SaaS heredaba `AuthService.autenticar_credenciales` y `AuthRepository.o
 3. `app/modules/autenticacion_seguridad/api/tenant_router.py`: el endpoint `POST /auth/tenant/login` usa la nueva vía mínima, conserva los mismos campos de `TenantLoginResponse`, la verificación de membresía `TenantAuthRepository.obtener_membresia_vigente`, el JWT firmado y errores genéricos **401** para credenciales inválidas o empresa no autorizada. Un `SQLAlchemyError` durante bootstrap o consulta empresarial se traduce a **503** sin devolver el SQL ni detalles del motor. La bandera `SAAS_AUTH_ENABLED` se comprueba ANTES del acceso a credenciales.
 4. `tests_saas/test_bootstrap_minimo_tenant_5r.py`: **16 pruebas** usando sesiones falsas y datos académicos ficticios, sin conexión PostgreSQL. Comprueban SQL mínimo/proyección/parametrización, normalización, usuario ausente o ambiguo, hash oculto de `repr`, verificación de contraseña, retorno solo ID, respuesta HTTP sin hash, claims JWT, membresía revocada con error genérico, errores SQL controlados, flag inactivo, rechazo de IDs/rol enviados por HTTP y compatibilidad legacy.
 
-**Total esperado de la suite:** **`486 passed`** (470 anteriores + 16 nuevas), **NO confirmado todavía en Windows**. No se ha conectado ni cambiado ninguna base.
+**Total confirmado en Windows:** **`486 passed, 2 warnings in 6.96s`** (470 anteriores + 16 nuevas); cero pruebas fallidas. Las advertencias son las dos deprecaciones ya conocidas. No se ha conectado ni cambiado ninguna base.
 
 ## Riesgos que se reducen, riesgos que siguen abiertos
 
@@ -47,4 +47,21 @@ python .\database\saas\23_validar_diseno_acceso_5q.py
 
 No hay scripts SQL/psql nuevos, ni contraseña PostgreSQL necesaria en 5R. No ejecutar `CALL`, migraciones, seed, `CREATE ROLE`, `CREATE POLICY`, `GRANT` o `REVOKE`.
 
-**5R se podrá validar solo como código de autenticación SaaS y pruebas unitarias** al recibir la suite completa y el validador, sin concluir que RLS está implementado. El **Paso 5 sigue EN PROCESO (Bloque 3 4/7)**. No tocar `main`, Supabase, `fashionstore_saas_reservas_sandbox_5h` o base restaurada `fashionstore_restore_20261023_193554_594`. Mantener `SAAS_AUTH_ENABLED=false` y gate de rutas comerciales. Esperar `siguiente` para abrir 5S.
+**5R VALIDADA Y CERRADA solo como código de autenticación SaaS y pruebas unitarias**, tras recibir suite completa y validador; sin concluir que RLS esté implementado. El **Paso 5 sigue EN PROCESO (Bloque 3 4/7)**. No tocar `main`, Supabase, `fashionstore_saas_reservas_sandbox_5h` o base restaurada `fashionstore_restore_20261023_193554_594`. Mantener `SAAS_AUTH_ENABLED=false` y gate de rutas comerciales. Esperar `siguiente` para abrir 5S.
+
+
+## Evidencia de cierre recibida — 24 de octubre de 2026
+
+En PowerShell con Conda `fashionstore-api`, el estudiante realizó `git pull --ff-only origin feat/saas-multitenant-parcial2`: fast-forward **`a2fc698..fe19d4d`**, con los cambios de login, repositorio, servicio, documento y 16 pruebas nuevas. Ejecutó `python -m pytest -q tests_saas` y obtuvo **`486 passed, 2 warnings in 6.96s`**; **cero fallos**. Advertencias: `StarletteDeprecationWarning` por uso de httpx en testclient y por `HTTP_422_UNPROCESSABLE_ENTITY` deprecado.
+
+Luego ejecutó `python .\\database\\saas\\23_validar_diseno_acceso_5q.py` con resultado literal:
+
+```text
+5Q VALIDACION ESTATICA OFFLINE — NO APLICA SQL NI ROLES
+5Q MATRIZ CONSISTENTE: 8 recursos, 7 bloqueantes sin resolver
+5Q BORRADOR NO DESPLEGABLE; RLS POSTGRESQL REAL NO VALIDADO
+```
+
+**Dictamen:** Se confirma la reducción de proyección del login SaaS, la verificación Argon2 en el backend y 16 pruebas unitarias adicionales, sin modificar el login legacy. **Los siete controles bloqueantes siguen ABIERTOS.** No se ha probado acceso SQL con un principal `NOSUPERUSER NOBYPASSRLS`, no se impusieron ACL por columna, policies RLS ni cierre de `EXECUTE PUBLIC`; un `SELECT` mínimo en Python no impide enumeración de hashes si la credencial SQL tiene privilegios amplios. El validador 5Q pasa precisamente porque el diseño sigue **no desplegable**, no porque la arquitectura esté autorizada para producción.
+
+**5R CERRADA exclusivamente en alcance de código/pruebas locales; Paso 5 EN PROCESO, Bloque 3 4/7.** `SAAS_AUTH_ENABLED=false` y reservas, pagos y ventas SaaS aún bloqueados. En esta subfase no se ejecutaron mutaciones PostgreSQL ni Supabase. **Esperar instrucción `siguiente` para preparar 5S**, sin crear roles del clúster ni alterar la base histórica por defecto.
