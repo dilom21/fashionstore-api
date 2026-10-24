@@ -37,6 +37,7 @@ from app.modules.temporadas_colecciones.api.router import (
 )
 from app.modules.usuarios.api.router import router as usuarios_router
 from app.modules.ventas.api.router import router as ventas_router
+from app.modules.ventas.api.tenant_commercial_router import router as tenant_commercial_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -73,6 +74,8 @@ app.include_router(tenant_auth_router)
 # Lecturas de catalogo con empresa_id obligatorio desde el JWT.
 app.include_router(tenant_catalogo_router)
 app.include_router(tenant_catalogo_write_router)
+# Consulta comercial: admin tenant, GET y detalle; sin escrituras de negocio.
+app.include_router(tenant_commercial_router)
 app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
