@@ -188,10 +188,7 @@ el script continúa siendo un modo plan SIN cambios. No se ha ejecutado
 la creación por ChatGPT, no se ha sembrado información, no se instalaron
 SP, ni se ha activado SaaS.
 
-Se incorporaron 13 pruebas estáticas en
-`tests_saas/test_sandbox_reservas_5i.py`, pendiente su ejecución
-junto con la suite completa: **resultado esperado 345 passed**
-(332 anteriores + 13 nuevos). La guía y los comandos están en
+Se incorporaron 13 pruebas estáticas en `tests_saas/test_sandbox_reservas_5i.py`: el estudiante confirmó **`345 passed, 2 warnings in 6.14s`** (332 anteriores + 13 nuevos). Sin embargo, la creación del sandbox FALLÓ en `CREATE SCHEMA public`; el destino existe parcialmente, no apto para uso. Se añadió corrección de `pg_restore --use-list` para no recrear `public` y `--single-transaction` para evitar restauraciones parciales futuras. Se preparó diagnóstico READ ONLY y reparación sin DROP para esa base preexistente, más 12 pruebas estáticas adicionales; nuevo total esperado **357 passed**, pendiente de ejecución. La guía y los comandos están en
 [`24_b3_p5i_creacion_controlada_sandbox_pg.md`](24_b3_p5i_creacion_controlada_sandbox_pg.md).
 
 Aunque se cree la copia de esquema, los SP heredados, RLS efectivo,
@@ -256,3 +253,11 @@ El preflight `12_preflight_borradores_reservas_local.ps1` se realizó exclusivam
 Se recibió salida PowerShell del estudiante con `git pull --ff-only` hasta `947d848`, seguida de la suite SaaS completa: **`332 passed, 2 warnings in 6.49s`** (320 anteriores y 12 casos nuevos), sin fallos. El script `13_preparar_sandbox_pg_reservas_local.ps1` se ejecutó **sin parámetros** y emitió `MODO PLAN SIN CAMBIOS: aun NO se creo ninguna base`; no solicitó contraseña, no abrió conexión de escritura ni creó el sandbox propuesto. Sigue intacta la base restaurada de PostgreSQL y la instancia Supabase.
 
 **5H VALIDADA únicamente como corrección del orden de SQL emitido por CU15 y revisión estática/modo plan del script local**. No se ha comprobado la ausencia de deadlocks en PostgreSQL ni se han ejecutado los borradores `sp_*_tenant`. Mantener los endpoints transaccionales de reserva bloqueados y `SAAS_AUTH_ENABLED=false`. **Paso 5 EN PROCESO; Bloque 3 en 4/7 pasos**, esperando la palabra `siguiente` antes de una posible fase de entorno PostgreSQL de ensayo independiente y pruebas con rol sin `BYPASSRLS`.
+
+## Incidente y corrección de 5I — RESTORE PENDIENTE
+
+Resultado local recibido: `345 passed, 2 warnings in 6.14s`, 0 fallos. El usuario ejecutó con los dos switches `13_preparar_sandbox_pg_reservas_local.ps1`; `pg_dump --schema-only` terminó, `createdb` creó `fashionstore_saas_reservas_sandbox_5h`, pero `pg_restore` se detuvo ante `ERROR: ya existe el esquema «public»` / `CREATE SCHEMA public`. Es un conflicto entre la entrada SCHEMA del dump y el `public` predeterminado de PostgreSQL 18/template0. La fuente restaurada no recibió DML. **No repetir el creador ni borrar la base parcial.**
+
+Corrección en rama SaaS: el creador ahora filtra exactamente la entrada `SCHEMA - public` mediante `pg_restore --use-list`, conservando los demás objetos, y usa `--single-transaction --exit-on-error`. Nuevo `15_inspeccionar_sandbox_parcial_local.ps1` realiza inspección READ ONLY. Nuevo `16_recuperar_sandbox_parcial_local.ps1` permite, solo con doble opt-in explícito y comprobación de **cero objetos en `public`**, importar los objetos de esquema en la misma base parcial SIN `DROP`, SIN `--clean` ni recreación de DB. Ejecuta verificación final READ ONLY. Si el sandbox no está absolutamente vacío de objetos, **la reparación se rechaza**.
+
+Las 12 pruebas de regresión de recuperación son estáticas y están pendientes (`357 passed` esperado). **5I EN PROCESO** hasta ver resultados de las nuevas pruebas, inspección READ ONLY y verificador de sandbox tras recuperación autorizada. Continúan cerrados los SP/routers de reservas y RLS real no verificado; `SAAS_AUTH_ENABLED=false`, `main` y Supabase intactos. Guía detallada: [`24_b3_p5i_creacion_controlada_sandbox_pg.md`](24_b3_p5i_creacion_controlada_sandbox_pg.md).
