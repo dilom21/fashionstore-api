@@ -52,7 +52,7 @@ BEGIN
              AND attnum=co.conkey[1])='id'
    ) THEN
       EXECUTE format('ALTER TABLE public.%I ADD CONSTRAINT %I UNIQUE (empresa_id,id)',
-                     v_t,'uq_tenant_'+v_t+'_id');
+                     v_t,'uq_tenant_' || v_t || '_id');
    END IF;
  END LOOP;
 
