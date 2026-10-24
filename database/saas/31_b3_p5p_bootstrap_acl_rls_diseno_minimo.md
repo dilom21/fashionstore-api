@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 5P: preflight de autenticación/RLS y permisos por columna
 
-**Estado: 5P PREPARADA, PENDIENTE de pruebas locales y del informe PostgreSQL READ ONLY.** Paso 5 comercial EN PROCESO; Bloque 3 4/7. Trabajar exclusivamente en `feat/saas-multitenant-parcial2`.
+**Estado: 5P VALIDADA solo en pruebas estáticas + auditoría READ ONLY + dictamen de ACL reales.** Paso 5 comercial EN PROCESO; Bloque 3 4/7. Trabajar exclusivamente en `feat/saas-multitenant-parcial2`.
 
 **PROHIBIDO en 5P:** modificar `main`, proyecto Supabase, base restaurada `fashionstore_restore_20261023_193554_594` o incluso escribir en sandbox `fashionstore_saas_reservas_sandbox_5h`. No crear roles globales, políticas, GRANT, REVOKE, seed, procedimientos ni ejecutar `CALL`. Conservar `SAAS_AUTH_ENABLED=false` y rutas transaccionales bloqueadas.
 
@@ -58,7 +58,7 @@ Una `GRANT` no sustituye RLS; `WITH CHECK` verifica nuevas filas pero no autenti
 
 `database/saas/21_auditar_bootstrap_rls_permisos_sandbox.ps1` obliga conexión a `127.0.0.1:5432 / fashionstore_saas_reservas_sandbox_5h` con `default_transaction_read_only=on`, contraseña PostgreSQL **LOCAL**, archivo en `$env:TEMP\fashionstore_5p_bootstrap_rls_permisos_sandbox_LOCAL_REVISAR.txt` y sin sobrescritura. Restaurará variables de entorno; **no subir el informe a GitHub**.
 
-**Pruebas estáticas nuevas:** `tests_saas/test_bootstrap_acl_rls_preflight_5p.py` incluye **14 casos**, sin BD. Total esperado **`454 passed`** (440 anteriores +14), **todavía no validado localmente**.
+**Pruebas estáticas nuevas:** `tests_saas/test_bootstrap_acl_rls_preflight_5p.py` incluye **14 casos**, sin BD. Total confirmado en Windows: **`454 passed, 2 warnings in 7.06s`** (440 anteriores +14), cero fallos.
 
 ## 6. Comandos para el estudiante
 
@@ -85,6 +85,36 @@ Compartir salida pytest + PowerShell y archivo TXT revisado por configuraciones 
 
 ## 7. Cierre / decisión pendiente
 
-**5P PENDIENTE** hasta verificar pytest y recibir informe completo de ACL/permisos. Estos artefactos no hacen seguro el bootstrap por sí solos: **no se implementó aún una ruta de autenticación con credencial limitada ni un aislamiento frente a SQL arbitrario**. Solo después de conocer las concesiones reales podremos decidir una ruta segura y solicitar autorización específica para un futuro ensayo de roles/DDL limitado al clúster local, recordando que `CREATE ROLE` tiene efecto global.
+**5P VALIDADA exclusivamente en alcance de revisión estática, auditoría READ ONLY y dictamen del informe íntegro recibido.** Estos artefactos no hacen seguro el bootstrap por sí solos: **no se implementó aún una ruta de autenticación con credencial limitada ni un aislamiento frente a SQL arbitrario**. Solo después de conocer las concesiones reales podremos decidir una ruta segura y solicitar autorización específica para un futuro ensayo de roles/DDL limitado al clúster local, recordando que `CREATE ROLE` tiene efecto global.
 
 **Paso 5 EN PROCESO; Bloque 3 sigue 4/7.** Mantener `SAAS_AUTH_ENABLED=false`, `main`, Supabase, BD restaurada y sandbox sin mutaciones. Esperar `siguiente` antes de abrir la subfase 5Q.
+
+
+## 8. Dictamen final 5P — evidencia PostgreSQL recibida (2026-10-24)
+
+**Prueba local confirmada:** en Windows, tras actualizar la rama de `73e4de8` a `0bbed28`, `python -m pytest -q tests_saas` produjo **`454 passed, 2 warnings in 7.06s`**, cero fallos. Las dos warnings conocidas son Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY` deprecado; no certifican ni invalidan RLS.
+
+**Preflight ejecutado:** `21_auditar_bootstrap_rls_permisos_sandbox.ps1` conectó únicamente a `127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`. PostgreSQL informó literalmente `5P PREFLIGHT OK: sandbox, 46 tablas vacias, 48 FK tenant, 0 policies criticas, 0 SP tenant`. La salida inicia `BEGIN`, `SET`, `SET`, `DO` y termina en **`ROLLBACK`**. Se recibió informe local TEMP íntegro, sin llevarlo a GitHub. En particular, este preflight comprueba **ausencia de policies solo para las 16 tablas enumeradas**, no necesariamente para todas las 46.
+
+### 8.1 Resultados verificados del catálogo PostgreSQL
+
+| Sección | Evidencia observada | Alcance y límite |
+|---|---|---|
+| `1_SQL_ROLE_FLAGS` | Solo aparece `postgres` entre los roles solicitados, con `rolcanlogin=t`, `rolsuper=t`, `rolbypassrls=t`, `rolcreaterole=t`, `rolcreatedb=t`, `rolinherit=t` | Es una **consulta filtrada de roles**, no prueba que PostgreSQL tenga un único rol total. `postgres` no sirve para certificar RLS efectivo. |
+| `2_BOOTSTRAP_RLS` | **16/16** tablas inspeccionadas tienen `rls_enabled=t`, `force_rls=f`, owner `postgres`, **0 policies** | Una cuenta restringida sujeta a RLS quedaría bajo denegación por defecto sin policies. No se han probado conexiones de esa clase. |
+| `3_AUTH_TABLE_GRANTS` | **104 filas** de ACL/default para **13 tablas**, todas a `postgres`; **no aparecen grants a `PUBLIC`** | Solo las 13 tablas elegidas y los beneficiarios incluidos en filtro. No concluir sobre todas las tablas, futuros roles ni privilegios indirectos. |
+| `4_BOOTSTRAP_COLUMN_RIGHTS` | **13 combinaciones columna/rol**; solo `postgres`, `puede_leer_columna=t` en todas; incluye `usuario.password_hash` | No se leyeron hashes ni datos de usuarios. La prueba de acceso efectiva se hizo únicamente para superusuario. |
+| `5_EXPLICIT_COLUMN_ACL` | **9 columnas examinadas** muestran `acl_explicita` NULL, incluyendo `usuario.password_hash`, `correo` y claves de membresía | Significa **sin ACL específico por columna** en esas 9 columnas; NO significa que no existan permisos por tabla. |
+| `6_ROLE_CONNECT_SCHEMA` | Solo `postgres` aparece, con CONNECT/USAGE y SELECT de `usuario`/`usuario_empresa`, INSERT `bitacora` permitidos | No existe una cuenta restringida de prueba comprobada. |
+| `7_LEGACY_RESERVA_EXECUTE` | **4/4 SP antiguos tienen `execute_public=t`, `security_definer=f`, owner `postgres`** | Son `sp_cancelar_reserva`, `sp_crear_reserva`, `sp_crear_reserva_desde_carrito`, `sp_finalizar_reserva_sin_compra`. EXECUTE a PUBLIC **no equivale a acceso a tablas** ni a ejecución exitosa bajo RLS. |
+| `8_PG_ROLE_MEMBERSHIP` | **0 filas** para membresías relacionadas con `fashionstore_5p_%` | No certifica ausencia de toda membresía de roles en el clúster. |
+
+### 8.2 Conclusiones de seguridad y decisión
+
+1. **No se puede demostrar un login SaaS sin bypass RLS todavía:** el login actual necesita `usuario.password_hash` para la verificación Argon2 en Python y luego leer membresía y suscripción antes de disponer de tenant validado; los permisos observados corresponden a `postgres` superusuario. Diseñar un camino restringido para bootstrap es obligatorio antes de activar `SAAS_AUTH_ENABLED`.
+2. **No otorgar SELECT general a la credencial comercial** sobre `usuario` o `password_hash` como atajo. Separar privilegios de autenticación y comerciales sigue como **propuesta**, no como implementación aprobada. El paso exacto requiere definir modelo de principal y reglas de datos mínimos; evitar `SECURITY DEFINER` propiedad de superusuario sin auditoría.
+3. **Cerrar la superficie `EXECUTE PUBLIC` legacy** en futura etapa controlada y autorizada **solo en sandbox** sin romper funcionalidad legacy. No `REVOKE` en BD restaurada ni Supabase. No generar nuevas rutinas con exposición pública por defecto.
+4. **RLS no autentica GUC:** `app.empresa_id`, `app.usuario_id` y los argumentos de `CALL` son modificables bajo SQL arbitrario. Las mejoras 5N/5O fortalecen el backend HTTP confiable, pero no equivalen a autenticar al invocador PostgreSQL.
+5. **La próxima subfase no debe crear roles automáticamente.** `CREATE ROLE` es global al clúster: requiere autorización explícita y consideración del resto de bases del equipo. Una futura prueba A/B con roles `NOSUPERUSER` y `NOBYPASSRLS`, policies `USING/WITH CHECK`, datos ficticios y comprobaciones reales de `row_security_active()` seguirá pendiente.
+
+**CIERRE:** 5P validada en su alcance de metadatos, diseño y pruebas estáticas, **no** en autenticación SQL real, política RLS aplicada, seguridad de `CALL`, ni transacciones de reserva. **Paso 5 sigue EN PROCESO; Bloque 3 4/7.** `SAAS_AUTH_ENABLED=false`, la base histórica y Supabase no intervenidas, y sandbox sin escrituras según ejecución de solo lectura. Esperar a que el estudiante diga **`siguiente`** antes de abrir 5Q. **No pedir nuevos comandos ahora.**
