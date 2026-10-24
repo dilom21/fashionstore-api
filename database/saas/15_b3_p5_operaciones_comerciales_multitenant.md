@@ -169,6 +169,36 @@ No se instalaron SP, no se ejecutó DML sobre PostgreSQL restaurado y se
 mantiene `SAAS_AUTH_ENABLED=false`, reservas reales bloqueadas 503,
 `main` y Supabase intactos. **Paso 5 sigue EN PROCESO**.
 
+## Continuación: subfase 5I — SANDBOX SEPARADO PREPARADO (pendiente de ejecución)
+
+Se reforzó el preparador de sandbox de la subfase 5H. Ahora exporta
+exclusivamente el esquema `public` con `pg_dump --schema-only`, revisa
+el índice del archivo antes de crear nada y llama obligatoriamente a
+`14_verificar_sandbox_pg_reservas_local.sql` antes de declarar el
+destino apto. El verificador recorre **todas** las tablas ordinarias
+`public` exigiendo cero filas, comprueba 48 FK tenant, flags RLS en
+seis tablas y ausencia de los tres `sp_*_tenant`.
+
+La base destino permitida es únicamente
+`127.0.0.1:5432/fashionstore_saas_reservas_sandbox_5h`; el origen
+`fashionstore_restore_20261023_193554_594` está protegido para
+lectura. Crear el destino **es opcional y requiere que el estudiante
+ejecute expresamente los dos switches de consentimiento**. Por defecto
+el script continúa siendo un modo plan SIN cambios. No se ha ejecutado
+la creación por ChatGPT, no se ha sembrado información, no se instalaron
+SP, ni se ha activado SaaS.
+
+Se incorporaron 13 pruebas estáticas en
+`tests_saas/test_sandbox_reservas_5i.py`, pendiente su ejecución
+junto con la suite completa: **resultado esperado 345 passed**
+(332 anteriores + 13 nuevos). La guía y los comandos están en
+[`24_b3_p5i_creacion_controlada_sandbox_pg.md`](24_b3_p5i_creacion_controlada_sandbox_pg.md).
+
+Aunque se cree la copia de esquema, los SP heredados, RLS efectivo,
+transacciones y bloqueos concurrentes **NO quedarán validados**; usar
+un rol no superusuario sin `BYPASSRLS` y datos ficticios será trabajo
+posterior. **Paso 5 global EN PROCESO, Bloque 3 en 4/7 pasos.**
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
