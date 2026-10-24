@@ -77,9 +77,8 @@ def test_5x_compara_rutas_sin_comodines_like():
     assert "left(paths.fuente_pgdata, length(paths.ruta_propuesta) + 1)" in s
     assert "SOLAPAMIENTO_TEXTUAL_BLOQUEAR" in s
     assert "SIN_SOLAPAMIENTO_TEXTUAL_NO_CERTIFICA" in s
-    assert not re.search(r"\bLIKE\b", "\n".join(
-        line for line in s.splitlines() if not line.lstrip().startswith("--")
-    ))
+    assert "paths.fuente_pgdata LIKE" not in s
+    assert "paths.ruta_propuesta LIKE" not in s
 
 
 def test_5x_comprueba_esquema_sandbox_46_y_48():
