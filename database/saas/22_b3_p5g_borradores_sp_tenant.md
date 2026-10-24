@@ -1,6 +1,6 @@
 # Bloque 3 / Paso 5G — Borradores tenant-aware de reservas (CU16, CU17 y CU18)
 
-**Estado: PREPARADO, pendiente de pruebas Windows y preflight PostgreSQL READ ONLY.**
+**Estado: SUBFASE 5G VALIDADA EXCLUSIVAMENTE EN SU ALCANCE ESTÁTICO Y DE PREFLIGHT READ ONLY.** El estudiante ejecutó `320 passed, 2 warnings in 6.30s` y el preflight PostgreSQL local finalizó en `ROLLBACK`, sin ejecutar los SP borrador.
 **Paso 5 global EN PROCESO. No avanzar a Paso 6.** Rama exclusiva:
 `feat/saas-multitenant-parcial2`; `SAAS_AUTH_ENABLED=false`.
 No ejecutar `CREATE PROCEDURE`, no aplicar migraciones, no tocar `main` ni
@@ -72,8 +72,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Resultado esperado, todavía NO confirmado:** **320 passed** = 280 anteriores
-+ 40 nuevas. Las pruebas son estáticas, no operativas PG.
+**Resultado observado en Windows:** **320 passed, 2 warnings in 6.30s** = 280 anteriores + 40 pruebas estáticas nuevas, sin fallos. La rama se sincronizó hasta el commit `5c6e21e` antes de ejecutar `pytest`. La suite **NO ejecuta ni valida transacciones reales de reserva sobre PostgreSQL**.
 
 Si pytest pasa:
 
@@ -92,7 +91,23 @@ los `CREATE PROCEDURE` del borrador en psql. No hay pasos de escritura.
 
 ## 5. Criterio de cierre
 
-Cerrar 5G **solo como preparación estática de procedimientos y preflight de
-metadatos** tras recibir los resultados de Windows. El Paso 5 seguirá
-EN PROCESO, con operaciones reales de reserva, venta, pago, compra y devolución
-por implementar y ensayar. Detenerse hasta `siguiente`.
+**Cierre 5G: VALIDADA la preparación estática de procedimientos y preflight de metadatos PostgreSQL READ ONLY**, con las salidas reales recibidas del estudiante. **NO validados los tres borradores con transacciones reales**, ni la seguridad RLS con rol restringido. El Paso 5 seguirá EN PROCESO, con operaciones reales de reserva, venta, pago, compra y devolución por implementar y ensayar. Detenerse hasta `siguiente`.
+
+## 6. Resultados reales del preflight 5G (2026-10-23)
+
+Se verificó la extracción de cambios Git (fast-forward hasta `5c6e21e`) y la ejecución completa del estudiante en Conda `fashionstore-api`: `python -m pytest -q tests_saas` -> **`320 passed, 2 warnings in 6.30s`**. Son las 280 pruebas anteriores y 40 casos estáticos nuevos; las dos advertencias corresponden a deprecaciones conocidas de Starlette/httpx y `HTTP_422_UNPROCESSABLE_ENTITY`.
+
+El comando `12_preflight_borradores_reservas_local.ps1` apuntó a `127.0.0.1:5432 / fashionstore_restore_20261023_193554_594`, emitió `PRECHECK 5G OK: local, cinco empresas y 48 FK tenant` y finalizó en **`ROLLBACK` / `PREFLIGHT SP TENANT LOCAL SUPERADO (SIN ESCRITURAS)`**.
+
+Los metadatos muestran **57 columnas relevantes**, **77 restricciones**, **23 índices** y **8 triggers de negocio habilitados** en las tablas revisadas. Se verificaron específicamente:
+- `empresa_id` obligatorio en `carrito`, `detalle_carrito`, `reserva`, `detalle_reserva`, `inventario`, `movimiento_inventario` y `venta` (sin DEFAULT de empresa).
+- Unicidad `uq_reserva_carrito`; FK compuestas de `empresa_id` entre carrito, cliente, sucursal, inventario, reserva y detalles; `ck_inventario_stock_actual`, `ck_inventario_stock_reservado`, `ck_inventario_stock_consistente` y CHECK positivos de detalles y movimientos.
+- Triggers de `detalle_carrito` (actividad y sucursal), `detalle_reserva` (sucursal), `inventario` (auditoría/control de actualización), `reserva` (auditoría) y `venta` (auditoría/protección de eliminación). El preflight **solo inspeccionó definiciones de triggers, no su código interno ni su ejecución**.
+
+### Bloqueador RLS confirmado por metadatos
+
+**La conexión utilizó el superusuario `postgres`**, con `rolsuper=t`, `rolbypassrls=t`. En las seis tablas comerciales examinadas (`carrito`, `detalle_carrito`, `detalle_reserva`, `inventario`, `movimiento_inventario` y `reserva`), `relrowsecurity=t` pero `relforcerowsecurity=f`; todas son propiedad de `postgres`. Por tanto, **esta auditoría NO demuestra aislamiento RLS en el rol real de la API y NO certifica capacidad de invocar de forma segura los nuevos SP**. Falta auditar políticas, grants, funciones de trigger, RLS con un rol sin `BYPASSRLS` y pruebas de concurrencia en **PostgreSQL de ensayo separado**.
+
+### Conclusión de 5G
+
+**5G validada solo como borradores inertes y preflight READ ONLY.** Los tres archivos `.sql.txt` NO se han ejecutado, ni se ha llamado a `sp_*_tenant` ni a los SP heredados. No se han habilitado `POST /tenant/reservas`, cancelar o finalizar; siguen bloqueados en modo SaaS. Sigue abierto el posible deadlock por orden de bloqueos entre carrito 5B y creación de reserva. No crear/grantear procedimientos ni habilitar SaaS sin superar las pruebas PostgreSQL con rol restringido; preservar `SAAS_AUTH_ENABLED=false`, `main` y Supabase sin cambios.
