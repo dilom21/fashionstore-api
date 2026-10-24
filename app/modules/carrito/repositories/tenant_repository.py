@@ -211,7 +211,7 @@ class CarritoTenantRepository:
         car = Carrito.__table__
         dato = db.execute(
             select(
-                car.c.id, car.c.sucursal_id,
+                car.c.id, car.c.sucursal_id, car.c.cliente_id,
                 car.c.estado, car.c.fecha_actualizacion,
             ).where(
                 car.c.id == carrito_id,
@@ -286,9 +286,7 @@ class CarritoTenantRepository:
             update(carrito).where(
                 carrito.c.id == carrito_id,
                 carrito.c.empresa_id == empresa_id,
-                carrito.c.cliente_id == cls._cliente_id(
-                    db, empresa_id=empresa_id, usuario_id=usuario_id,
-                ),
+                carrito.c.cliente_id == int(car["cliente_id"]),
                 carrito.c.estado == "ACTIVO",
             ).values(fecha_actualizacion=datetime.now(timezone.utc))
         )
