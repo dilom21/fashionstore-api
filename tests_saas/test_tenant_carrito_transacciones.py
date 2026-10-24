@@ -316,8 +316,9 @@ def test_resto_del_flujo_comercial_sigue_bloqueado_503(escenario_carrito):
     for metodo, ruta in (
         ("POST", "/carritos/items"),
         ("POST", "/tenant/carritos/crear-reserva"),
-        ("PATCH", "/tenant/carritos/123/items/9"),
-        ("DELETE", "/tenant/carritos/123"),
+        ("PUT", "/tenant/carritos/123/items/9"),
+        ("POST", "/tenant/carritos/123"),
+        ("DELETE", "/tenant/carritos/123/items"),
         ("POST", "/tenant/comercial/pagos"),
         ("POST", "/tenant/comercial/ventas"),
     ):
