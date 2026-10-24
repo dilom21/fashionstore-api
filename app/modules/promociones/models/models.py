@@ -5,10 +5,11 @@ from sqlalchemy import BigInteger, Boolean, DateTime, ForeignKey, Numeric, Strin
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.core.tenant_models import EmpresaScopedMixin
 from app.modules.catalogo.models.models import Producto
 
 
-class Promocion(Base):
+class Promocion(EmpresaScopedMixin, Base):
     """Promocion administrable por CU10.
 
     No se define una restriccion UNIQUE sobre ``nombre`` porque la tabla
@@ -35,7 +36,7 @@ class Promocion(Base):
     )
 
 
-class PromocionProducto(Base):
+class PromocionProducto(EmpresaScopedMixin, Base):
     """Relacion N:M entre promocion y producto (PK compuesta)."""
 
     __tablename__ = "promocion_producto"
