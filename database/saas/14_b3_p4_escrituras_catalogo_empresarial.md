@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 4/7: escrituras empresariales del catálogo
 
-**Estado:** preparados código y pruebas, **pendiente de ejecución real del estudiante**. `main` y Supabase no modificados. `SAAS_AUTH_ENABLED=false` sigue siendo obligatorio.
+**Estado:** PASO 4/7 COMPLETADO. Las pruebas HTTP aisladas fueron ejecutadas por el estudiante con **115 aprobadas, 0 fallos y 2 advertencias en 2,46 s**. `main` y Supabase no modificados por estos cambios; `SAAS_AUTH_ENABLED=false` sigue siendo obligatorio.
 
 ## Objetivo y alcance
 En las rutas **nuevas** `/tenant/catalogo`, permitir a **ADMINISTRADOR en contexto personal** dar de alta y modificar categorías, productos y variantes sin admitir cambios de pertenencia entre empresas. El dueño es el `empresa_id` proveniente de `get_current_tenant_context`, previa validación de JWT, membresía activa, suscripción y rol. El cliente HTTP **nunca envía un `empresa_id` válido**: los modelos Pydantic rechazan campos adicionales con 422.
@@ -41,7 +41,7 @@ PowerShell en `C:\SI2_Parcial1\fashionstore-api` (Conda `fashionstore-api`):
 git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
-**Resultado esperado:** 115 pruebas exitosas (94 del Paso 3 + 21 de este paso) si no existen errores. Esta cifra está pendiente de comprobarse con la salida real.
+**Resultado observado en PowerShell:** `115 passed, 2 warnings in 2.46s` (94 pruebas de los pasos anteriores y 21 nuevas). Se sincronizó la rama hasta `b72ff31` antes de ejecutar `python -m pytest -q tests_saas`.
 
 Las pruebas usan SQLite ficticio, no conectan al PostgreSQL local de cinco empresas ni a Supabase. **No ejecutar migraciones ni escrituras contra las cinco empresas** en este paso.
 
@@ -52,3 +52,9 @@ Las pruebas usan SQLite ficticio, no conectan al PostgreSQL local de cinco empre
 - Falta endurecer/RLS con rol sin `BYPASSRLS`, permisos por función y otros módulos comerciales; esta implementación no certifica RNF02 completo.
 - No activar `SAAS_AUTH_ENABLED`, no desplegar ni modificar Supabase.
 - **No continuar Paso 5/7** sin que el estudiante haya ejecutado pytest, compartido resultados y dicho `siguiente`.
+
+## Cierre del Paso 4 (evidencia aportada por el estudiante)
+
+La ejecución local reportó **115/115 pruebas superadas** y ninguna excepción o fallo. Las advertencias registradas son `StarletteDeprecationWarning` por compatibilidad `httpx`/`starlette.testclient` y uso de `HTTP_422_UNPROCESSABLE_ENTITY` (recomendado por la librería: `HTTP_422_UNPROCESSABLE_CONTENT`). Son no bloqueantes en este paso y no justifican activar SaaS o desplegar. La compatibilidad con la base local de cinco empresas **no se verificó mediante escrituras**; esas operaciones solo se ejercitaron en SQLite ficticio. Aislamiento de SELECT bajo RLS, login real, políticas de permisos y la auditoría de triggers PostgreSQL quedan pendientes.
+
+**Progreso Bloque 3: 4/7 pasos finalizados.** Continuar al Paso 5 solo cuando el estudiante escriba `siguiente`.
