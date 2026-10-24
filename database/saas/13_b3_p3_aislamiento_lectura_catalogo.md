@@ -1,6 +1,6 @@
 # Bloque 3 — Paso 3/7: lectura empresarial del catálogo
 
-**Estado:** cambios y pruebas preparados en GitHub, pendientes de ejecución en el entorno Windows del estudiante.  
+**Estado:** PASO 3 COMPLETADO Y VERIFICADO mediante pruebas HTTP unitarias y consulta SQL de solo lectura ejecutadas localmente por el estudiante.  
 **Rama:** `feat/saas-multitenant-parcial2`.  
 **Seguridad:** `SAAS_AUTH_ENABLED=false`, base de Supabase intacta, sin `supabase db push`, `main` intacta.  
 **Contexto:** Bloque 2 validó 5 tenants, 48 FK compuestas y 18 pruebas; Bloque 3 paso 2 obtuvo 79 pruebas unitarias superadas, no garantiza aislamiento de consultas.
@@ -31,7 +31,7 @@ git pull --ff-only origin feat/saas-multitenant-parcial2
 python -m pytest -q tests_saas
 ```
 
-**Esperado (pendiente de verificar):** 94 pruebas (79 anteriores + 15 nuevas), sin fallos.
+**Resultado observado:** 94 pruebas aprobadas (79 anteriores + 15 nuevas), 1 advertencia `StarletteDeprecationWarning`, 2.11 s; sin fallos.
 
 Solo si ese comando pasa, validar la copia local PostgreSQL:
 
@@ -49,5 +49,15 @@ Indicar contraseña PostgreSQL **local**, no la de Supabase. Esta segunda prueba
 - No modificar aún `SAAS_AUTH_ENABLED` ni compartir la base SaaS con un backend legacy habilitado.
 - El siguiente paso 4/7 tratará las **escrituras** y límites del catálogo, pero no debe iniciarse sin confirmación `siguiente`.
 
-## Criterio de salida
-La salida de PowerShell deberá mostrar pruebas SaaS aprobadas y `LECTURAS CATALOGO LOCAL SUPERADAS (SIN ESCRITURAS)`. Solo entonces se marca este paso como verificado.
+## Evidencia real de ejecución local (23/10/2026)
+- Rama sincronizada mediante `git pull --ff-only origin feat/saas-multitenant-parcial2`, actualización hasta `8b00a5f`.
+- `python -m pytest -q tests_saas`: **94 passed, 1 warning in 2.11s**. Advertencia deprecatoria Starlette/httpx; ningún test falló.
+- `database/saas/07_verificar_lectura_catalogo_local.ps1`: conectado **solo** a `127.0.0.1:5432`, base `fashionstore_restore_20261023_193554_594`.
+- PostgreSQL imprimió `LECTURA OK` para cinco empresas y `LECTURA AISLADA OK: 5 tenants; sin modificaciones`. Conteos:
+  - `vanter-men`: 14 productos, 120 variantes.
+  - `urbanwear`, `elegancia-sur`, `denim-house`, `sportline`: 1 producto y 1 variante por empresa.
+- Resultado SQL final `ROLLBACK`. El script informó `LECTURAS CATALOGO LOCAL SUPERADAS (SIN ESCRITURAS)`.
+- La sesión SQL fue READ ONLY. No se realizaron escrituras remotas ni se activó `SAAS_AUTH_ENABLED`.
+- **Interpretación prudente**: se validaron las pruebas HTTP con pertenencia simulada y los datos locales mediante SQL de solo lectura; todavía no se ha demostrado autenticación real entre empresas ni RLS con rol sin BYPASSRLS.
+
+**Criterio de salida alcanzado:** Paso 3/7 completado; esperar `siguiente` para el Paso 4.
