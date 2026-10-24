@@ -102,6 +102,22 @@ PostgreSQL local. La auditoría local terminó con `ROLLBACK` y halló tres SP C
 **El Paso 5 permanece EN PROCESO**. La reserva real, cancelación, venta,
 pago y modificaciones de stock siguen cerradas en modo SaaS.
 
+## Continuación: subfase 5F de CU16/CU18 preparada, PENDIENTE de extracción
+
+La auditoría 5E terminó con **262 pruebas superadas y 3 SP detectados**
+pero los cuerpos SQL íntegros de los procedimientos siguen sin revisarse.
+Los SP originales no tienen menciones literales de `empresa_id` ni
+`app.empresa_id`, aunque sí `FOR UPDATE` y `stock_reservado`.
+No habilitar escritura SaaS apoyándose solo en esas marcas de texto.
+
+Se prepararon:
+- `database/saas/11_extraer_definiciones_reserva_solo_lectura.sql`: extraer el texto `pg_get_functiondef`, propietario, `SECURITY DEFINER`, privilegios y `search_path` con `READ ONLY` y `ROLLBACK`.
+- `database/saas/11_extraer_definiciones_reserva_solo_lectura.ps1`: exportar a TEMP local y fuera de GitHub, sin ejecutar SP ni migraciones.
+- `database/saas/20_b3_p5f_diseno_sp_reserva_tenant_y_revision.md`: contrato propuesto para nuevas transacciones de reserva, cancelación y finalización, **no implementadas**.
+- `tests_saas/test_reserva_procedimientos_revision_5f.py`: 18 pruebas estáticas, pendiente de ejecutar; total esperado **280** junto a 262 anteriores.
+
+Esta subfase es revisión/diseño y extracción de definiciones, **NO implementación ni validación de seguridad funcional de reservas**. Los SP vigentes, inventario, RLS y datos restaurados permanecen intactos; `SAAS_AUTH_ENABLED=false`, sin deploy ni escrituras. Esperar confirmación del estudiante antes de diseñar SQL nuevo según las funciones reales.
+
 ## Trabajo PENDIENTE dentro de la migración comercial
 - Implementar transacciones de carrito, reserva, venta, pago, orden de compra, devolución, detalles e inventarios para cada tenant, conservando semántica y triggers del primer parcial.
 - Revisar y migrar los SP `sp_*` y sus llamadas con verificación empresarial **dentro del procedimiento** o en operaciones atómicas, no solo como verificación previa HTTP.
