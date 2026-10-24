@@ -54,7 +54,7 @@ Si pytest pasa:
 
 El script escribe el informe en `$env:TEMP`, **no modifica nada**. Compartir salida PowerShell y, tras revisarlo por si contiene información sensible, adjuntar el archivo `fashionstore_5j_rls_roles_columnas_sandbox_LOCAL.txt` al chat. Si el informe ya existe, reportar ese error sin borrar ni sobrescribir todavía.
 
-**NO ejecutar** ningún `CREATE ROLE`, `CREATE POLICY`, `GRANT`, `INSERT`, ni los borradores `sp_*_tenant.sql.txt`. No modificar `main`, la fuente restaurada ni Supabase.
+**NO ejecutar** ningún `CREATE ROLE`, `CREATE POLICY`, `GRANT`, `INSERT`, ni los borradores `sp_*_tenant.sql.txt`. Mantener explícitamente `SAAS_AUTH_ENABLED=false` durante toda la subfase 5J; no habilitar rutas comerciales SaaS. No modificar `main`, la fuente restaurada ni Supabase.
 
 ## 6. Criterio de validación y próxima subfase
 
