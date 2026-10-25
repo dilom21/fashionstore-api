@@ -153,3 +153,51 @@ def test_5bc_interrupcion_no_borra_cluster_vivo_y_diagnostica():
     assert "5BC TEMP PASS" in S
     assert "require(cleanup_ok," in S
     assert "taskkill genérico" in S
+
+
+
+def _identidad_real_del_script():
+    """Extraer solo la función de validación sin abrir PG ni importar arnés."""
+    tree=ast.parse(S)
+    fn=next(n for n in tree.body if isinstance(n,ast.FunctionDef)
+            and n.name=="verificar_identidad_sql")
+    program=ast.Module(body=[fn],type_ignores=[])
+    def exigencia(cond,mensaje):
+        if not cond:
+            raise RuntimeError(mensaje)
+    scope={"HOST":"127.0.0.1","PORT":55433,"require":exigencia}
+    exec(compile(program,str(P),"exec"),scope)
+    return scope["verificar_identidad_sql"]
+
+
+def test_5bc_identidad_sql_buena_no_rechazada():
+    validar=_identidad_real_del_script()
+    assert validar("postgres","postgres","127.0.0.1",55433,180000)
+
+
+def test_5bc_identidad_sql_es_obligatoria_en_preflight():
+    assert "verificar_identidad_sql(db,login,addr,port,version)" in S
+    assert 'Path(actual_dir).resolve()==datadir.resolve()' in S
+    assert '"ip_servidor":HOST' in S
+    assert '"puerto":PORT' in S
+    assert '"version_major":18' in S
+
+
+def test_5bc_identidad_sql_indica_campo_exacto_sin_afectar_postgres():
+    import pytest
+    import itertools
+    validar=_identidad_real_del_script()
+    parametros=[
+        (("otra_base","postgres","127.0.0.1",55433,180000),"base"),
+        (("postgres","otro","127.0.0.1",55433,180000),"usuario_sql"),
+        (("postgres","postgres","::1",55433,180000),"ip_servidor"),
+        (("postgres","postgres","127.0.0.1",5432,180000),"puerto"),
+        (("postgres","postgres","127.0.0.1",55433,170000),"version_major"),
+    ]
+    for entrada, campo in parametros:
+        with pytest.raises(RuntimeError,match=campo) as error:
+            validar(*entrada)
+        msg=str(error.value)
+        assert "recibido=" in msg and "esperado=" in msg
+        assert "contraseña" not in msg.lower()
+        assert "data_directory" not in msg
