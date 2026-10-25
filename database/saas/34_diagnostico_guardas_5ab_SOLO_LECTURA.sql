@@ -7,7 +7,7 @@ SET LOCAL lock_timeout = '3s';
 
 SELECT
     current_database() = 'fashionstore_rls_lab_5u' AS base_correcta,
-    inet_server_addr()::text IS NOT DISTINCT FROM '127.0.0.1' AS ip_loopback_correcta,
+    host(inet_server_addr()) IS NOT DISTINCT FROM '127.0.0.1' AS ip_loopback_correcta,
     inet_server_port() = 55432 AS puerto_correcto,
     session_user = 'postgres' AS session_postgres,
     current_user = 'postgres' AS current_postgres,
