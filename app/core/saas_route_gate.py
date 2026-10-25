@@ -24,6 +24,7 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/auth/tenant/me"),
         ("GET", "/tenant/empresa/me"),
         ("GET", "/tenant/empresa/plan"),
+        ("GET", "/tenant/empresa/suscripcion"),
         ("GET", "/tenant/empresa/sucursales"),
         ("POST", "/tenant/empresa/sucursales"),
         ("PATCH", "/tenant/empresa/plan"),
