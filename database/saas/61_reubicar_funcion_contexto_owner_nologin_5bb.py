@@ -77,6 +77,39 @@ def transferir_funcion_contexto(c):
           "sin DBA owner ni CREATE publico")
 
 
+def neutralizar_verificador_5ar_obsoleto(c):
+    """5AR contiene una función histórica DBA-SECDEF ya reemplazada.
+
+    Los tres SP activos llaman fs_verificar_actor_reserva (5AV).
+    Desactivar DEFINER y revocar EXECUTE a todos los actores evita que
+    una función no auditada retenga poderes privilegiados.
+    """
+    old="public.fs_lab_verificar_actor_5ar(bigint,bigint)"
+    ENSURE(ONE(c,"""SELECT p.prosecdef FROM pg_catalog.pg_proc p
+      WHERE p.oid=to_regprocedure(%s)""",(old,)) is True,
+      "función legacy 5AR no coincide con baseline")
+    for proc in X["PROCEDURES"]:
+        ddl=ONE(c,"""SELECT pg_get_functiondef(p.oid) FROM pg_catalog.pg_proc p
+          JOIN pg_catalog.pg_namespace n ON n.oid=p.pronamespace
+          WHERE n.nspname='public' AND p.proname=%s AND p.prokind='p'""",
+          (proc,))
+        ENSURE("fs_lab_verificar_actor_5ar" not in ddl,
+               "SP comercial aún depende del verificador obsoleto")
+    c.execute(f"ALTER FUNCTION {old} SECURITY INVOKER")
+    targets=",".join(ALL_ACTORS)
+    c.execute(f"REVOKE ALL ON FUNCTION {old} FROM {targets}")
+    for role in ALL_ACTORS:
+        ENSURE(ONE(c,"SELECT has_function_privilege(%s,"
+                   " 'public.fs_lab_verificar_actor_5ar(bigint,bigint)',"
+                   " 'EXECUTE')",(role,)) is False,
+               "actor puede ejecutar verificador legado de DBA")
+    ENSURE(ONE(c,"""SELECT p.prosecdef FROM pg_catalog.pg_proc p
+      WHERE p.oid=to_regprocedure(%s)""",(old,)) is False,
+      "función 5AR continúa SECURITY DEFINER DBA")
+    print("5BB LEGACY PASS: verificador 5AR es INVOKER y no ejecutable "
+          "por A1/A2/B1/A/B")
+
+
 def comprobar_rutinas(c):
     rows=c.execute("""SELECT p.proname,p.prokind,
         p.prosecdef,pg_get_userbyid(p.proowner),
@@ -167,6 +200,7 @@ def main():
             c.execute("SET LOCAL lock_timeout='5s'")
             ids,a2=BA["configurar_lab"](c,sqls)
             transferir_funcion_contexto(c)
+            neutralizar_verificador_5ar_obsoleto(c)
             comprobar_rutinas(c)
             probar_ruta_contexto(c,ids,a2)
             repetir_flujos(c,ids,a2)
