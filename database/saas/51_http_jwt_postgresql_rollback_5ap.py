@@ -141,11 +141,16 @@ def hacer_ensayo_http(conn, actores):
         )
         def headers(t): return {"Authorization":f"Bearer {t}"}
 
+        # No atender ninguna petición con principal postgres superusuario.
+        AS_ROLE(conn,A)
         with TestClient(api) as http:
-            # Rechazos 401/422 sin consultar el repositorio de negocio.
+            # Rechazos 401 y 422 sin llegar a CALL comercial. El 422 puede
+            # consultar la membresía, ya que FastAPI resuelve dependencias
+            # antes de validar el cuerpo de la petición.
             antes_call = len(db.calls)
             require_response(http.post("/tenant/reservas",json={}),401,
                              "sin JWT")
+            ENSURE(len(db.calls)==antes_call,"sin token hubo lectura SQL")
             require_response(http.post(
                 "/tenant/reservas",
                 headers=headers(cliente_a),
@@ -153,10 +158,13 @@ def hacer_ensayo_http(conn, actores):
                       "fecha_atencion":(datetime.now(timezone.utc)+timedelta(days=2)).isoformat(),
                       "usuario_id":actores["b_usuario"]},
             ),422,"suplantacion actor JSON")
-            ENSURE(len(db.calls)==antes_call,
-                   "una petición rechazada antes de auth ejecutó SQL")
+            ENSURE(not any("CALL public.sp_" in sql for sql in db.calls),
+                   "petición con actor JSON alcanzó CALL comercial")
+            ENSURE(ONE(conn,"SELECT stock_reservado FROM public.inventario WHERE id=%s",
+                       (actores["a_inventario"],))==4,
+                   "actor JSON alteró inventario")
 
-            AS_ROLE(conn,A)
+            
             ENSURE(ONE(conn,"SELECT count(*) FROM public.empresa")==1,
                    "SQL A ve otra empresa")
             resp_me = require_response(
