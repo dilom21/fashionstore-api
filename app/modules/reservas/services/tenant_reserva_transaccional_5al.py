@@ -78,7 +78,8 @@ _VERIFICADOR_ACTOR_SQL_META = text("""
       (NOT has_schema_privilege(session_user,'public','CREATE')
        AND NOT has_database_privilege(session_user,current_database(),'CREATE'))
         AS llamador_sin_ddl,
-      (NOT pg_has_role(session_user,p.proowner,'MEMBER'))
+      (NOT pg_has_role((SELECT oid FROM pg_roles WHERE rolname=session_user),
+                       p.proowner,'MEMBER'))
         AS llamador_ajeno_al_propietario,
       (p.proacl IS NOT NULL AND NOT EXISTS(
           SELECT 1 FROM aclexplode(p.proacl) acl
