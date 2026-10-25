@@ -571,7 +571,15 @@ def run():
             validate_cluster(admin,data)
             print("5BG PREFLIGHT PASS: major 18, puerto/IP y data_directory")
             prepare_schema(admin,passw)
-            admin.execute(MINIMAL_SCHEMA)
+            # CREATE TABLE uno por uno: psycopg3 evita ambigüedad del
+            # protocolo extendido al ejecutar muchas sentencias juntas.
+            for ddl in MINIMAL_SCHEMA.split(";"):
+                if ddl.strip():
+                    admin.execute(ddl)
+            require(one(admin,"""SELECT count(*) FROM pg_catalog.pg_class c
+              JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
+              WHERE n.nspname='public' AND c.relkind='r'""")==27,
+              "5BG: se esperaban 25 tablas parciales + 2 de 5BC")
             sembrar_ficticios(admin)
             permisos_y_rls(admin)
             instalar_sp_originales(admin,fuentes)
