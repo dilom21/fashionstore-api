@@ -25,6 +25,7 @@ os.environ["SAAS_RESERVAS_ENABLED"]="false"
 
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+import threading
 import runpy
 import secrets
 import shutil
@@ -37,7 +38,7 @@ import jwt
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, text
 from sqlalchemy.engine import URL
 from sqlalchemy.pool import QueuePool
 from psycopg import sql
@@ -186,6 +187,18 @@ def construir_api_aislada(auth_engine,actors):
 def probar_http_jwt_y_sql(admin,passwords,auth_pass):
     actors=crear_pooles(passwords)
     auth_engine=pool_lectura_auth(auth_pass)
+    # Registrar checkout ÚNICAMENTE de los tres pooles comerciales.
+    # El lector de membresía es independiente y nunca puede leer reservas.
+    lock=threading.Lock()
+    checkout_count=[0]
+    def contar_checkout(dbapi_con,connection_record,connection_proxy):
+        with lock:
+            checkout_count[0]+=1
+    for engine in actors.values():
+        event.listen(engine,"checkout",contar_checkout)
+    def cuantos_checkout():
+        with lock:
+            return checkout_count[0]
     try:
         comprobar_acls_auth(auth_engine)
         api=construir_api_aislada(auth_engine,actors)
@@ -197,6 +210,7 @@ def probar_http_jwt_y_sql(admin,passwords,auth_pass):
             return client.get("/lab/tenant/reserva",
                 headers={"Authorization":"Bearer "+token},params=params)
         with TestClient(api) as client:
+            prev=cuantos_checkout()
             missing=client.get("/lab/tenant/reserva")
             require(missing.status_code==401,"JWT ausente aceptado")
             altered=req(client,tokens[(1,101)]+"x")
@@ -218,6 +232,11 @@ def probar_http_jwt_y_sql(admin,passwords,auth_pass):
                 usuario_id=101,empresa_id=1,contexto="personal")
             require(req(client,wrongcontext).status_code==403,
                     "contexto de rol incorrecto aceptado")
+            require(cuantos_checkout()==prev,
+                    "5BE BRECHA: solicitud 401/403 obtuvo conexión "
+                    "del pool comercial antes de autorizarse")
+            print("5BE DENEGADO PASS: JWT inválido/cruzado/expirado "
+                  "no retiró conexiones de A1/A2/B1")
             # Firma válida nunca permite elegir empresa/usuario vía query.
             a1=req(client,tokens[(1,101)],
                 {"empresa_id":2,"usuario_id":201})
@@ -245,9 +264,12 @@ def probar_http_jwt_y_sql(admin,passwords,auth_pass):
             # de servir de inmediato; sin caché de membresía.
             admin.execute("""UPDATE public.fs_5be_membresia SET activa=FALSE
                   WHERE empresa_id=1 AND usuario_id=102 AND contexto='cliente'""")
+            prev_rev=cuantos_checkout()
             denied=req(client,tokens[(1,102)])
             require(denied.status_code==403,
                     "JWT de A2 siguió autorizado tras revocar membresía")
+            require(cuantos_checkout()==prev_rev,
+                    "5BE BRECHA: revocación dio acceso al pool SQL de A2")
             require(req(client,tokens[(1,101)]).status_code==200,
                     "revocación de A2 afectó A1")
             print("5BE REVOCACIÓN PASS: JWT A2 vigente rechazado por "
