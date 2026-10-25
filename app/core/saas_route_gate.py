@@ -16,6 +16,20 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 from app.core.config import settings
 
 
+# CU01/CU02: rutas globales aisladas, SOLO con segundo opt-in.
+_RUTAS_SAAS_SUPERADMIN = frozenset({
+    ("GET","/saas/superadmin/empresas"),
+    ("POST","/saas/superadmin/empresas"),
+    ("GET","/saas/superadmin/planes"),
+    ("POST","/saas/superadmin/planes"),
+})
+_RUTA_SAAS_SUPERADMIN_CAMBIO = re.compile(
+    r"^/saas/superadmin/(?:empresas/[1-9][0-9]*/estado|planes/[1-9][0-9]*/estado|empresas/[1-9][0-9]*/suscripciones/[1-9][0-9]*/estado)$"
+)
+_RUTA_SAAS_SUPERADMIN_SUSCRIPCIONES = re.compile(
+    r"^/saas/superadmin/empresas/[1-9][0-9]*/suscripciones$"
+)
+
 _RUTAS_PERMITIDAS_SAAS = frozenset(
     {
         ("GET", "/"),
@@ -27,7 +41,9 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/tenant/empresa/suscripcion"),
         ("GET", "/tenant/empresa/sucursales"),
         ("POST", "/tenant/empresa/sucursales"),
-        ("PATCH", "/tenant/empresa/plan"),
+        # Cambio de plan empresarial por autoservicio bloqueado en SaaS:
+        # CU02 exige autenticación de SUPERADMIN global.
+
         # CU04: catálogo empresarial/admin; nunca permitir /usuarios legacy.
         ("GET", "/tenant/empresa/usuarios"),
         ("GET", "/tenant/empresa/roles"),
@@ -86,6 +102,16 @@ _RUTAS_CATALOGO_DETALLE = re.compile(
 
 
 def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
+    # CU01/CU02: opt-in y rutas exactas. La dependencia del router
+    # comprueba además la clave superadmin, independiente del JWT tenant.
+    if settings.saas_superadmin_enabled:
+        if (metodo,ruta) in _RUTAS_SAAS_SUPERADMIN:
+            return True
+        if metodo=="PATCH" and _RUTA_SAAS_SUPERADMIN_CAMBIO.fullmatch(ruta):
+            return True
+        if metodo in ("GET","POST") and (
+            _RUTA_SAAS_SUPERADMIN_SUSCRIPCIONES.fullmatch(ruta)):
+            return True
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
