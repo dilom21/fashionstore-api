@@ -250,7 +250,7 @@ def test_cu01_02_router_global_requiere_auth_sin_empresa_id_en_header():
     assert "get_current_tenant_admin" not in source
     assert "emitir_token_empresa" not in source
     assert (source.count("@router.get(")+source.count("@router.post(")
-            +source.count("@router.patch("))==9
+            +source.count("@router.patch("))==10
     assert "app.include_router(saas_superadmin_router)" in MAIN.read_text(
         encoding="utf-8")
     assert "saas_superadmin_enabled: bool = False" in CONFIG.read_text(
@@ -290,6 +290,7 @@ def test_cu01_02_allowlist_global_solo_metodos_rutas_y_flags_exactos():
     for method,path in (
         ("GET","/saas/superadmin/empresas"),
         ("POST","/saas/superadmin/empresas"),
+        ("POST","/saas/superadmin/empresas/1/administrador-inicial"),
         ("GET","/saas/superadmin/planes"),
         ("POST","/saas/superadmin/planes"),
         ("PATCH","/saas/superadmin/empresas/1/estado"),
@@ -301,6 +302,8 @@ def test_cu01_02_allowlist_global_solo_metodos_rutas_y_flags_exactos():
         assert allowed(method,path) is True
     for method,path in (
         ("DELETE","/saas/superadmin/empresas"),
+        ("GET","/saas/superadmin/empresas/1/administrador-inicial"),
+        ("POST","/saas/superadmin/empresas/0/administrador-inicial"),
         ("PATCH","/saas/superadmin/empresas/0/estado"),
         ("POST","/saas/superadmin/planes/1/estado"),
         ("GET","/saas/superadmin/empresas/1/estado"),
