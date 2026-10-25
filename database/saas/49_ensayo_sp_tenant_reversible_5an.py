@@ -125,6 +125,43 @@ def grant_minimal_lab(c):
               AND ue.empresa_id = {principal_empresa}
         ))""")
 
+    # Catálogos compartidos: permitir SOLO tallas/colores ligados a
+    # variantes visibles de la empresa actual; nunca catálogo global.
+    for tabla, columna in (("talla","talla_id"),("color","color_id")):
+        c.execute(f"ALTER TABLE public.{tabla} ENABLE ROW LEVEL SECURITY")
+        c.execute(f"""CREATE POLICY fs_lab_5an_{tabla}_select
+            ON public.{tabla} FOR SELECT TO {users}
+            USING (EXISTS (
+              SELECT 1 FROM public.variante_producto vp
+              WHERE vp.{columna} = {tabla}.id
+                AND vp.estado IS TRUE
+                AND vp.empresa_id = {principal_empresa}
+            ))""")
+
+    # Autorizaciones CU18: funciones/acciones únicamente vinculadas a
+    # un rol con membresía vigente de la empresa SQL. No usar permisos
+    # globales de plataforma como atajo al RLS.
+    for tabla in ("rol_funcion","funcion","accion"):
+        c.execute(f"ALTER TABLE public.{tabla} ENABLE ROW LEVEL SECURITY")
+        if tabla == "rol_funcion":
+            predicado = f"""EXISTS (
+              SELECT 1 FROM public.usuario_empresa ue
+              WHERE ue.rol_id = rol_funcion.rol_id AND ue.estado IS TRUE
+                AND ue.empresa_id = {principal_empresa}
+            )"""
+        else:
+            col = "funcion_id" if tabla == "funcion" else "accion_id"
+            predicado = f"""EXISTS (
+              SELECT 1 FROM public.rol_funcion rf
+              JOIN public.usuario_empresa ue ON ue.rol_id=rf.rol_id
+              WHERE rf.{col} = {tabla}.id
+                AND ue.estado IS TRUE
+                AND ue.empresa_id = {principal_empresa}
+            )"""
+        c.execute(f"""CREATE POLICY fs_lab_5an_{tabla}_select
+            ON public.{tabla} FOR SELECT TO {users}
+            USING ({predicado})""")
+
     for t in ("usuario_empresa","suscripcion","reserva"):
         # Las 34 tablas tenant ya tienen policy fs_lab_tenant_select; los
         # derechos nuevos son para FOR SHARE / UPDATE sujeto a RLS.
@@ -309,6 +346,13 @@ def run_calls(c, ids):
     ensure(one(c,"SELECT count(*) FROM public.rol WHERE nombre='ADMINISTRADOR'") == 0,
            "rol de B se filtro al principal A")
     diagnosticar_membresia(c,a,ua,"CLIENTE")
+    ensure(one(c,"""SELECT count(*) FROM public.detalle_carrito dc
+        JOIN public.inventario i ON i.id=dc.inventario_id
+        JOIN public.variante_producto vp ON vp.id=i.variante_producto_id
+        JOIN public.talla ta ON ta.id=vp.talla_id
+        JOIN public.color co ON co.id=vp.color_id
+        WHERE dc.carrito_id=%s""",(ids["a_carrito"],)) == 1,
+        "catalogo A no visible por RLS")
     result=c.execute(CALL_CREATE,(a,ids["a_carrito"],ua,future,
                                   "Ensayo 5AN rollback",None)).fetchone()
     ensure(result is not None and isinstance(result[0],int) and result[0]>0,
@@ -339,6 +383,12 @@ def run_calls(c, ids):
     ensure(one(c,"SELECT count(*) FROM public.rol WHERE nombre='CLIENTE'") == 0,
            "rol de A se filtro al principal B")
     diagnosticar_membresia(c,b,ub,"ADMINISTRADOR")
+    ensure(one(c,"""SELECT count(*) FROM public.rol_funcion rf
+        JOIN public.funcion f ON f.id=rf.funcion_id
+        JOIN public.accion ac ON ac.id=rf.accion_id
+        WHERE f.nombre='GESTIONAR_RESERVAS'
+          AND ac.nombre='EJECUTAR'""") == 1,
+        "permisos CU18 B no visibles por RLS")
     c.execute(CALL_CHANGE.format("sp_finalizar_reserva_sin_compra_tenant"),
               (b,ids["b_reserva"],ub,"Finalizacion 5AN"))
     ensure(one(c,"SELECT estado FROM public.reserva WHERE id=%s",
@@ -371,8 +421,8 @@ def main():
             # revocados a PUBLIC por los drafts; permitir EXECUTE A/B
             # sólo en esta transacción para probar operaciones.
             grant_minimal_lab(c)
-            ensure(one(c,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")==47,
-                   "policies temporales no son exactamente seis")
+            ensure(one(c,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")==52,
+                   "policies temporales no son exactamente once")
             run_calls(c,ids)
             print("5AN CALL PASS: creación, cancelación y finalización")
         finally:
