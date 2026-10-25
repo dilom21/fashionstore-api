@@ -122,3 +122,16 @@ def test_5ax_roles_heredados_a_b_no_retienen_dml_directo():
     assert "for role in TARGETS:" in S
     assert "(SHARED[0],\"UPDATE public.inventario \"" in S
     assert "5 roles (A1,A2,B1,A,B)" in S
+
+
+
+def test_5ax_compatibilidad_5ay_dueno_definer_solo_durante_ensayo():
+    assert "original_sp_owner=settings.saas_sp_sql_owner" in S
+    assert "settings.saas_sp_sql_owner=WRITER" in S
+    assert "settings.saas_sp_sql_owner=original_sp_owner" in S
+    assert S.index("settings.saas_sp_sql_owner=WRITER") < S.index(
+        'M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)'
+    )
+    assert S.index('settings.saas_sp_sql_owner=original_sp_owner') < S.index(
+        'c.execute("ROLLBACK")'
+    )
