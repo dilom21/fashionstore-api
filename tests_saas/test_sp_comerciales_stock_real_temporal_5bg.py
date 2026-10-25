@@ -184,3 +184,13 @@ def test_5bg_b_fixture_nueve_parametros_iguales_a_columnas():
     assert len(sql.group(1).split(","))==9
     assert sql.group(2).count("%s")==9
     assert '(300,2,201,2,99,ts,ts+timedelta(days=2),"CONFIRMADA","B ficticia")' in S
+
+
+
+def test_5bg_crea_tablas_por_separado_y_valida_catalogo():
+    assert 'for ddl in MINIMAL_SCHEMA.split(";"):' in S
+    assert "if ddl.strip():" in S
+    assert "admin.execute(ddl)" in S
+    assert "c.relkind='r'" in S
+    assert "==27" in S
+    assert "25 tablas parciales + 2 de 5BC" in S
