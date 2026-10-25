@@ -96,6 +96,41 @@ _VERIFICADOR_ACTOR_SQL_REAL = text("""
 """)
 
 
+# 5AY: alternativa permitida a SECURITY INVOKER cuando el DML directo
+# ha sido revocado. No basta con p.prosecdef: dueño, ACL, search_path y
+# separación de privilegios deben verificarse antes de cualquier CALL.
+_SP_DEFINER_SQL_META = text("""
+    SELECT
+      pg_get_userbyid(p.proowner) AS propietario,
+      p.prosecdef AS security_definer,
+      (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[])
+        AS path_seguro,
+      has_function_privilege(session_user,p.oid,'EXECUTE') AS puede_ejecutar,
+      (r.rolcanlogin IS FALSE AND r.rolsuper IS FALSE
+        AND r.rolbypassrls IS FALSE
+        AND r.rolcreaterole IS FALSE AND r.rolcreatedb IS FALSE
+        AND r.rolinherit IS FALSE) AS propietario_restringido,
+      (NOT has_schema_privilege(p.proowner,'public','CREATE')
+        AND NOT has_database_privilege(p.proowner,current_database(),'CREATE'))
+        AS owner_sin_ddl,
+      (NOT pg_has_role(
+        (SELECT oid FROM pg_roles WHERE rolname=session_user),
+        p.proowner,'MEMBER')) AS llamador_ajeno_al_propietario,
+      (NOT has_schema_privilege(session_user,'public','CREATE')
+        AND NOT has_database_privilege(session_user,current_database(),'CREATE'))
+        AS llamador_sin_ddl,
+      (p.proacl IS NOT NULL AND NOT EXISTS (
+        SELECT 1 FROM aclexplode(p.proacl) acl
+        WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+      )) AS publico_revocado
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid=p.pronamespace
+    JOIN pg_roles r ON r.oid=p.proowner
+    WHERE n.nspname='public' AND p.proname=:procedimiento
+      AND p.prokind='p'
+""")
+
+
 _RESERVA_CONFIRMADA = text("""
     SELECT r.id
     FROM public.reserva r
@@ -148,12 +183,47 @@ def verificar_principal_reserva(
         r["empresas_visibles"] != 1
         or r["empresa_esperada_visible"] != 1
         or r["planes_reserva_vigentes"] != 1
-        or r["procedimientos_autorizados"] != 1
         or not isinstance(r["principal"], str)
         or not r["principal"]
     ):
         raise ReservaTenantDeshabilitada(
             "Rol SQL de reserva no aislado o procedimiento CU16 no autorizado"
+        )
+
+    # Para INVOKER se conserva la comprobación histórica (5AT/5AV).
+    # Para DEFINER sólo se acepta un dueño NOLOGIN auditado y configurado.
+    # La consulta inicial exige NOT p.prosecdef para no abrir este modo
+    # accidentalmente al instalar un SP ajeno.
+    from app.core.config import settings
+    sp_owner = settings.saas_sp_sql_owner
+    if r["procedimientos_autorizados"] == 1:
+        if sp_owner:
+            raise ReservaTenantDeshabilitada(
+                "SP esperado SECURITY DEFINER pero sigue INVOKER"
+            )
+    elif r["procedimientos_autorizados"] == 0:
+        if (not isinstance(sp_owner, str) or not sp_owner
+                or sp_owner == r["principal"]
+                or sp_owner == settings.saas_actor_sql_owner):
+            raise ReservaTenantDeshabilitada(
+                "SP SECURITY DEFINER sin propietario validado"
+            )
+        spmeta = db.execute(_SP_DEFINER_SQL_META, {
+            "procedimiento": procedimiento
+        }).mappings().one_or_none()
+        if (not spmeta or spmeta.get("propietario") != sp_owner
+                or not all(spmeta.get(key) is True for key in (
+                    "security_definer", "path_seguro", "puede_ejecutar",
+                    "propietario_restringido", "owner_sin_ddl",
+                    "llamador_ajeno_al_propietario",
+                    "llamador_sin_ddl", "publico_revocado",
+                ))):
+            raise ReservaTenantDeshabilitada(
+                "SP SECURITY DEFINER inseguro o sin permisos"
+            )
+    else:
+        raise ReservaTenantDeshabilitada(
+            "SP con cantidad de autorizaciones inesperada"
         )
     # Segundo factor obligatorio: la empresa aislada no basta para
     # demostrar identidad del usuario dentro del mismo tenant (hallazgo 5AQ).
