@@ -19,6 +19,8 @@ from sqlalchemy.orm import Session
 from app.core.tenant_context import TenantContext
 from app.modules.reservas.services.tenant_sp_calls_5o import (
     preparar_creacion_reserva,
+    preparar_cancelacion_reserva,
+    preparar_finalizacion_sin_compra,
 )
 
 
@@ -165,3 +167,78 @@ def crear_reserva_transaccional_sin_exposicion_http(
     except Exception:
         db.rollback()
         raise
+
+
+_RESERVA_CAMBIADA = text("""
+    SELECT r.estado FROM public.reserva r
+    WHERE r.id=:reserva_id AND r.empresa_id=:empresa_id
+      AND (
+        :cliente IS FALSE OR EXISTS (
+          SELECT 1 FROM public.cliente cl
+          WHERE cl.id=r.cliente_id AND cl.empresa_id=r.empresa_id
+            AND cl.usuario_id=:usuario_id AND cl.estado IS TRUE
+        )
+      )
+""")
+
+
+def _ejecutar_cambio_reserva(
+    db: Session, *,
+    tenant: TenantContext,
+    reserva_id: int,
+    observacion: str | None,
+    accion: str,
+) -> str:
+    """No se expone como SQL directo: requiere JWT + SP invoker y RLS."""
+    if accion == "cancelar":
+        llamada = preparar_cancelacion_reserva(
+            tenant=tenant, reserva_id=reserva_id, observacion=observacion
+        )
+        sp = "sp_cancelar_reserva_tenant"
+        estado_esperado = "CANCELADA"
+    elif accion == "finalizar":
+        llamada = preparar_finalizacion_sin_compra(
+            tenant=tenant, reserva_id=reserva_id, observacion=observacion
+        )
+        sp = "sp_finalizar_reserva_sin_compra_tenant"
+        estado_esperado = "ATENDIDA"
+    else:
+        raise ValueError("Operacion desconocida")
+    try:
+        verificar_principal_reserva(db, tenant, procedimiento=sp)
+        db.execute(llamada.sentencia, dict(llamada.parametros))
+        estado = db.scalar(_RESERVA_CAMBIADA, {
+            "reserva_id": reserva_id,
+            "empresa_id": tenant.empresa_id,
+            "usuario_id": tenant.usuario_id,
+            "cliente": tenant.contexto == "cliente",
+        })
+        if estado != estado_esperado:
+            raise ReservaTenantIntegridadError(
+                "La reserva no alcanzo el estado transaccional esperado"
+            )
+        db.commit()
+        return estado
+    except Exception:
+        db.rollback()
+        raise
+
+
+def cancelar_reserva_transaccional_tenant(
+    db: Session, *, tenant: TenantContext,
+    reserva_id: int, observacion: str | None = None,
+) -> str:
+    return _ejecutar_cambio_reserva(
+        db, tenant=tenant, reserva_id=reserva_id,
+        observacion=observacion, accion="cancelar"
+    )
+
+
+def finalizar_reserva_sin_compra_transaccional_tenant(
+    db: Session, *, tenant: TenantContext,
+    reserva_id: int, observacion: str | None = None,
+) -> str:
+    return _ejecutar_cambio_reserva(
+        db, tenant=tenant, reserva_id=reserva_id,
+        observacion=observacion, accion="finalizar"
+    )
