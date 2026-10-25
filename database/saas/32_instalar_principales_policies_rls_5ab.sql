@@ -12,7 +12,7 @@ DO $preflight$
 DECLARE v_tabla record; v_count bigint;
 BEGIN
   IF current_database() <> 'fashionstore_rls_lab_5u'
-     OR inet_server_addr()::text IS DISTINCT FROM '127.0.0.1'
+     OR host(inet_server_addr()) IS DISTINCT FROM '127.0.0.1'
      OR inet_server_port() <> 55432
      OR session_user <> 'postgres'
      OR current_user <> 'postgres'
