@@ -33,7 +33,8 @@ class ReservaTenantIntegridadError(RuntimeError):
 _PRINCIPAL_SQL = text("""
     SELECT session_user AS principal,
            r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls
-             AND NOT r.rolcreaterole AND NOT r.rolcreatedb AS restringido,
+             AND NOT r.rolcreaterole AND NOT r.rolcreatedb
+             AND NOT r.rolinherit AS restringido,
            row_security_active('public.empresa'::regclass) AS rls_empresas,
            row_security_active('public.reserva'::regclass) AS rls_reservas,
            row_security_active('public.inventario'::regclass) AS rls_inventario,
