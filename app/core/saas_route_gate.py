@@ -30,6 +30,10 @@ _RUTA_SAAS_SUPERADMIN_SUSCRIPCIONES = re.compile(
     r"^/saas/superadmin/empresas/[1-9][0-9]*/suscripciones$"
 )
 
+_RUTA_SAAS_SUPERADMIN_BOOTSTRAP = re.compile(
+    r"^/saas/superadmin/empresas/[1-9][0-9]*/administrador-inicial$"
+)
+
 _RUTAS_PERMITIDAS_SAAS = frozenset(
     {
         ("GET", "/"),
@@ -111,6 +115,8 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
             return True
         if metodo in ("GET","POST") and (
             _RUTA_SAAS_SUPERADMIN_SUSCRIPCIONES.fullmatch(ruta)):
+            return True
+        if metodo == "POST" and _RUTA_SAAS_SUPERADMIN_BOOTSTRAP.fullmatch(ruta):
             return True
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
