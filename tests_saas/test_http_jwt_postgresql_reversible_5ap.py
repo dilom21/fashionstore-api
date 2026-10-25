@@ -71,3 +71,13 @@ def test_5ap_tres_http_y_dos_usuarios_misma_empresa():
     assert "JWT A con empresa B" in CODE
     assert "JWT + membresia segundo cliente A" in CODE
     assert "5AP PENDIENTE: establecer vínculo DB inviolable" in CODE
+
+
+def test_5ap_ejecutable_directo_resuelve_app_desde_raiz():
+    """`python database/saas/51_*.py` no agrega el root al sys.path."""
+    assert 'REPO_ROOT = Path(__file__).resolve().parents[2]' in CODE
+    assert 'sys.path.insert(0, str(REPO_ROOT))' in CODE
+    assert '(REPO_ROOT / "app" / "core" / "config.py").is_file()' in CODE
+    assert CODE.index('sys.path.insert(0, str(REPO_ROOT))') < CODE.index(
+        'from app.core.config import settings'
+    )
