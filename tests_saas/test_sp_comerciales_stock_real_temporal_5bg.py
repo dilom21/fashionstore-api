@@ -194,3 +194,73 @@ def test_5bg_crea_tablas_por_separado_y_valida_catalogo():
     assert "c.relkind='r'" in S
     assert "==27" in S
     assert "25 tablas parciales + 2 de 5BC" in S
+
+
+
+def test_5bg_overload_bigint_esperado_no_convierte_a_integer():
+    # 5BC usa fs_5bc_verificar(integer,integer), pero los borradores
+    # CU16–CU18 reciben bigint. PostgreSQL rechazó su mezcla con 42883.
+    assert "def instalar_verificador_bigint(c):" in S
+    assert "p_empresa_id bigint,p_usuario_id bigint" in S
+    assert "public.fs_5bc_verificar(bigint,bigint)" in S
+    assert "m.empresa_id::bigint=p_empresa_id" in S
+    assert "m.usuario_id::bigint=p_usuario_id" in S
+    assert "p_empresa_id::integer" not in S
+    assert "p_usuario_id::integer" not in S
+    assert "instalar_verificador_bigint(admin)" in S
+    assert S.index("instalar_verificador_bigint(admin)") < S.index(
+        "instalar_sp_originales(admin,fuentes)"
+    )
+
+
+def test_5bg_bigint_titular_no_login_y_public_exec_revocado():
+    assert "REVOKE ALL ON FUNCTION {} FROM PUBLIC" in S
+    assert 'sql.Identifier(VERIFIER)' in S
+    assert "GRANT EXECUTE ON FUNCTION {} TO {}" in S
+    assert "aclexplode(p.proacl)" in S
+    assert "meta==(True,VERIFIER,2,True,True,False,False,False)" in S
+    assert '"5BG VERIFICADOR BIGINT PASS' in S
+    assert "verificador conservó CREATE" in S
+
+
+def test_5bg_bigint_real_se_valida_desde_los_tres_logins():
+    assert "role_check(c,role,company)" in S
+    assert "persona={ROLES[0]:101,ROLES[1]:102,ROLES[2]:201}[role]" in S
+    assert 'SELECT public.fs_5bc_verificar(%s::bigint,%s::bigint)' in S
+    assert "verificador bigint no reconoce al principal propio" in S
+    assert "verificador bigint permitió otro usuario del mismo tenant" in S
+    assert 'getattr(e.diag,"message_primary",None)' in S
+
+
+def test_5bg_cargador_sql_real_inyecta_guardia_una_vez_sin_pg():
+    # Ejecutar la transformación real sobre los tres borradores originales
+    # SIN importar app ni abrir conexiones; prueba funcional offline.
+    tree=ast.parse(S)
+    fn=next(n for n in tree.body
+            if isinstance(n,ast.FunctionDef)
+            and n.name=="cargar_sql_real")
+    module=ast.Module(body=[fn],type_ignores=[])
+    def check(ok,msg):
+        if not ok:
+            raise RuntimeError(msg)
+    sigs={
+      "sp_crear_reserva_tenant":("12_sp_crear_reserva_tenant.sql.txt",
+        "bigint,bigint,bigint,timestamptz,text,bigint"),
+      "sp_cancelar_reserva_tenant":("13_sp_cancelar_reserva_tenant.sql.txt",
+        "bigint,bigint,bigint,text"),
+      "sp_finalizar_reserva_sin_compra_tenant":(
+        "14_sp_finalizar_reserva_sin_compra_tenant.sql.txt",
+        "bigint,bigint,bigint,text"),
+    }
+    env={"HERE":DIR.parent,"PROCEDURES":sigs,"require":check,"re":re}
+    exec(compile(module,str(P),"exec"),env)
+    sources=env["cargar_sql_real"]()
+    assert set(sources)==set(ORIG)
+    for name,source in sources.items():
+        original=(DIR/ORIG[name]).read_text(encoding="utf-8")
+        assert source!=original
+        assert source.count("fs_5bc_verificar(p_empresa_id,p_usuario_id)")==1
+        assert source.index("fs_5bc_verificar(p_empresa_id,p_usuario_id)") < (
+            source.index("IF p_empresa_id IS NULL")
+        )
+        assert source.count("CREATE OR REPLACE PROCEDURE")==1
