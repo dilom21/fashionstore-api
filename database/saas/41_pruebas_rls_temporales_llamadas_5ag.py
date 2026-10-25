@@ -209,9 +209,6 @@ def run(admin, a, b, fixture):
     ensure(len(procs)==4 and {x[0] for x in procs}==set(NAMES),"SP legacy distintos o ausentes")
     for name,nargs in procs:
         ensure(0<=nargs<=20,"firma SP legacy no segura")
-        ensure(one(a,"SELECT has_function_privilege(session_user,%s::regprocedure,'EXECUTE')",
-                   (f"public.{name}({','.join(['unknown']*nargs)})",)) is False
-                   if False else True, "placeholder")
         sql=f"CALL public.{name}({','.join('NULL' for _ in range(nargs))})"
         code,_=aborted_sql(a,sql)
         ensure(code=="42501",f"A10 CALL {name} SQLSTATE={code} en vez de 42501")
@@ -244,10 +241,11 @@ def main():
                 admin.execute(CLEANUP)
                 ensure(one(admin,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")==35,
                        "cleanup: policies no restauradas")
-                ensure(one(admin,"SELECT has_table_privilege(%s,'public.reserva','INSERT')",(A,)) is False,
-                       "cleanup: A conserva INSERT")
-                ensure(one(admin,"SELECT has_table_privilege(%s,'public.inventario','UPDATE')",(B,)) is False,
-                       "cleanup: B conserva UPDATE")
+                for column in ("empresa_id","cliente_id","sucursal_id","fecha_atencion"):
+                    ensure(one(admin,"SELECT has_column_privilege(%s,'public.reserva',%s,'INSERT')",
+                               (A,column)) is False, "cleanup: A conserva INSERT columna "+column)
+                ensure(one(admin,"SELECT has_column_privilege(%s,'public.inventario','stock_reservado','UPDATE')",
+                           (B,)) is False, "cleanup: B conserva UPDATE stock_reservado")
                 for role in (A,B):
                     ensure(one(admin,"SELECT has_table_privilege(%s,'public.bitacora','INSERT')",(role,)) is False,
                            "cleanup: role conserva bitacora INSERT")
