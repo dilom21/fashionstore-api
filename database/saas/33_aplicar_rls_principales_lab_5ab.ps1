@@ -54,7 +54,7 @@ SELECT session_user || '|' ||
     if ($LASTEXITCODE -ne 0) { Stop-Lab "Fallo autenticar o consultar como $name" }
     $result = @($rows | Where-Object { $_ -like "$name|*" })
     if ($result.Count -ne 1) { Stop-Lab "Salida SQL inesperada para $name" }
-    $expected = "$name|t|$slug|f|0|t"
+    $expected = "$name|true|$slug|false|0|true"
     if ($result[0] -ne $expected) {
         Write-Host ('5AB AUDITORIA inesperada: ' + $result[0])
         Stop-Lab "Aislamiento SELECT o permisos NO aprobados para $name"
