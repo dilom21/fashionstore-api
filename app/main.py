@@ -18,6 +18,7 @@ from app.modules.carrito.api.router import router as carrito_router
 from app.modules.carrito.api.tenant_router import router as tenant_carrito_router
 from app.modules.carrito.api.tenant_read_router import router as tenant_carrito_read_router
 from app.modules.reservas.api.tenant_prevalidacion_router import router as tenant_reserva_prevalidacion_router
+from app.modules.sucursales.api.tenant_saas_admin_router import router as tenant_empresa_admin_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
 from app.modules.devoluciones.api.router import router as devoluciones_router
@@ -84,6 +85,8 @@ app.include_router(tenant_carrito_router)
 app.include_router(tenant_carrito_read_router)
 # CU16 SaaS: solo prevalidacion de stock/propietario, sin crear reserva.
 app.include_router(tenant_reserva_prevalidacion_router)
+# Empresa SaaS: administracion de plan y sucursales con aislamiento tenant.
+app.include_router(tenant_empresa_admin_router)
 app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
