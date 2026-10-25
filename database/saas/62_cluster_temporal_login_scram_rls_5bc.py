@@ -129,15 +129,44 @@ def one(conn,stmt,args=None):
     return conn.execute(stmt,args).fetchone()[0]
 
 
+def verificar_identidad_sql(db,login,addr,port,version):
+    """Comprueba identidad sin relajar ninguna condición del preflight.
+
+    En caso de rechazo enumera SOLO los campos públicos diferentes,
+    nunca credenciales, archivos, hashes o rutas privadas.
+    """
+    major=version//10000 if type(version) is int else None
+    actual={
+        "base":db,
+        "usuario_sql":login,
+        "ip_servidor":addr,
+        "puerto":port,
+        "version_major":major,
+    }
+    esperado={
+        "base":"postgres",
+        "usuario_sql":"postgres",
+        "ip_servidor":HOST,
+        "puerto":PORT,
+        "version_major":18,
+    }
+    errores=[
+        f"{campo}: recibido={actual[campo]!r}, esperado={esperado[campo]!r}"
+        for campo in esperado if actual[campo]!=esperado[campo]
+    ]
+    require(not errores,
+            "identidad del clúster temporal no coincide: "+
+            "; ".join(errores))
+    return True
+
+
 def validate_cluster(conn,datadir):
     row=conn.execute("""SELECT current_database(),session_user,
        inet_server_addr()::text,inet_server_port(),
        current_setting('server_version_num')::integer,
        current_setting('data_directory')""").fetchone()
     db,login,addr,port,version,actual_dir=row
-    require(db=="postgres" and login=="postgres" and addr==HOST
-            and port==PORT and version//10000==18,
-            "el puerto no lleva a la instancia temporal PostgreSQL 18")
+    verificar_identidad_sql(db,login,addr,port,version)
     require(Path(actual_dir).resolve()==datadir.resolve(),
             "data_directory no coincide con el creado por 5BC")
     require(one(conn,"SELECT count(*) FROM pg_roles WHERE rolname=ANY(%s)",
