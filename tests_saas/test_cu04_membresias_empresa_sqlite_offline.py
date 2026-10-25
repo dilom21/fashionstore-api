@@ -208,8 +208,13 @@ def test_cu04_allowlist_solo_cuatro_rutas_exactas_no_legacy():
     tree=ast.parse(src)
     body=[]
     for node in tree.body:
+        # La función reutiliza también las constantes de recursos
+        # comerciales y de detalle. Ejecutar la función aislada exige
+        # incluirlas en el namespace del test (sin importar app/settings).
         if isinstance(node,ast.Assign) and any(
-            isinstance(x,ast.Name) and x.id.startswith("_RUTA")
+            isinstance(x,ast.Name) and x.id.startswith(
+                ("_RUTA", "_RECURSOS", "_DETALLE")
+            )
             for x in node.targets):
             body.append(node)
         if isinstance(node,ast.FunctionDef) and node.name=="_ruta_saas_permitida":
