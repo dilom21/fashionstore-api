@@ -124,6 +124,8 @@ def validate_cluster(conn,datadir):
 
 def prepare_schema(admin,passwords):
     """Todo el DDL afecta ÚNICAMENTE la base NUEVA en :55433."""
+    # No depender del default de una instalación PostgreSQL diferente.
+    admin.execute("SET password_encryption='scram-sha-256'")
     admin.execute("""CREATE TABLE public.fs_5bc_actor(
         principal name PRIMARY KEY, empresa_id integer NOT NULL,
         usuario_id integer NOT NULL, UNIQUE(empresa_id,usuario_id))""")
@@ -137,6 +139,14 @@ def prepare_schema(admin,passwords):
         ))
         admin.execute("INSERT INTO public.fs_5bc_actor VALUES (%s,%s,%s)",
                       (role,enterprise,uid))
+    scram=admin.execute("""SELECT rolname,rolpassword
+      FROM pg_catalog.pg_authid
+      WHERE rolname=ANY(%s) ORDER BY rolname""",
+      (list(ROLES),)).fetchall()
+    require(len(scram)==3 and all(
+        hashed is not None and hashed.startswith("SCRAM-SHA-256$")
+        for _,hashed in scram
+    ),"los tres roles no tienen credenciales SCRAM")
     for owner in (VERIFIER,WRITER):
         admin.execute(sql.SQL("""CREATE ROLE {} NOLOGIN NOINHERIT
             NOSUPERUSER NOBYPASSRLS NOCREATEROLE NOCREATEDB""").format(
@@ -234,6 +244,12 @@ def prepare_schema(admin,passwords):
 
 
 def audit_live(admin,passwords):
+    # Si dos roles compartieran credenciales habría una brecha de aislamiento.
+    try:
+        with connect(ROLES[1],passwords[ROLES[0]]):
+            raise RuntimeError("BRECHA: contraseña A1 autentica como A2")
+    except psycopg.OperationalError:
+        print("5BC PASSWORD PASS: contraseña A1 rechazada para login A2")
     for role,uid,empresa,row_id in ACTORS:
         with connect(role,passwords[role]) as c:
             who=c.execute("SELECT session_user,current_user").fetchone()
