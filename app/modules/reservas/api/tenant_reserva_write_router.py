@@ -129,6 +129,12 @@ def cancelar_reserva_tenant(
         raise HTTPException(status_code=503, detail="Reservas SaaS aun no habilitadas")
     if reserva_id <= 0:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    if not (
+        (miembro.contexto == "cliente" and miembro.rol_nombre == "CLIENTE")
+        or (miembro.contexto == "personal" and miembro.rol_nombre
+            in {"ADMINISTRADOR", "ENCARGADO_SUCURSAL"})
+    ):
+        raise HTTPException(status_code=403, detail="Operación no autorizada")
     try:
         estado = cancelar_reserva_transaccional_tenant(
             db, tenant=miembro, reserva_id=reserva_id,
@@ -149,6 +155,9 @@ def finalizar_reserva_sin_compra_tenant(
         raise HTTPException(status_code=503, detail="Reservas SaaS aun no habilitadas")
     if reserva_id <= 0:
         raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    if not (miembro.contexto == "personal" and miembro.rol_nombre
+            in {"ADMINISTRADOR", "ENCARGADO_SUCURSAL", "CAJERO"}):
+        raise HTTPException(status_code=403, detail="Operación no autorizada")
     try:
         estado = finalizar_reserva_sin_compra_transaccional_tenant(
             db, tenant=miembro, reserva_id=reserva_id,
