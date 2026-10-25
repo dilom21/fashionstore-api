@@ -44,6 +44,8 @@ suscripcion=table("suscripcion",
     column("observacion",String),schema="public")
 configuracion=table("empresa_configuracion",
     column("empresa_id",BigInteger),schema="public")
+sucursal=table("sucursal",column("id",BigInteger),
+    column("empresa_id",BigInteger),column("estado",Boolean),schema="public")
 
 _PLAN_FIELDS={
     "codigo","nombre","descripcion","max_sucursales_activas",
@@ -170,7 +172,16 @@ class SuperadminSaaSRepository:
         # Lock de empresa ANTES de leer/cancelar, para serializar
         # asignaciones de plan por administradores concurrentes.
         _empresa_por_id(db,empresa_id,bloqueo=True)
-        _plan_activo(db,plan_id)
+        nuevo=_plan_activo(db,plan_id)
+        # CU02: rechazar downgrade que deja más sucursales ACTIVAS
+        # de las permitidas en el plan de destino.
+        branches=int(db.scalar(select(func.count()).select_from(sucursal)
+            .where(sucursal.c.empresa_id==empresa_id,
+                   sucursal.c.estado.is_(True))) or 0)
+        if branches>nuevo["max_sucursales_activas"]:
+            raise SuperadminSaaSError(409,
+                "El plan elegido permite menos sucursales activas "
+                "que las existentes")
         db.execute(update(suscripcion).where(
             suscripcion.c.empresa_id==empresa_id,
             suscripcion.c.estado=="ACTIVA").values(estado="CANCELADA"))
