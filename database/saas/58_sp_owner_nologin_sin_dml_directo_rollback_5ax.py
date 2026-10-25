@@ -33,6 +33,10 @@ PREFLIGHT, FIXTURES, SOURCES=X["PREFLIGHT"],X["FIXTURES"],X["SOURCES"]
 ONE, ENSURE=X["ONE"],X["ENSURE"]
 HOST,PORT,DB=X["HOST"],X["PORT"],X["DB"]
 ROLES=X["ROLES"]
+# Los viejos principales empresariales conservaron GRANT DML del 5AJ/5AN.
+# Se revocan igualmente DENTRO del ensayo, pero se restituyen con ROLLBACK.
+SHARED=("fashionstore_5ab_a","fashionstore_5ab_b")
+TARGETS=ROLES+SHARED
 A1,A2,B1=X["SQL_A1"],X["SQL_A2"],X["SQL_B1"]
 VERIFIER_OWNER=X["OWNER"]
 WRITER="fashionstore_5ax_sp_writer"
@@ -153,7 +157,7 @@ def grant_lecturas_y_escrituras_writer(c):
 
 def retirar_dml_directo_de_actores(c):
     """Revocar TAMBIÉN permisos por columna, no sólo permisos de tabla."""
-    targets=", ".join(ROLES)
+    targets=", ".join(TARGETS)
     for table in TABLES:
         ENSURE(table.isidentifier(),"tabla no permitida")
         c.execute(f"""REVOKE INSERT,UPDATE,DELETE ON public.{table}
@@ -167,7 +171,7 @@ def retirar_dml_directo_de_actores(c):
         cols=sql_names(columns)
         c.execute(f"""REVOKE INSERT ({cols}), UPDATE ({cols})
             ON public.{table} FROM {targets}""")
-    for role in ROLES:
+    for role in TARGETS:
         for table in TABLES:
             count=ONE(c,"""SELECT count(*) FROM pg_catalog.pg_attribute a
                WHERE a.attrelid=%s::regclass
@@ -176,8 +180,8 @@ def retirar_dml_directo_de_actores(c):
                       OR has_column_privilege(%s,a.attrelid,a.attnum,'UPDATE'))
             """,(f"public.{table}",role,role))
             ENSURE(count==0,f"{role} aún tiene DML directo sobre {table}")
-    print("5AX DML DIRECTO BLOQUEADO: 3 roles sin INSERT/UPDATE "
-          "sobre 8 tablas comerciales")
+    print("5AX DML DIRECTO BLOQUEADO: 5 roles (A1,A2,B1,A,B) "
+          "sin INSERT/UPDATE sobre 8 tablas comerciales")
 
 
 def instalar_sp_como_definer(c):
@@ -280,9 +284,15 @@ def auditar_dml_sin_privilegios(c,ids,reserva_a2):
             "WHERE id=%s RETURNING id",(ids["a_inventario"],)),
         (A2,"UPDATE public.carrito SET estado='ACTIVO' "
             "WHERE id=%s RETURNING id",(ids["a_carrito"],)),
+        (SHARED[0],"UPDATE public.inventario "
+            "SET fecha_actualizacion=clock_timestamp() "
+            "WHERE id=%s RETURNING id",(ids["a_inventario"],)),
     )
     for role,sql,args in pruebas:
-        M["como_rol"](c,role)
+        if role in ROLES or role==SHARED[0]:
+            M["como_rol"](c,role)
+        else:
+            raise RuntimeError("5AX principal inesperado")
         c.execute("SAVEPOINT sp_5ax_dml")
         try:
             c.execute(sql,args).fetchone()
