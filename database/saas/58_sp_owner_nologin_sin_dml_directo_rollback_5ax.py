@@ -211,6 +211,27 @@ def instalar_sp_como_definer(c):
           "NOLOGIN, search_path seguro y guardia de identidad")
 
 
+def auditar_reserva_ajena_sin_grant(c,ids,reserva_a2):
+    """Después de REVOKE, el 5AW previo no aplica (exigía GRANT UPDATE).
+
+    A1 aún puede leer sus propias reservas, nunca las de A2. La política
+    restrictiva de lectura debe mantenerse efectiva tras cambiar SP owner.
+    """
+    M["como_rol"](c,A1)
+    try:
+        ENSURE(ONE(c,"SELECT row_security_active('public.reserva'::regclass)")
+               is True,"RLS de lectura de reserva inactiva")
+        ENSURE(ONE(c,"SELECT has_table_privilege(session_user,"
+                   "'public.reserva','SELECT')") is True,
+               "prueba inconclusa sin SELECT de reservas")
+        ENSURE(ONE(c,"SELECT count(*) FROM public.reserva WHERE id=%s",
+                   (reserva_a2,))==0,
+               "BRECHA RLS: A1 puede leer reserva de A2")
+        print("5AX RLS PASS: A1 no puede leer reserva ajena A2")
+    finally:
+        M["como_dba"](c)
+
+
 def auditar_dml_sin_privilegios(c,ids,reserva_a2):
     """Ejecutar intentos reales bajo actores, no solo leer ACL."""
     pruebas=(
@@ -275,7 +296,7 @@ def main():
             retirar_dml_directo_de_actores(c)
             instalar_sp_como_definer(c)
             res_a2=M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)
-            X["auditar_reserva_ajena"](c,ids,res_a2)
+            auditar_reserva_ajena_sin_grant(c,ids,res_a2)
             auditar_dml_sin_privilegios(c,ids,res_a2)
         finally:
             c.execute("ROLLBACK")
