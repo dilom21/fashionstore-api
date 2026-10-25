@@ -264,3 +264,50 @@ def test_cu01_02_gate_separa_admin_tenant_de_global():
     assert "re.compile(" in source
     assert "saas_auth_enabled" in source
     assert "No es reemplazo de RLS" in source
+
+
+
+def test_cu01_02_allowlist_global_solo_metodos_rutas_y_flags_exactos():
+    src=GATE.read_text(encoding="utf-8")
+    tree=ast.parse(src)
+    selected=[]
+    for node in tree.body:
+        if isinstance(node,ast.Assign) and any(
+            isinstance(x,ast.Name) and x.id.startswith(
+                ("_RUTA","_RECURSOS","_DETALLE"))
+            for x in node.targets):
+            selected.append(node)
+        if isinstance(node,ast.FunctionDef) and node.name=="_ruta_saas_permitida":
+            selected.append(node)
+    settings=SimpleNamespace(saas_superadmin_enabled=True,
+                             saas_reservas_enabled=False)
+    env={"re":re,"frozenset":frozenset,"settings":settings}
+    exec(compile(ast.Module(body=selected,type_ignores=[]),
+                 str(GATE),"exec"),env)
+    allowed=env["_ruta_saas_permitida"]
+    for method,path in (
+        ("GET","/saas/superadmin/empresas"),
+        ("POST","/saas/superadmin/empresas"),
+        ("GET","/saas/superadmin/planes"),
+        ("POST","/saas/superadmin/planes"),
+        ("PATCH","/saas/superadmin/empresas/1/estado"),
+        ("PATCH","/saas/superadmin/planes/1/estado"),
+        ("GET","/saas/superadmin/empresas/1/suscripciones"),
+        ("POST","/saas/superadmin/empresas/1/suscripciones"),
+        ("PATCH","/saas/superadmin/empresas/1/suscripciones/2/estado"),
+    ):
+        assert allowed(method,path) is True
+    for method,path in (
+        ("DELETE","/saas/superadmin/empresas"),
+        ("PATCH","/saas/superadmin/empresas/0/estado"),
+        ("POST","/saas/superadmin/planes/1/estado"),
+        ("GET","/saas/superadmin/empresas/1/estado"),
+        ("GET","/saas/superadmin/empresas/1/suscripciones/2/estado"),
+        ("POST","/saas/superadmin/empresas/0/suscripciones"),
+        ("PATCH","/tenant/empresa/plan"),
+        ("GET","/saas/superadmin/empresas/1/extra"),
+    ):
+        assert not allowed(method,path)
+    settings.saas_superadmin_enabled=False
+    assert not allowed("GET","/saas/superadmin/empresas")
+    assert not allowed("POST","/saas/superadmin/planes")
