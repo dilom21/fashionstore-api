@@ -78,6 +78,8 @@ _VERIFICADOR_ACTOR_SQL_META = text("""
       (NOT has_schema_privilege(session_user,'public','CREATE')
        AND NOT has_database_privilege(session_user,current_database(),'CREATE'))
         AS llamador_sin_ddl,
+      (NOT pg_has_role(session_user,p.proowner,'MEMBER'))
+        AS llamador_ajeno_al_propietario,
       (p.proacl IS NOT NULL AND NOT EXISTS(
           SELECT 1 FROM aclexplode(p.proacl) acl
           WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
@@ -170,7 +172,7 @@ def verificar_principal_reserva(
             or not all(meta.get(key) is True for key in (
                 "security_definer", "path_seguro", "puede_ejecutar",
                 "propietario_restringido", "llamador_sin_ddl",
-                "publico_revocado",
+                "llamador_ajeno_al_propietario", "publico_revocado",
             ))):
         raise ReservaTenantDeshabilitada(
             "Verificador SQL individual no instalado o inseguro"
