@@ -52,6 +52,7 @@ def _meta():
         "puede_ejecutar": True,
         "propietario_restringido": True,
         "llamador_sin_ddl": True,
+        "llamador_ajeno_al_propietario": True,
         "publico_revocado": True,
     }
 
@@ -116,6 +117,7 @@ def test_5au_config_por_defecto_bloquea_antes_de_funcion(monkeypatch):
     ("puede_ejecutar",False),
     ("propietario_restringido",False),
     ("llamador_sin_ddl",False),
+    ("llamador_ajeno_al_propietario",False),
     ("publico_revocado",False),
 ])
 def test_5au_rechaza_meta_insegura(monkeypatch,cambio):
@@ -202,3 +204,16 @@ def test_5au_no_hay_identidad_individual_si_rls_es_insuficiente(monkeypatch):
     with pytest.raises(servicio.ReservaTenantDeshabilitada):
         servicio.verificar_principal_reserva(db,_tenant())
     assert len(db.calls)==1
+
+
+
+def test_5au_verificador_sin_procedencia_no_es_confiable():
+    from pathlib import Path
+    source = (Path(__file__).resolve().parents[1]
+              / "app/modules/reservas/services/tenant_reserva_transaccional_5al.py").read_text(encoding="utf-8")
+    assert "pg_has_role(session_user,p.proowner,'MEMBER')" in source
+    assert "NOT has_schema_privilege(session_user,'public','CREATE')" in source
+    assert "pg_get_userbyid(p.proowner)" in source
+    assert "acl.grantee=0" in source
+    assert "app.usuario_id" in source  # advertencia, nunca autorizacion
+    assert "current_setting('app.usuario_id')" not in source
