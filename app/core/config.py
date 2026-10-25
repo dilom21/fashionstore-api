@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     saas_auth_enabled: bool = False
     # CU16: habilitar solo tras validar SP definitivo, principal SQL y RLS.
     saas_reservas_enabled: bool = False
+    # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueño
+    # NOLOGIN dedicado; sin valor, la escritura SaaS falla cerrada.
+    saas_actor_sql_owner: str | None = None
 
     # CU22 - Pago electronico con Stripe (Test Mode).
     # Los secretos se leen del entorno (.env local, no versionado). Si no estan
