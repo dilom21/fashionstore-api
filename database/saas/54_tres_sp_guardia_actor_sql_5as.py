@@ -165,9 +165,6 @@ def verificar_5as(c, ids, segundo):
     TEST_ACTOR(c,SQL_A2,a,segundo,a1)
     TEST_ACTOR(c,SQL_B1,b,b1,a1)
     # Un mismo principal de empresa NO representa individuo.
-    ENSURE(ONE(c,"SELECT public.fs_lab_verificar_actor_5ar(%s,%s)",
-               (a,a1)) is False if False else True,
-           "DBA consulta sin cambio de session_user; no es afirmación de actor")
     for principal, procedimiento, empresa, objeto, usuario in (
         (TENANT_A,"sp_crear_reserva_tenant",a,ids["a_carrito"],a1),
         (TENANT_A,"sp_cancelar_reserva_tenant",a,1,a1),
