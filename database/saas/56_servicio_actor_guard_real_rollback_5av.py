@@ -341,8 +341,11 @@ def main():
         finally:
             c.execute("ROLLBACK")
             PREFLIGHT(c)
-            ENSURE(ONE(c,"SELECT count(*) FROM pg_roles WHERE rolname=%s",
-                       (OWNER,))==0,"dueño SECURITY DEFINER quedó instalado")
+            ENSURE(ONE(c,"SELECT count(*) FROM pg_roles WHERE rolname=ANY(%s)",
+                       ([OWNER,*ROLES],))==0,
+                   "persistió alguno de los roles SQL de prueba")
+            ENSURE(ONE(c,"SELECT to_regclass('public.fs_lab_actor_sql_5ar') IS NULL")
+                   is True,"persistió el mapa privado de identidad")
             ENSURE(ONE(c,"SELECT to_regprocedure(" 
                 "'public.fs_verificar_actor_reserva(bigint,bigint)') IS NULL")
                 is True,"función de identidad no se revirtió")
