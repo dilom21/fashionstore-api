@@ -131,3 +131,29 @@ def test_5be_denegaciones_antes_de_checkout_sql_comercial():
     assert "cuantos_checkout()==prev_rev" in S
     assert "5BE DENEGADO PASS" in S
     assert "5BE BRECHA: revocación dio acceso al pool SQL de A2" in S
+
+
+
+def test_5be_psycopg3_connection_no_executemany():
+    # Regresión real reportada: Connection de psycopg3 no dispone
+    # de executemany(); las 3 inserciones son parametrizadas.
+    assert "admin.executemany(" not in S
+    assert "for empresa,usuario,contexto,activa in MEMBERSHIPS:" in S
+    assert "admin.execute(" in S
+    assert "(empresa,usuario,contexto,activa))" in S
+    assert 'SELECT count(*) FROM public.fs_5be_membresia' in S
+    assert "faltan membresías ficticias de arranque" in S
+
+
+def test_5be_auth_select_por_columna_no_equivale_al_de_tabla():
+    # Misma trampa detectada en 5BB: GRANT SELECT(col...) no concede
+    # SELECT sobre la tabla completa. Permitir solo las columnas mínimas.
+    assert "visible_tabla is False" in S
+    assert 'for columna in ("empresa_id","usuario_id","contexto","activa"):' in S
+    assert "has_column_privilege(" in S
+    assert "auth no tiene SELECT sobre columna" in S
+    assert "SELECT empresa_id,usuario_id,contexto,activa" in S
+    assert "list(MEMBERSHIPS)" in S
+    assert "has_any_column_privilege(" in S
+    assert "auth puede leer columnas de " in S
+    assert "auth puede mutar membresía" in S
