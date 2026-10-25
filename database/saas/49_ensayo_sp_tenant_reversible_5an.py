@@ -62,7 +62,7 @@ def grant_minimal_lab(c):
     # Estos permisos son TRANSITORIOS dentro de la misma transacción.
     users = f"{A}, {B}"
     c.execute(f"""
-        GRANT SELECT ON public.rol, public.modulo, public.funcion,
+        GRANT SELECT ON public.modulo, public.funcion,
           public.accion, public.rol_funcion, public.plan_saas,
           public.suscripcion, public.usuario_empresa,
           public.cliente, public.empleado, public.sucursal,
@@ -75,6 +75,9 @@ def grant_minimal_lab(c):
     """)
     # No conceder acceso a password_hash (usuario global).
     c.execute(f"GRANT SELECT (id,estado) ON public.usuario TO {users}")
+    # Rol sólo necesita estas columnas en el SP: no mostrar directorio global.
+    # INSERT de identidades siempre ocurre ANTES, como postgres ficticio.
+    c.execute(f"GRANT SELECT (id,nombre,estado) ON public.rol TO {users}")
     c.execute(f"""GRANT INSERT
         (empresa_id,cliente_id,sucursal_id,carrito_id,fecha_reserva,
          fecha_atencion,estado,observacion)
@@ -96,6 +99,32 @@ def grant_minimal_lab(c):
     c.execute(f"""CREATE POLICY fs_lab_5an_plan_select
       ON public.plan_saas FOR SELECT TO {users}
       USING (estado IS TRUE)""")
+    # usuario/rol no tienen empresa_id: para estos recursos la identidad
+    # se deriva EXCLUSIVAMENTE de la membresia de la empresa del principal
+    # SQL (session_user). No usar GUC editable ni abrir SELECT global.
+    # ENABLE y CREATE pertenecen al BEGIN ... ROLLBACK del LAB.
+    c.execute("ALTER TABLE public.usuario ENABLE ROW LEVEL SECURITY")
+    c.execute("ALTER TABLE public.rol ENABLE ROW LEVEL SECURITY")
+    principal_empresa = f"""(
+        SELECT e.id FROM public.empresa e WHERE e.slug =
+        CASE session_user WHEN '{A}' THEN 'empresa-lab-a'
+                          WHEN '{B}' THEN 'empresa-lab-b' END
+    )"""
+    c.execute(f"""CREATE POLICY fs_lab_5an_usuario_select
+        ON public.usuario FOR SELECT TO {users}
+        USING (EXISTS (
+            SELECT 1 FROM public.usuario_empresa ue
+            WHERE ue.usuario_id = usuario.id AND ue.estado IS TRUE
+              AND ue.empresa_id = {principal_empresa}
+        ))""")
+    c.execute(f"""CREATE POLICY fs_lab_5an_rol_select
+        ON public.rol FOR SELECT TO {users}
+        USING (EXISTS (
+            SELECT 1 FROM public.usuario_empresa ue
+            WHERE ue.rol_id = rol.id AND ue.estado IS TRUE
+              AND ue.empresa_id = {principal_empresa}
+        ))""")
+
     for t in ("usuario_empresa","suscripcion","reserva"):
         # Las 34 tablas tenant ya tienen policy fs_lab_tenant_select; los
         # derechos nuevos son para FOR SHARE / UPDATE sujeto a RLS.
@@ -274,6 +303,11 @@ def run_calls(c, ids):
            "A ve mas de una empresa")
     ensure(one(c,"SELECT id FROM public.empresa")==a,
            "A principal no coincide")
+    # Incluso cuando conoce IDs ajenos, A no puede consultar usuario/rol B.
+    ensure(one(c,"SELECT count(*) FROM public.usuario WHERE id=%s",(ub,)) == 0,
+           "usuario B se filtro al principal A")
+    ensure(one(c,"SELECT count(*) FROM public.rol WHERE nombre='ADMINISTRADOR'") == 0,
+           "rol de B se filtro al principal A")
     diagnosticar_membresia(c,a,ua,"CLIENTE")
     result=c.execute(CALL_CREATE,(a,ids["a_carrito"],ua,future,
                                   "Ensayo 5AN rollback",None)).fetchone()
@@ -300,6 +334,10 @@ def run_calls(c, ids):
            "B ve mas de una empresa")
     ensure(one(c,"SELECT id FROM public.empresa")==b,
            "B principal no coincide")
+    ensure(one(c,"SELECT count(*) FROM public.usuario WHERE id=%s",(ua,)) == 0,
+           "usuario A se filtro al principal B")
+    ensure(one(c,"SELECT count(*) FROM public.rol WHERE nombre='CLIENTE'") == 0,
+           "rol de A se filtro al principal B")
     diagnosticar_membresia(c,b,ub,"ADMINISTRADOR")
     c.execute(CALL_CHANGE.format("sp_finalizar_reserva_sin_compra_tenant"),
               (b,ids["b_reserva"],ub,"Finalizacion 5AN"))
@@ -333,8 +371,8 @@ def main():
             # revocados a PUBLIC por los drafts; permitir EXECUTE A/B
             # sólo en esta transacción para probar operaciones.
             grant_minimal_lab(c)
-            ensure(one(c,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")==45,
-                   "policies temporales no son exactamente cuatro")
+            ensure(one(c,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")==47,
+                   "policies temporales no son exactamente seis")
             run_calls(c,ids)
             print("5AN CALL PASS: creación, cancelación y finalización")
         finally:
