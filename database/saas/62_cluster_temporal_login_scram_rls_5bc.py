@@ -161,8 +161,11 @@ def verificar_identidad_sql(db,login,addr,port,version):
 
 
 def validate_cluster(conn,datadir):
+    # host(inet) elimina el sufijo /32 que PostgreSQL agrega al
+    # convertir la dirección inet directamente a text. Se sigue
+    # exigiendo igualdad EXACTA con HOST=127.0.0.1.
     row=conn.execute("""SELECT current_database(),session_user,
-       inet_server_addr()::text,inet_server_port(),
+       host(inet_server_addr()),inet_server_port(),
        current_setting('server_version_num')::integer,
        current_setting('data_directory')""").fetchone()
     db,login,addr,port,version,actual_dir=row
