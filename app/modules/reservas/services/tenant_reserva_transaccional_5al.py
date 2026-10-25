@@ -42,6 +42,15 @@ _PRINCIPAL_SQL = text("""
            (SELECT count(*) FROM public.empresa e
              WHERE e.id=:empresa_id AND e.slug=:slug) AS empresa_esperada_visible,
            (SELECT count(*)
+             FROM public.suscripcion sus
+             JOIN public.plan_saas pl ON pl.id=sus.plan_saas_id
+             WHERE sus.empresa_id=:empresa_id
+               AND sus.estado='ACTIVA' AND pl.estado IS TRUE
+               AND pl.permite_reservas IS TRUE
+               AND (timezone('America/La_Paz', now()))::date
+                   BETWEEN sus.fecha_inicio AND sus.fecha_vencimiento
+           ) AS planes_reserva_vigentes,
+           (SELECT count(*)
              FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
              WHERE n.nspname='public'
                AND p.proname='sp_crear_reserva_tenant'
@@ -92,6 +101,7 @@ def verificar_principal_reserva(db: Session, tenant: TenantContext) -> str:
     ) or (
         r["empresas_visibles"] != 1
         or r["empresa_esperada_visible"] != 1
+        or r["planes_reserva_vigentes"] != 1
         or r["procedimientos_autorizados"] != 1
         or not isinstance(r["principal"], str)
         or not r["principal"]
