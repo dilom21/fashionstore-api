@@ -112,3 +112,13 @@ def test_5ax_security_definer_no_permita_actor_ajeno_ni_compartido():
     assert "has_function_privilege(" in S
     assert "5AX IDENTIDAD PASS" in S
     assert "5AX BRECHA: SP DEFINER aceptó actor ajeno" in S
+
+
+
+def test_5ax_roles_heredados_a_b_no_retienen_dml_directo():
+    assert 'SHARED=("fashionstore_5ab_a","fashionstore_5ab_b")' in S
+    assert "TARGETS=ROLES+SHARED" in S
+    assert 'targets=", ".join(TARGETS)' in S
+    assert "for role in TARGETS:" in S
+    assert "(SHARED[0],\"UPDATE public.inventario \"" in S
+    assert "5 roles (A1,A2,B1,A,B)" in S
