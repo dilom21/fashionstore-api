@@ -77,7 +77,7 @@ SELECT session_user || '|' ||
 }
 try {
     Write-Host '5AC [1/3] Verificacion de entorno SOLO LECTURA'
-    if ((Get-Location).Path -cne $root) { Block 'Ubicacion inesperada del proyecto' }
+    if ((Get-Location).Path -ne $root) { Block 'Ubicacion inesperada del proyecto' }
     if (-not (Test-Path -LiteralPath $psql -PathType Leaf)) { Block 'Falta psql.exe PostgreSQL 18' }
     if ((git branch --show-current).Trim() -ne 'feat/saas-multitenant-parcial2') {
         Block 'Rama Git incorrecta'
