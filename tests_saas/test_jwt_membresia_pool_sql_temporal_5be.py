@@ -117,3 +117,17 @@ def test_5be_cleanup_y_sin_modificaciones_comerciales():
     assert "5BE LIMPIEZA PENDIENTE" in S
     assert "5BE PENDIENTE" in S
     assert "app/core/database" not in S
+
+
+
+def test_5be_denegaciones_antes_de_checkout_sql_comercial():
+    assert "from sqlalchemy import create_engine, event, text" in S
+    assert 'event.listen(engine,"checkout",contar_checkout)' in S
+    assert "checkout_count=[0]" in S
+    assert "threading.Lock()" in S
+    assert "prev=cuantos_checkout()" in S
+    assert "cuantos_checkout()==prev" in S
+    assert "prev_rev=cuantos_checkout()" in S
+    assert "cuantos_checkout()==prev_rev" in S
+    assert "5BE DENEGADO PASS" in S
+    assert "5BE BRECHA: revocación dio acceso al pool SQL de A2" in S
