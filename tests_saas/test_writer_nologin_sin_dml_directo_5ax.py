@@ -88,7 +88,8 @@ def test_5ax_sql_directo_debe_ser_rechazado_con_42501():
 
 def test_5ax_flujos_positivos_y_aislamiento_5aw():
     assert 'M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)' in S
-    assert 'X["auditar_reserva_ajena"](c,ids,res_a2)' in S
+    assert 'auditar_reserva_ajena_sin_grant(c,ids,res_a2)' in S
+    assert "5AX RLS PASS: A1 no puede leer reserva ajena A2" in S
     assert "retirar_dml_directo_de_actores(c)" in S
     assert "instalar_sp_como_definer(c)" in S
     assert "5AX OK LAB" in S
