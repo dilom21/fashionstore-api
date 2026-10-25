@@ -131,6 +131,12 @@ def hacer_ensayo_http(conn, actores):
         settings.saas_auth_enabled = True
         settings.saas_reservas_enabled = True
 
+        # Segundo usuario REAL en la misma empresa (membresía SQL auténtica),
+        # no sólo dos contextos ficticios de test.
+        cliente_a2 = emitir_token_empresa(
+            usuario_id=actores["a_usuario2"],
+            empresa_id=actores["a_empresa"],contexto="cliente"
+        )
         cliente_a = emitir_token_empresa(
             usuario_id=actores["a_usuario"],
             empresa_id=actores["a_empresa"],contexto="cliente"
@@ -167,6 +173,14 @@ def hacer_ensayo_http(conn, actores):
             
             ENSURE(ONE(conn,"SELECT count(*) FROM public.empresa")==1,
                    "SQL A ve otra empresa")
+            segundo_me = require_response(
+                http.get("/auth/tenant/me",headers=headers(cliente_a2)),
+                200,"JWT + membresia segundo cliente A")
+            ENSURE(segundo_me["usuario_id"]==actores["a_usuario2"]
+                   and segundo_me["empresa_id"]==actores["a_empresa"]
+                   and segundo_me["rol"]=="CLIENTE",
+                   "segundo cliente misma empresa no verificado")
+            print("5AP ACTORES PASS: dos JWT distintos, misma empresa A")
             resp_me = require_response(
                 http.get("/auth/tenant/me",headers=headers(cliente_a)),
                 200,"JWT + membresia A")
@@ -232,8 +246,53 @@ def hacer_ensayo_http(conn, actores):
         settings.saas_auth_enabled,settings.saas_reservas_enabled = antes
 
 
+def crear_segundo_cliente_a(conn, actores):
+    """Segundo JWT cliente legítimo, sin contraseña utilizable, solo 55432."""
+    rol = ONE(conn,"SELECT id FROM public.rol WHERE nombre='CLIENTE'")
+    segundo = ONE(conn,"""INSERT INTO public.usuario(
+        rol_id,correo,password_hash,estado)
+        VALUES(%s,'segundo-cliente-a-5ap@demo.invalid',
+               '!INUTILIZABLE-SOLO-5AP',TRUE) RETURNING id""",(rol,))
+    conn.execute("""INSERT INTO public.usuario_empresa(
+        usuario_id,empresa_id,rol_id,estado) VALUES(%s,%s,%s,TRUE)""",
+        (segundo,actores["a_empresa"],rol))
+    conn.execute("""INSERT INTO public.cliente(
+        empresa_id,usuario_id,nombre,apellido,estado)
+        VALUES(%s,%s,'Segundo cliente','5AP',TRUE)""",
+        (actores["a_empresa"],segundo))
+    actores["a_usuario2"]=segundo
+
+
+def autoverificar_adaptador():
+    """Chequeo real de compilación de SQLAlchemy y representación de filas."""
+    from sqlalchemy import text
+    compiled = text("SELECT :usuario_id AS usuario_id").compile(dialect=DIALECT)
+    ENSURE("%(usuario_id)s" in compiled.string,
+           "dialecto SQLAlchemy no compila parámetros pyformat")
+    class FakeCursor:
+        description = [type("Col",(),{"name":"usuario_id"})()]
+        def fetchmany(self,count):
+            return [(101,)]
+        def fetchall(self):
+            return [(101,)]
+    row=Resultado(FakeCursor()).mappings().one_or_none()
+    ENSURE(row=={"usuario_id":101},
+           "Result psycopg→mappings no funciona")
+    class FakeConn:
+        def execute(self, sql, params=None):
+            ENSURE("%(id)s" in sql and params=={"id":5},
+                   "execute no parametrizó SQL")
+            return FakeCursor()
+    db=SesionReversible(FakeConn())
+    db.execute(text("SELECT :id AS usuario_id"),{"id":5})
+    db.commit()
+    ENSURE(db.commits_bloqueados==1,"simulador permite COMMIT")
+
+
 def main():
     print("5AP: JWT + HTTP FASTAPI + POSTGRESQL PG18 EN UN SOLO ROLLBACK")
+    autoverificar_adaptador()
+    print("5AP ADAPTADOR SQLAlchemy↔psycopg OK; COMMIT bloqueado")
     src = CARGAR_SQL()
     secret=getpass("Contrasena postgres SOLO laboratorio 55432: ")
     with psycopg.connect(
@@ -248,6 +307,7 @@ def main():
             conn.execute("SET LOCAL statement_timeout='35s'")
             conn.execute("SET LOCAL lock_timeout='5s'")
             actores = FIXTURES(conn)
+            crear_segundo_cliente_a(conn,actores)
             for ddl in src.values():
                 conn.execute(ddl)
             ACL(conn)
