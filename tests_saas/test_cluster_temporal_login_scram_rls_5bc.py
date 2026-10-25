@@ -18,7 +18,7 @@ def test_5bc_no_reutiliza_5432_55432_ni_entorno_comercial():
     assert 'HOST = "127.0.0.1"' in S
     assert "PORT = 55433" in S
     assert "fashionstore-5bc-auth-" in S
-    assert 'tempfile.TemporaryDirectory(' in S
+    assert 'tempfile.mkdtemp(prefix="fashionstore-5bc-auth-")' in S
     assert "fashionstore_restore_" not in S
     assert "PGPASSFILE" not in S
     assert "DATABASE_URL" not in S
@@ -102,7 +102,7 @@ def test_5bc_tres_conexiones_independientes_y_tenant_cruzado():
 
 def test_5bc_limpieza_automatica_revisada():
     assert 'command([pgctl,"-D",datadir,"-w","-t","25"' in S
-    assert '"-m","immediate","stop"' in S
+    assert '"-m","fast","stop"' in S
     assert "5BC CLEANUP PASS" in S
     assert 'require(port_free(),"55433 todavía escucha después de cleanup")' in S
     assert "5BC FINAL: directorio temporal eliminado" in S
@@ -125,3 +125,31 @@ def test_5bc_no_comparte_password_y_exige_hash_scram():
     assert "except psycopg.OperationalError:" in S
     assert "5BC PASSWORD PASS" in S
     assert "BRECHA: contraseña A1 autentica como A2" in S
+
+
+
+def test_5bc_pgctl_no_pipes_heredables_ni_bloqueo_de_communicate():
+    # regresión Windows: stdout/stderr=PIPE de pg_ctl es heredado por
+    # postgres.exe y subprocess.communicate queda esperando EOF.
+    assert "server_control=False" in S
+    assert "subprocess.DEVNULL if server_control" in S
+    assert "stdout=(subprocess.DEVNULL if server_control" in S
+    assert "stderr=(subprocess.DEVNULL if server_control" in S
+    assert "stdin=subprocess.DEVNULL" in S
+    assert '"start"],timeout=55,server_control=True,logfile=logfile)' in S
+    assert "server_control=True,logfile=logfile)" in S
+    assert "stdout/stderr en Windows" in S
+    assert "5BC START: iniciando pg_ctl" in S
+
+
+def test_5bc_interrupcion_no_borra_cluster_vivo_y_diagnostica():
+    assert "tempfile.mkdtemp" in S
+    assert "if started or pid.exists():" in S
+    assert 'command([pgctl,"-D",datadir,"-w","-t","25",' in S
+    assert 'if not pid.exists() and port_free():' in S
+    assert "shutil.rmtree(directory)" in S
+    assert "5BC LIMPIEZA PENDIENTE" in S
+    assert "5BC STOP ALERTA" in S
+    assert "5BC TEMP PASS" in S
+    assert "require(cleanup_ok," in S
+    assert "taskkill genérico" in S
