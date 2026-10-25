@@ -106,3 +106,21 @@ def test_5bb_legacy_5ar_no_conserva_privilegios_definer_dba():
     assert "has_function_privilege(%s," in S
     assert "fs_lab_verificar_actor_5ar\" not in ddl" in S
     assert "5BB LEGACY PASS" in S
+
+
+
+def test_5bb_owner_select_minimo_por_columnas_y_rls_real():
+    # Regresión 5BB: has_table_privilege(SELECT) es False cuando
+    # 5AV otorga SELECT solamente a principal_sql/empresa_id/usuario_id.
+    # La validación SQL real se ejecuta como el dueño NOLOGIN.
+    assert 'for col in ("principal_sql","empresa_id","usuario_id"):' in S
+    assert 'has_column_privilege(%s,%s,%s,\'SELECT\')' in S
+    assert 'has_table_privilege(%s,%s,\'SELECT\')' in S
+    assert '"owner recibió SELECT de tabla completa en lugar del mínimo"' in S
+    assert 'has_table_privilege(%s,%s,\'UPDATE\')' in S
+    assert "SET LOCAL SESSION AUTHORIZATION {VERIFIER_OWNER}" in S
+    assert "row_security_active('public.fs_lab_actor_sql_5ar'::regclass)" in S
+    assert "SELECT principal_sql,empresa_id,usuario_id " in S
+    assert "len(filas)==3" in S
+    assert 'c.execute("SET LOCAL SESSION AUTHORIZATION DEFAULT")' in S
+    assert "5BB MAPA PASS" in S
