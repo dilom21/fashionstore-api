@@ -28,6 +28,9 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/tenant/empresa/sucursales"),
         ("POST", "/tenant/empresa/sucursales"),
         ("PATCH", "/tenant/empresa/plan"),
+        # CU04: catálogo empresarial/admin; nunca permitir /usuarios legacy.
+        ("GET", "/tenant/empresa/usuarios"),
+        ("GET", "/tenant/empresa/roles"),
     }
 )
 
@@ -73,6 +76,9 @@ _RUTA_RESERVA_CU16_CU18 = re.compile(
 _RUTA_EMPRESA_SUCURSAL_ESTADO = re.compile(
     r"^/tenant/empresa/sucursales/[1-9][0-9]*/estado$"
 )
+_RUTA_EMPRESA_MIEMBRO_CAMBIO = re.compile(
+    r"^/tenant/empresa/usuarios/[1-9][0-9]*/(?:rol|estado)$"
+)
 
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
@@ -96,6 +102,9 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     if (metodo, ruta) == ("POST", "/tenant/reservas/prevalidar"):
         return True
     if metodo == "PATCH" and _RUTA_EMPRESA_SUCURSAL_ESTADO.fullmatch(ruta):
+        return True
+    # CU04: solo dos operaciones PATCH exactas sobre IDs positivos.
+    if metodo == "PATCH" and _RUTA_EMPRESA_MIEMBRO_CAMBIO.fullmatch(ruta):
         return True
     if metodo == "PATCH" and _RUTA_CARRITO_LINEA.fullmatch(ruta) is not None:
         return True
