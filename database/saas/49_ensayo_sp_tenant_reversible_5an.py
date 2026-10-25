@@ -114,13 +114,14 @@ def grant_minimal_lab(c):
 
     # Ya existe la policy UPDATE de inventario y carrito desde 5AJ.
     # Inserciones de reserva/detalle/movimiento dependen de 5AJ.
-    for name, narg in M["PROCEDURES"].items():
-        signatures = ",".join(["bigint"]*narg)
-        if name == "sp_crear_reserva_tenant":
-            signatures = "bigint,bigint,bigint,timestamptz,text,bigint"
-        elif name in ("sp_cancelar_reserva_tenant",
-                      "sp_finalizar_reserva_sin_compra_tenant"):
-            signatures = "bigint,bigint,bigint,text"
+    firmas = {
+        "sp_crear_reserva_tenant": "bigint,bigint,bigint,timestamptz,text,bigint",
+        "sp_cancelar_reserva_tenant": "bigint,bigint,bigint,text",
+        "sp_finalizar_reserva_sin_compra_tenant": "bigint,bigint,bigint,text",
+    }
+    ensure(set(firmas) == set(M["PROCEDURES"]),
+           "firmas SQL y borradores 5AM no coinciden")
+    for name, signatures in firmas.items():
         c.execute(
             f"GRANT EXECUTE ON PROCEDURE public.{name}({signatures}) TO {users}"
         )
