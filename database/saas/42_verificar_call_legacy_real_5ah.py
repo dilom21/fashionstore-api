@@ -40,8 +40,11 @@ def connection(user, password):
     )
 
 
-def one(conn, sql, values=()):
-    return conn.execute(sql, values).fetchone()[0]
+def one(conn, sql, values=None):
+    # psycopg intenta analizar cualquier '%' como placeholder cuando recibe
+    # incluso una tupla vacia. LIKE 'fk_tenant_%' no tiene parametros.
+    cursor = conn.execute(sql) if values is None else conn.execute(sql, values)
+    return cursor.fetchone()[0]
 
 
 def inspect(admin):
