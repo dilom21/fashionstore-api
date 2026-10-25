@@ -114,3 +114,14 @@ def test_5bc_no_es_ensayo_http_ni_comercial():
     assert "ni condiciones de concurrencia" in S
     assert "No es el esquema comercial" in S
     assert "flags SaaS OFF" in S
+
+
+
+def test_5bc_no_comparte_password_y_exige_hash_scram():
+    assert "SET password_encryption='scram-sha-256'" in S
+    assert "FROM pg_catalog.pg_authid" in S
+    assert 'hashed.startswith("SCRAM-SHA-256$")' in S
+    assert "with connect(ROLES[1],passwords[ROLES[0]])" in S
+    assert "except psycopg.OperationalError:" in S
+    assert "5BC PASSWORD PASS" in S
+    assert "BRECHA: contraseña A1 autentica como A2" in S
