@@ -232,6 +232,43 @@ def auditar_reserva_ajena_sin_grant(c,ids,reserva_a2):
         M["como_dba"](c)
 
 
+def auditar_guardia_definer(c,ids,a2,carrito2):
+    """Con SECURITY DEFINER el SP debe seguir rechazando actor suplantado.
+
+    Se exige error EXACTO de la guardia, no 42501 por ausencia de ACL.
+    """
+    from datetime import datetime, timedelta, timezone
+    shared=M["LAB"]["BASE"]["TENANT_A"]
+    for role,falso in ((A1,a2),(shared,ids["a_usuario"])):
+        if role==shared:
+            ENSURE(ONE(c,"SELECT has_function_privilege("
+                       "%s,'public.sp_crear_reserva_tenant("
+                       "bigint,bigint,bigint,timestamptz,text,bigint)',"
+                       "'EXECUTE')",(role,)) is True,
+                   "rol empresarial no tiene EXECUTE; auditoria inconclusa")
+        M["como_rol"](c,role)
+        c.execute("SAVEPOINT sp_5ax_guardia")
+        try:
+            c.execute(M["LAB"]["CALL_CREATE"],(
+                ids["a_empresa"],carrito2,falso,
+                datetime.now(timezone.utc)+timedelta(days=2),
+                "5AX prueba de suplantacion",None
+            ))
+        except psycopg.Error as exc:
+            code,reason=exc.sqlstate,exc.diag.message_primary
+            c.execute("ROLLBACK TO SAVEPOINT sp_5ax_guardia")
+            ENSURE(code=="42501" and
+                   reason=="Actor SQL no coincide con usuario de la empresa",
+                   f"guardia SECURITY DEFINER no probada: {code}/{reason}")
+            print("5AX IDENTIDAD PASS: SECURITY DEFINER rechazó "
+                  "suplantación de "+role)
+        else:
+            c.execute("ROLLBACK TO SAVEPOINT sp_5ax_guardia")
+            raise RuntimeError("5AX BRECHA: SP DEFINER aceptó actor ajeno")
+        c.execute("RELEASE SAVEPOINT sp_5ax_guardia")
+        M["como_dba"](c)
+
+
 def auditar_dml_sin_privilegios(c,ids,reserva_a2):
     """Ejecutar intentos reales bajo actores, no solo leer ACL."""
     pruebas=(
@@ -296,6 +333,7 @@ def main():
             retirar_dml_directo_de_actores(c)
             instalar_sp_como_definer(c)
             res_a2=M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)
+            auditar_guardia_definer(c,ids,a2,carrito2)
             auditar_reserva_ajena_sin_grant(c,ids,res_a2)
             auditar_dml_sin_privilegios(c,ids,res_a2)
         finally:
