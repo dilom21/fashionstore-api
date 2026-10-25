@@ -211,7 +211,8 @@ def test_5au_verificador_sin_procedencia_no_es_confiable():
     from pathlib import Path
     source = (Path(__file__).resolve().parents[1]
               / "app/modules/reservas/services/tenant_reserva_transaccional_5al.py").read_text(encoding="utf-8")
-    assert "pg_has_role(session_user,p.proowner,'MEMBER')" in source
+    assert "pg_has_role((SELECT oid FROM pg_roles WHERE rolname=session_user)" in source
+    assert "p.proowner,'MEMBER'" in source
     assert "NOT has_schema_privilege(session_user,'public','CREATE')" in source
     assert "pg_get_userbyid(p.proowner)" in source
     assert "acl.grantee=0" in source
