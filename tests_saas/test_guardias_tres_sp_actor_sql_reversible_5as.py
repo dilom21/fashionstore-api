@@ -75,3 +75,14 @@ def test_5as_suplantacion_mismo_tenant_y_compartidos():
     assert '(SQL_A2,"sp_crear_reserva_tenant"' in S
     assert '(SQL_B1,"sp_finalizar_reserva_sin_compra_tenant"' in S
     assert "RLS/ACL por actor" in S
+
+
+
+def test_5as_no_confunde_privilege_denied_con_guardia_de_identidad():
+    """Un SQLSTATE 42501 de una ACL no demuestra que actuó la guarda."""
+    assert "TO {SQL_B1},{TENANT_B}" in S
+    assert "has_function_privilege(" in S
+    assert "'public.fs_lab_verificar_actor_5ar(bigint,bigint)'" in S
+    assert 'mensaje = err.diag.message_primary' in S
+    assert 'mensaje=="Actor SQL no coincide con usuario de la empresa"' in S
+    assert "rechazo distinto a la guardia" in S
