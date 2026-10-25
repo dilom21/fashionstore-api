@@ -22,7 +22,7 @@ def test_5as_solo_cluster_55432_y_rollback_obligatorio():
     assert "fashionstore_restore_" not in S
     assert "supabase" not in S.lower()
     assert 'to_regclass(' in S
-    assert '"0 roles individuales, 0 mapa, 0 SP finales"' in S
+    assert "0 roles individuales, 0 mapa, 0 SP finales" in S
 
 
 def test_5as_tres_firmas_y_guardias_iniciales():
