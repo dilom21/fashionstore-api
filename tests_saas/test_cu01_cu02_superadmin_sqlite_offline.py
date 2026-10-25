@@ -53,6 +53,8 @@ def db():
       """CREATE UNIQUE INDEX public.uq_sub_activa
          ON suscripcion(empresa_id) WHERE estado='ACTIVA'""",
       "CREATE TABLE public.empresa_configuracion(empresa_id INTEGER PRIMARY KEY)",
+      """CREATE TABLE public.sucursal(
+         id INTEGER PRIMARY KEY,empresa_id INTEGER,estado BOOLEAN)""",
     ]
     with Session(engine) as db:
         for ddl in sqls:
@@ -311,3 +313,32 @@ def test_cu01_02_allowlist_global_solo_metodos_rutas_y_flags_exactos():
     settings.saas_superadmin_enabled=False
     assert not allowed("GET","/saas/superadmin/empresas")
     assert not allowed("POST","/saas/superadmin/planes")
+
+
+
+def test_cu02_downgrade_con_demasiadas_sucursales_falla_sin_cancelar(db):
+    empresa_id=alta(db,slug="empresa-con-3-sucursales",plan_id=2)["empresa"]["id"]
+    for id_ in (1,2,3):
+        db.execute(text("""INSERT INTO public.sucursal(id,empresa_id,estado)
+             VALUES (:id,:empresa_id,1)"""),
+             {"id":id_,"empresa_id":empresa_id})
+    with pytest.raises(Error) as exc:
+        Repo.asignar_suscripcion(db,empresa_id=empresa_id,plan_id=1,
+            fecha_inicio=date(2026,10,26),fecha_vencimiento=date(2026,12,1))
+    assert exc.value.codigo==409
+    subscriptions=Repo.listar_suscripciones(db,empresa_id)
+    assert len(subscriptions)==1
+    assert subscriptions[0]["estado"]=="ACTIVA"
+    assert subscriptions[0]["plan_saas_id"]==2
+
+
+def test_cu02_downgrade_permitido_cuando_sucursales_inactivas(db):
+    empresa_id=alta(db,slug="empresa-con-1-activa",plan_id=2)["empresa"]["id"]
+    for ident,activo in ((1,1),(2,0),(3,0)):
+        db.execute(text("""INSERT INTO public.sucursal(id,empresa_id,estado)
+             VALUES (:id,:empresa_id,:estado)"""),
+             {"id":ident,"empresa_id":empresa_id,"estado":activo})
+    sus=Repo.asignar_suscripcion(db,empresa_id=empresa_id,plan_id=1,
+        fecha_inicio=date(2026,10,26),fecha_vencimiento=date(2026,12,1))
+    assert sus["plan_saas_id"]==1
+    assert len(Repo.listar_suscripciones(db,empresa_id))==2
