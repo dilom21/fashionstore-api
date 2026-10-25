@@ -27,6 +27,7 @@ from app.core.saas_route_gate import BloqueoRutasLegacySaaS
 from app.core.tenant_context import TenantContext
 from app.core.tenant_dependencies import get_current_tenant_context
 from app.modules.sucursales.api.tenant_saas_admin_router import router
+from app.modules.sucursales.repositories.tenant_saas_admin_repository import _hoy
 
 
 META = MetaData()
@@ -78,7 +79,7 @@ def caso(monkeypatch):
         connect_args={"check_same_thread":False},
         poolclass=StaticPool)
     META.create_all(engine)
-    today=date.today()
+    today=_hoy()
     with engine.begin() as c:
         for pid,code,maximum,ai in ((1,"BASICO",2,False),
                                      (2,"PROFESIONAL",10,True)):
@@ -288,7 +289,7 @@ def test_suscripcion_expirada_deniega_operaciones(caso):
     with factory.begin() as db:
         db.execute(SUSCRIPCION.update().where(
             SUSCRIPCION.c.empresa_id==2).values(
-                fecha_vencimiento=date.today()-timedelta(days=1)))
+                fecha_vencimiento=_hoy()-timedelta(days=1)))
     assert client.get("/tenant/empresa/plan").status_code==403
     assert crear(client,"No").status_code==403
 
