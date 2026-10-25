@@ -89,19 +89,24 @@ WHERE NOT t.tgisinternal
 ORDER BY t.tgrelid::regclass::text,t.tgname;
 
 -- Solo CONTEOS de filas, jamás contenido.
-SELECT '04_FILAS_POR_TABLA' AS seccion,
-       table_name AS tabla,
-       (xpath('/r/n/text()',
-          query_to_xml(format('SELECT count(*) AS n FROM public.%I',table_name),
-                       false,true,'')))[1]::text AS total
-FROM information_schema.tables
-WHERE table_schema='public' AND table_type='BASE TABLE'
-  AND table_name IN (
-    'empresa','ciudad','rol','usuario','cliente','sucursal','categoria',
-    'producto','variante_producto','color','talla','temporada',
-    'inventario','carrito','detalle_carrito','reserva',
-    'detalle_reserva','bitacora','movimiento_inventario'
-  )
-ORDER BY table_name;
-
+SELECT '04_FILAS_POR_TABLA' AS seccion, 'empresa' AS tabla, COUNT(*)::bigint AS total FROM public.empresa
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'ciudad' AS tabla, COUNT(*)::bigint AS total FROM public.ciudad
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'rol' AS tabla, COUNT(*)::bigint AS total FROM public.rol
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'usuario' AS tabla, COUNT(*)::bigint AS total FROM public.usuario
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'cliente' AS tabla, COUNT(*)::bigint AS total FROM public.cliente
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'sucursal' AS tabla, COUNT(*)::bigint AS total FROM public.sucursal
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'categoria' AS tabla, COUNT(*)::bigint AS total FROM public.categoria
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'producto' AS tabla, COUNT(*)::bigint AS total FROM public.producto
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'variante_producto' AS tabla, COUNT(*)::bigint AS total FROM public.variante_producto
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'color' AS tabla, COUNT(*)::bigint AS total FROM public.color
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'talla' AS tabla, COUNT(*)::bigint AS total FROM public.talla
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'temporada' AS tabla, COUNT(*)::bigint AS total FROM public.temporada
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'inventario' AS tabla, COUNT(*)::bigint AS total FROM public.inventario
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'carrito' AS tabla, COUNT(*)::bigint AS total FROM public.carrito
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'detalle_carrito' AS tabla, COUNT(*)::bigint AS total FROM public.detalle_carrito
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'reserva' AS tabla, COUNT(*)::bigint AS total FROM public.reserva
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'detalle_reserva' AS tabla, COUNT(*)::bigint AS total FROM public.detalle_reserva
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'bitacora' AS tabla, COUNT(*)::bigint AS total FROM public.bitacora
+UNION ALL SELECT '04_FILAS_POR_TABLA' AS seccion, 'movimiento_inventario' AS tabla, COUNT(*)::bigint AS total FROM public.movimiento_inventario
+ORDER BY tabla;
 ROLLBACK;
