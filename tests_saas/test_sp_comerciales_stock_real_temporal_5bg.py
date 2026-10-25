@@ -159,3 +159,28 @@ def test_5bg_no_confunde_schema_ficticio_con_produccion():
     assert "no es instalación productiva" in S
     assert "SaaS sigue OFF" in S
     assert "NO se importa respaldo comercial" in S
+
+
+
+def test_5bg_acl_reales_public_execute_revocado_y_owner_nologin():
+    assert "aclexplode(p.proacl)" in S
+    assert "acl.grantee=0 AND acl.privilege_type='EXECUTE'" in S
+    assert "AS publico_revocado" in S
+    assert "r.rolcanlogin,r.rolsuper,r.rolbypassrls" in S
+    assert "meta[3] is True" in S
+    assert "meta[4] is False" in S
+    assert "meta[5] is False" in S
+    assert "meta[6] is False" in S
+    assert 'has_schema_privilege(%s,\'public\',\'CREATE\')' in S
+    assert "ACL PUBLIC revocada y search_path seguro" in S
+
+
+def test_5bg_b_fixture_nueve_parametros_iguales_a_columnas():
+    # Evitar fallo 5BE: comprobar INSERT parametrizado con aridad correcta.
+    import re
+    sql=re.search(r'INSERT INTO public\.reserva\s*\(([^)]+)\)\s*VALUES\s*\(([^)]+)\)',
+                  S,re.S)
+    assert sql is not None
+    assert len(sql.group(1).split(","))==9
+    assert sql.group(2).count("%s")==9
+    assert '(300,2,201,2,99,ts,ts+timedelta(days=2),"CONFIRMADA","B ficticia")' in S
