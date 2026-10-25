@@ -53,7 +53,7 @@ _PRINCIPAL_SQL = text("""
            (SELECT count(*)
              FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
              WHERE n.nspname='public'
-               AND p.proname='sp_crear_reserva_tenant'
+               AND p.proname=:procedimiento
                AND p.prokind='p'
                AND NOT p.prosecdef
                AND has_function_privilege(session_user,p.oid,'EXECUTE')
@@ -76,7 +76,10 @@ _RESERVA_CONFIRMADA = text("""
 """)
 
 
-def verificar_principal_reserva(db: Session, tenant: TenantContext) -> str:
+def verificar_principal_reserva(
+    db: Session, tenant: TenantContext, *,
+    procedimiento: str = "sp_crear_reserva_tenant"
+) -> str:
     """Fail-closed: SQL principal real debe estar restringido al MISMO tenant.
 
     Se requiere exactamente una empresa visible con RLS vigente. Eso descarta
@@ -84,6 +87,12 @@ def verificar_principal_reserva(db: Session, tenant: TenantContext) -> str:
     con visibilidad global. No intenta demostrar por si solo identidad de
     usuario, que corresponde a JWT+membresía y al SP real.
     """
+    if procedimiento not in {
+        "sp_crear_reserva_tenant",
+        "sp_cancelar_reserva_tenant",
+        "sp_finalizar_reserva_sin_compra_tenant",
+    }:
+        raise ValueError("Procedimiento tenant no permitido")
     if not isinstance(tenant, TenantContext):
         raise TypeError("Se requiere contexto JWT de tenant validado")
     if (type(tenant.empresa_id) is not int or tenant.empresa_id <= 0
@@ -92,6 +101,7 @@ def verificar_principal_reserva(db: Session, tenant: TenantContext) -> str:
     r = db.execute(_PRINCIPAL_SQL, {
         "empresa_id": tenant.empresa_id,
         "slug": tenant.empresa_slug,
+        "procedimiento": procedimiento,
     }).mappings().one_or_none()
 
     if not r or not all(
