@@ -72,3 +72,22 @@ Resultados confirmados por el estudiante: 5BC=17, 5BD=12, 5BE=15,
 de conexiones SCRAM, JWT/membresía, aislamiento SQL, concurrencia y
 CU16–CU18 se realizaron sobre laboratorios DESECHABLES y no demuestran
 que los CU01–CU05 funcionen íntegramente en frontend real.
+
+## Avance CU01/CU02 — API de superadministrador (pendiente prueba local)
+
+**CU04 verificado:** el estudiante ejecutó `13 passed in 0.37s` en `tests_saas/test_cu04_membresias_empresa_sqlite_offline.py`; aislamiento de membresías/roles, auto-revocación y último admin comprobados en SQLite ficticio. La prueba original del middleware fue corregida para cargar todas las constantes. Ante incorporación de CU01/02, el fixture offline de `settings` se actualizó para incluir `saas_superadmin_enabled=False`; 13 pruebas de CU04 deben seguir funcionando.
+
+**CU01/CU02 nuevos cambios de código, todavía NO ejecutados por el estudiante:** `app/modules/sucursales/repositories/saas_superadmin_repository.py` y `app/modules/sucursales/api/saas_superadmin_router.py`, registrados en `app/main.py`. Endpoints de superadmin separados del contexto tenant:
+
+- `GET/POST /saas/superadmin/empresas`: listar y registrar empresa nueva con slug único, configuración predeterminada y primera suscripción activa al plan elegido, en una sola transacción.
+- `PATCH /saas/superadmin/empresas/{id}/estado`: activación/desactivación lógica sin borrar datos.
+- `GET/POST /saas/superadmin/planes`: listar/crear planes SaaS con límites y capacidades, prohibición de código duplicado.
+- `PATCH /saas/superadmin/planes/{id}/estado`: no desactivar un plan con suscripciones todavía marcadas activas.
+- `GET/POST /saas/superadmin/empresas/{id}/suscripciones`: historial/asignación de plan, con lock maestro por empresa, cancelación del registro anterior ACTIVA y creación de exactamente una nueva ACTIVA.
+- `PATCH /saas/superadmin/empresas/{id}/suscripciones/{id}/estado`: suspender/vencer/cancelar suscripción propia; no reactivar registros viejos directamente.
+
+La autorización de **SUPERADMINISTRADOR SaaS no es el JWT de un administrador de empresa**: dependencia `app/core/saas_superadmin_auth.py` valida dos flags explícitos (`saas_auth_enabled` y `saas_superadmin_enabled`) y una clave independiente de 32 caracteres mínimo enviada mediante `X-Saas-Admin-Key`, comparada en tiempo constante contra su SHA-256 configurado fuera del repositorio (`saas_superadmin_key_sha256`). **No existe clave por defecto ni se deben publicar claves reales en Swagger/repositorio/logs**. Rutas pasan por allowlist exacta, sujeta a segundo flag. Se retiró el auto-cambio de plan `PATCH /tenant/empresa/plan` de la allowlist SaaS, porque CU02 corresponde al superadministrador. Ambos flags permanecen OFF. No configurar claves ni habilitar la API comercial para demostrar las pruebas.
+
+**Pruebas nuevas pendientes:** `tests_saas/test_cu01_cu02_superadmin_sqlite_offline.py` con 14 pruebas funcionales/estructurales de operaciones de empresa, plan y suscripción, restricciones, rollback, permisos y separación global/tenant, sobre esquema SQLite 100% ficticio en memoria. Se debe repetir también CU04 (13). No conectan a `5432`, `55432`, `55433` ni Supabase.
+
+**Bloqueos que impiden afirmar CU01/CU02 completamente productivos:** falta crear/asignar de manera segura al **primer administrador de la empresa** y sus credenciales, auditar ACL/RLS real de la cuenta superadmin y su actividad, incorporar rate limiting/rotación y HTTPS, completar UI Angular de CU01–CU05, persistencia/migración del esquema completo ficticio y pruebas HTTP end-to-end con base temporal. La credencial independiente basada en header + hash es un control de prototipo, **no debe activarse en producción sin diseño adicional**. Los cinco tenants históricos permanecen intactos.
