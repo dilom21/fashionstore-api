@@ -52,10 +52,40 @@ def transferir_funcion_contexto(c):
         AND NOT rolbypassrls AND NOT rolcreatedb AND NOT rolcreaterole
         AND NOT rolinherit""",(VERIFIER_OWNER,))==1,
       "owner verificador no es NOLOGIN de minimo privilegio")
-    ENSURE(ONE(c,"SELECT has_table_privilege(%s,"
-                "'public.fs_lab_actor_sql_5ar','SELECT')",
-               (VERIFIER_OWNER,)) is True,
-           "owner NOLOGIN no puede leer el mapa de identidades")
+    # 5BB: 5AV deliberadamente otorgó SELECT por COLUMNA,
+    # nunca SELECT de toda la tabla. has_table_privilege da False
+    # correctamente aunque las tres columnas indispensables sean legibles.
+    mapa="public.fs_lab_actor_sql_5ar"
+    ENSURE(ONE(c,"SELECT has_table_privilege(%s,%s,'SELECT')",
+               (VERIFIER_OWNER,mapa)) is False,
+           "owner recibió SELECT de tabla completa en lugar del mínimo")
+    for col in ("principal_sql","empresa_id","usuario_id"):
+        ENSURE(ONE(c,"SELECT has_column_privilege(%s,%s,%s,'SELECT')",
+                   (VERIFIER_OWNER,mapa,col)) is True,
+               f"owner NOLOGIN no puede leer la columna {col} del mapa")
+    ENSURE(ONE(c,"SELECT has_table_privilege(%s,%s,'UPDATE')",
+               (VERIFIER_OWNER,mapa)) is False,
+           "owner NOLOGIN no debería modificar el mapa")
+    # Comprobar SELECT efectivo con el principal NOLOGIN simulado
+    # exclusivamente por postgres en la transacción LAB; no es login.
+    c.execute(f"SET LOCAL SESSION AUTHORIZATION {VERIFIER_OWNER}")
+    try:
+        ENSURE(ONE(c,"SELECT session_user")==VERIFIER_OWNER,
+               "principal dueño no quedó activo")
+        ENSURE(ONE(c,
+            "SELECT row_security_active('public.fs_lab_actor_sql_5ar'::regclass)"
+        ) is True,"RLS del mapa no está activo para el owner")
+        filas=c.execute("SELECT principal_sql,empresa_id,usuario_id "
+                        "FROM public.fs_lab_actor_sql_5ar").fetchall()
+        ENSURE(len(filas)==3
+               and len(set(row[0] for row in filas))==3,
+               "owner NOLOGIN no ve exactamente el mapa ficticio A1/A2/B1")
+    finally:
+        c.execute("SET LOCAL SESSION AUTHORIZATION DEFAULT")
+    ENSURE(ONE(c,"SELECT session_user")=="postgres",
+           "no se restauró DBA exclusivo del laboratorio")
+    print("5BB MAPA PASS: SELECT de 3 columnas, RLS activo, 3 actores "
+          "legibles por dueño NOLOGIN; sin SELECT total ni UPDATE")
     # Requiere CREATE temporal sobre public para ALTER FUNCTION OWNER.
     c.execute(f"GRANT CREATE ON SCHEMA public TO {VERIFIER_OWNER}")
     c.execute(f"""ALTER FUNCTION public.fs_lab_empresa_actor_5at()
