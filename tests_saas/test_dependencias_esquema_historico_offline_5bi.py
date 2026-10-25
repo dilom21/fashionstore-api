@@ -97,7 +97,7 @@ def test_5bi_reporta_bloqueo_aunque_auditoria_apruebe():
 
 
 def test_5bi_no_hace_claim_produccion_lista():
-    assert "no ejecuta SQL" in S
+    assert "No ejecuta SQL" in S
     assert "no se leyeron backups ni secretos" in S
     assert "SaaS OFF" in S
     assert "Supabase intactos" in S
