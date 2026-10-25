@@ -16,6 +16,11 @@ class Settings(BaseSettings):
 
     # Segundo parcial: habilitar solo tras migracion SaaS y auditoria de seguridad.
     saas_auth_enabled: bool = False
+    # CU01/CU02: administración global independiente del JWT tenant.
+    # Ambas opciones deben configurarse explícitamente para abrir el módulo.
+    # La clave en texto plano nunca va en el repositorio ni en Settings.
+    saas_superadmin_enabled: bool = False
+    saas_superadmin_key_sha256: str | None = None
     # CU16: habilitar solo tras validar SP definitivo, principal SQL y RLS.
     saas_reservas_enabled: bool = False
     # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueño
