@@ -168,9 +168,10 @@ def test_error_seguro_y_sin_errores_sql(escenario,exc,code):
 
 def test_no_abre_cancelacion_ni_otros_sp(escenario):
     client,_,_,mp=escenario
+    assert client.patch("/tenant/reservas/1/cancelar",json={}).status_code==503
+    assert client.patch("/tenant/reservas/1/finalizar-sin-compra",json={}).status_code==503
     mp.setattr(settings,"saas_reservas_enabled",True)
     for method,url in (
-        ("PATCH","/tenant/reservas/1/cancelar"),
         ("POST","/tenant/reservas/1/cancelar"),
         ("POST","/tenant/reservas/crear"),
         ("POST","/tenant/comercial/ventas"),
@@ -194,3 +195,72 @@ def test_doble_flag_no_bypass_directo_route(escenario):
             ),db
         )
     assert getattr(exc.value,"status_code",None)==503
+
+
+
+@pytest.mark.parametrize("role,context,route,expected",[
+    ("CLIENTE","cliente","/tenant/reservas/1/cancelar","CANCELADA"),
+    ("ADMINISTRADOR","personal","/tenant/reservas/1/cancelar","CANCELADA"),
+    ("ENCARGADO_SUCURSAL","personal","/tenant/reservas/1/cancelar","CANCELADA"),
+    ("ADMINISTRADOR","personal","/tenant/reservas/1/finalizar-sin-compra","ATENDIDA"),
+    ("ENCARGADO_SUCURSAL","personal","/tenant/reservas/1/finalizar-sin-compra","ATENDIDA"),
+    ("CAJERO","personal","/tenant/reservas/1/finalizar-sin-compra","ATENDIDA"),
+])
+def test_rutas_cancelar_finalizar_condicionadas_por_rol(
+    escenario,role,context,route,expected
+):
+    client,ctx,db,mp=escenario
+    mp.setattr(settings,"saas_reservas_enabled",True)
+    ctx["rol"]=role
+    ctx["contexto"]=context
+    nombre=("cancelar_reserva_transaccional_tenant"
+            if expected=="CANCELADA" else
+            "finalizar_reserva_sin_compra_transaccional_tenant")
+    seen=[]
+
+    def simular(_db,*,tenant,reserva_id,observacion):
+        seen.append((tenant.empresa_id,tenant.usuario_id,reserva_id,observacion))
+        assert _db is db
+        return expected
+
+    mp.setattr(mod,nombre,simular)
+    result=client.patch(route,json={"observacion":"Prueba académica"})
+    assert result.status_code==200,result.text
+    assert result.json()=={"reserva_id":1,"estado":expected}
+    assert seen==[(3,42,1,"Prueba académica")]
+
+
+@pytest.mark.parametrize("role,context,route",[
+    ("CLIENTE","cliente","/tenant/reservas/1/finalizar-sin-compra"),
+    ("CAJERO","personal","/tenant/reservas/1/cancelar"),
+    ("CLIENTE","personal","/tenant/reservas/1/cancelar"),
+])
+def test_rechazar_roles_no_autorizados_para_mutaciones(
+    escenario,role,context,route
+):
+    client,ctx,db,mp=escenario
+    mp.setattr(settings,"saas_reservas_enabled",True)
+    ctx["rol"]=role
+    ctx["contexto"]=context
+    response=client.patch(route,json={})
+    assert response.status_code==403
+
+
+@pytest.mark.parametrize("route",[
+    "/tenant/reservas/1/cancelar",
+    "/tenant/reservas/1/finalizar-sin-compra"
+])
+def test_error_de_sp_no_filtra_sql_en_cambios(escenario,route):
+    client,ctx,_,mp=escenario
+    mp.setattr(settings,"saas_reservas_enabled",True)
+    ctx["rol"]="ADMINISTRADOR"
+    ctx["contexto"]="personal"
+
+    def fail(*args,**kw):
+        raise ReservaTenantDeshabilitada("rol SQL no tiene permiso; info privada")
+
+    mp.setattr(mod,"cancelar_reserva_transaccional_tenant",fail)
+    mp.setattr(mod,"finalizar_reserva_sin_compra_transaccional_tenant",fail)
+    resp=client.patch(route,json={})
+    assert resp.status_code==503
+    assert "info privada" not in resp.text
