@@ -26,6 +26,14 @@ from pathlib import Path
 import runpy
 import sys
 
+# Ejecutado como archivo desde database/saas: Python solo incorpora
+# ese directorio al sys.path. Añadir la raiz del repositorio ANTES de
+# importar app.*, sin cambiar el entorno de PostgreSQL ni el .env.
+REPO_ROOT = Path(__file__).resolve().parents[2]
+if not (REPO_ROOT / "app" / "core" / "config.py").is_file():
+    raise RuntimeError("5AP: no se encontro la raiz del repositorio FashionStore")
+sys.path.insert(0, str(REPO_ROOT))
+
 import psycopg
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
