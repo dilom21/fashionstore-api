@@ -169,6 +169,64 @@ def cargar_sql_real():
     return out
 
 
+def instalar_verificador_bigint(c):
+    """Compatible con los bigint de CU16–CU18; 5BC usa integer.
+
+    PostgreSQL no resuelve implícitamente una llamada f(bigint,bigint)
+    a la f(integer,integer) de 5BC. El overload sólo existe en el
+    clúster descartable 5BG. No modifica borradores CU16–CU18,
+    ni amplía permisos: consulta mapa RLS como dueño NOLOGIN.
+    No realiza CAST bigint->integer ni depende de GUC.
+    """
+    c.execute("""CREATE FUNCTION public.fs_5bc_verificar(
+        p_empresa_id bigint,p_usuario_id bigint)
+        RETURNS boolean LANGUAGE sql STABLE SECURITY DEFINER
+        SET search_path=pg_catalog, pg_temp AS $guard_bigint_5bg$
+          SELECT EXISTS(
+            SELECT 1 FROM public.fs_5bc_actor m
+            WHERE m.principal=session_user::name
+              AND m.empresa_id::bigint=p_empresa_id
+              AND m.usuario_id::bigint=p_usuario_id
+          )
+        $guard_bigint_5bg$""")
+    firma="public.fs_5bc_verificar(bigint,bigint)"
+    c.execute(sql.SQL("REVOKE ALL ON FUNCTION {} FROM PUBLIC").format(
+        sql.SQL(firma)))
+    c.execute(sql.SQL("GRANT CREATE ON SCHEMA public TO {}").format(
+        sql.Identifier(VERIFIER)))
+    c.execute(sql.SQL("ALTER FUNCTION {} OWNER TO {}").format(
+        sql.SQL(firma),sql.Identifier(VERIFIER)))
+    c.execute(sql.SQL("REVOKE CREATE ON SCHEMA public FROM {}").format(
+        sql.Identifier(VERIFIER)))
+    c.execute(sql.SQL("GRANT EXECUTE ON FUNCTION {} TO {}").format(
+        sql.SQL(firma),sql.SQL(",").join(
+            sql.Identifier(name) for name in (WRITER,*ROLES))))
+    meta=c.execute("""SELECT p.prosecdef,pg_get_userbyid(p.proowner),
+        p.pronargs,
+        p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[],
+        (p.proacl IS NOT NULL AND NOT EXISTS (
+          SELECT 1 FROM aclexplode(p.proacl) a
+          WHERE a.grantee=0 AND a.privilege_type='EXECUTE'
+        )),
+        r.rolcanlogin,r.rolsuper,r.rolbypassrls
+      FROM pg_catalog.pg_proc p
+      JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
+      WHERE p.oid=to_regprocedure(%s)""",(firma,)).fetchone()
+    require(meta==(True,VERIFIER,2,True,True,False,False,False),
+            "5BG BRECHA: verificador bigint sin dueño NOLOGIN/ACL seguro")
+    require(one(c,"SELECT has_schema_privilege(%s,'public','CREATE')",
+                (VERIFIER,)) is False,
+            "5BG BRECHA: verificador conservó CREATE sobre schema")
+    for role,uid,enterprise,_ in ACTORS:
+        # La comprobación semántica se hará también con tres LOGIN
+        # auténticos, no sólo con catálogo leído como DBA.
+        require(one(c,"SELECT has_function_privilege(%s,%s,'EXECUTE')",
+                    (role,firma)) is True,
+                "rol no puede usar verificador bigint "+role)
+    print("5BG VERIFICADOR BIGINT PASS: CU16–CU18 usan bigint, "
+          "owner NOLOGIN, EXECUTE PUBLIC revocado, sin GUC")
+
+
 def permisos_y_rls(c):
     # Guard de empresa privado: NOLOGIN no-superuser, dependiente solo
     # de session_user (nunca de variables GUC editables).
@@ -414,6 +472,16 @@ def sembrar_ficticios(c):
 def role_check(c,role,company):
     require(c.execute("SELECT session_user,current_user").fetchone()
             ==(role,role),"login SQL distinto del rol esperado")
+    # Comprobar la RESOLUCIÓN real del overload bigint desde una
+    # conexión SCRAM con session_user individual, sin SET ROLE.
+    persona={ROLES[0]:101,ROLES[1]:102,ROLES[2]:201}[role]
+    require(one(c,"SELECT public.fs_5bc_verificar(%s::bigint,%s::bigint)",
+                (company,persona)) is True,
+            "verificador bigint no reconoce al principal propio")
+    otro=102 if persona==101 else 101
+    require(one(c,"SELECT public.fs_5bc_verificar(%s::bigint,%s::bigint)",
+                (company,otro)) is False,
+            "verificador bigint permitió otro usuario del mismo tenant")
     require(one(c,"SELECT row_security_active('public.inventario'::regclass)")
             is True,"RLS inventario inactiva")
     rows=c.execute("SELECT id,empresa_id,stock_actual,stock_reservado "
@@ -434,7 +502,9 @@ def intentar_cu16(role,uid,cart,barrier,passw):
                "5BG carrera SQL real",None)).fetchone()
         except psycopg.Error as e:
             require(e.sqlstate in ("23514","23505"),
-                    "CU16 falló por motivo inesperado: "+str(e.sqlstate))
+                    "CU16 falló por motivo inesperado: SQLSTATE="+
+                    str(e.sqlstate)+"; SQL="+
+                    str(getattr(e.diag,"message_primary",None))[:180])
             return role,uid,"SIN_STOCK",None
         require(result is not None and type(result[0]) is int,
                 "CU16 no devolvió id de reserva")
@@ -581,6 +651,7 @@ def run():
               WHERE n.nspname='public' AND c.relkind='r'""")==27,
               "5BG: se esperaban 25 tablas parciales + 2 de 5BC")
             sembrar_ficticios(admin)
+            instalar_verificador_bigint(admin)
             permisos_y_rls(admin)
             instalar_sp_originales(admin,fuentes)
             ensayar_cu16_cu18(admin,passw)
