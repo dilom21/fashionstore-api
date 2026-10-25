@@ -18,14 +18,17 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.tenant_context import TenantContext
-from app.core.tenant_dependencies import get_current_tenant_cliente
+from app.core.tenant_dependencies import get_current_tenant_cliente, get_current_tenant_context
 from app.modules.reservas.services.tenant_reserva_transaccional_5al import (
     ReservaTenantDeshabilitada, ReservaTenantIntegridadError,
     crear_reserva_transaccional_sin_exposicion_http,
+    cancelar_reserva_transaccional_tenant,
+    finalizar_reserva_sin_compra_transaccional_tenant,
 )
 
 router = APIRouter(prefix="/tenant/reservas", tags=["Reservas SaaS CU16"])
 Cliente = Annotated[TenantContext, Depends(get_current_tenant_cliente)]
+Miembro = Annotated[TenantContext, Depends(get_current_tenant_context)]
 
 
 class CrearReservaTenantRequest(BaseModel):
@@ -89,3 +92,68 @@ def crear_reserva_tenant(
         raise HTTPException(
             status_code=503, detail="Reserva no disponible"
         ) from exc
+
+
+
+class ObservacionReservaTenant(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    observacion: str | None = Field(default=None, max_length=500)
+
+
+class ReservaEstadoTenantResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    reserva_id: int
+    estado: str
+
+
+def _error_cambio_reserva(exc: Exception) -> HTTPException:
+    if isinstance(exc, ReservaTenantDeshabilitada):
+        return HTTPException(status_code=503, detail="Operacion SaaS no disponible")
+    if isinstance(exc, ReservaTenantIntegridadError):
+        return HTTPException(status_code=409, detail="Estado de reserva inconsistente")
+    if isinstance(exc, (PermissionError, ValueError)):
+        return HTTPException(status_code=403, detail="Operacion no autorizada")
+    if isinstance(exc, IntegrityError):
+        return HTTPException(status_code=409, detail="Reserva en conflicto")
+    if isinstance(exc, SQLAlchemyError):
+        return HTTPException(status_code=503, detail="Reserva no disponible")
+    raise exc
+
+
+@router.patch("/{reserva_id}/cancelar", response_model=ReservaEstadoTenantResponse)
+def cancelar_reserva_tenant(
+    reserva_id: int, datos: ObservacionReservaTenant,
+    miembro: Miembro, db: Session = Depends(get_db),
+):
+    if not settings.saas_auth_enabled or not settings.saas_reservas_enabled:
+        raise HTTPException(status_code=503, detail="Reservas SaaS aun no habilitadas")
+    if reserva_id <= 0:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    try:
+        estado = cancelar_reserva_transaccional_tenant(
+            db, tenant=miembro, reserva_id=reserva_id,
+            observacion=datos.observacion,
+        )
+        return ReservaEstadoTenantResponse(reserva_id=reserva_id, estado=estado)
+    except Exception as exc:
+        raise _error_cambio_reserva(exc) from exc
+
+
+@router.patch("/{reserva_id}/finalizar-sin-compra",
+              response_model=ReservaEstadoTenantResponse)
+def finalizar_reserva_sin_compra_tenant(
+    reserva_id: int, datos: ObservacionReservaTenant,
+    miembro: Miembro, db: Session = Depends(get_db),
+):
+    if not settings.saas_auth_enabled or not settings.saas_reservas_enabled:
+        raise HTTPException(status_code=503, detail="Reservas SaaS aun no habilitadas")
+    if reserva_id <= 0:
+        raise HTTPException(status_code=404, detail="Reserva no encontrada")
+    try:
+        estado = finalizar_reserva_sin_compra_transaccional_tenant(
+            db, tenant=miembro, reserva_id=reserva_id,
+            observacion=datos.observacion,
+        )
+        return ReservaEstadoTenantResponse(reserva_id=reserva_id, estado=estado)
+    except Exception as exc:
+        raise _error_cambio_reserva(exc) from exc
