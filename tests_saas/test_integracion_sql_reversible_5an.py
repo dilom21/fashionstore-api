@@ -65,3 +65,39 @@ def test_5an_rls_policy_temporal_y_planes_activos():
     assert "usuario_empresa" in S
     assert "fecha_vencimiento" in S
     assert "GRANT EXECUTE ON PROCEDURE" in S
+
+
+
+def test_5an_grants_no_confunden_archivo_y_numero_de_argumentos():
+    """Regresión del TypeError: las fichas 5AM son (archivo, aridad)."""
+    import runpy
+
+    module = runpy.run_path(str(SCRIPT))
+    assert all(
+        isinstance(metadata, tuple) and len(metadata) == 2
+        for metadata in module["M"]["PROCEDURES"].values()
+    )
+
+    class DummyConn:
+        def __init__(self):
+            self.calls = []
+
+        def execute(self, sql):
+            self.calls.append(sql)
+            return None
+
+    fake = DummyConn()
+    module["grant_minimal_lab"](fake)
+    grants = [x for x in fake.calls if "GRANT EXECUTE ON PROCEDURE" in x]
+    assert len(grants) == 3
+    for name, signature in (
+        ("sp_crear_reserva_tenant", "bigint,bigint,bigint,timestamptz,text,bigint"),
+        ("sp_cancelar_reserva_tenant", "bigint,bigint,bigint,text"),
+        ("sp_finalizar_reserva_sin_compra_tenant", "bigint,bigint,bigint,text"),
+    ):
+        assert any(
+            f"public.{name}({signature})" in statement
+            for statement in grants
+        )
+    policies = [x for x in fake.calls if "CREATE POLICY fs_lab_5an_" in x]
+    assert len(policies) == 4
