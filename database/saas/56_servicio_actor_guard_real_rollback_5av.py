@@ -110,6 +110,7 @@ def instalar_verificador_5av(c):
     c.execute(f"""CREATE ROLE {OWNER} NOLOGIN NOINHERIT
         NOSUPERUSER NOCREATEDB NOCREATEROLE
         NOREPLICATION NOBYPASSRLS""")
+    c.execute(f"GRANT USAGE ON SCHEMA public TO {OWNER}")
     c.execute(f"""GRANT SELECT
         (principal_sql,empresa_id,usuario_id)
         ON public.fs_lab_actor_sql_5ar TO {OWNER}""")
