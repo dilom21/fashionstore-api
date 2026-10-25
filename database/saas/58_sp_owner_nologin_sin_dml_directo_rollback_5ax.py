@@ -342,10 +342,18 @@ def main():
             grant_lecturas_y_escrituras_writer(c)
             retirar_dml_directo_de_actores(c)
             instalar_sp_como_definer(c)
-            res_a2=M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)
-            auditar_guardia_definer(c,ids,a2,carrito2)
-            auditar_reserva_ajena_sin_grant(c,ids,res_a2)
-            auditar_dml_sin_privilegios(c,ids,res_a2)
+            # Solo este ensayo local habilita el modo DEFINER en el
+            # preflight 5AY del servicio. Restituir incluso ante error.
+            from app.core.config import settings
+            original_sp_owner=settings.saas_sp_sql_owner
+            try:
+                settings.saas_sp_sql_owner=WRITER
+                res_a2=M["verificar_5au_y_llamadas"](c,ids,a2,carrito2)
+                auditar_guardia_definer(c,ids,a2,carrito2)
+                auditar_reserva_ajena_sin_grant(c,ids,res_a2)
+                auditar_dml_sin_privilegios(c,ids,res_a2)
+            finally:
+                settings.saas_sp_sql_owner=original_sp_owner
         finally:
             c.execute("ROLLBACK")
             PREFLIGHT(c)
