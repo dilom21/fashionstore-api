@@ -41,7 +41,8 @@ def principal(**patch):
         principal="fashionstore_sql_tenant_ficticio",
         restringido=True,
         rls_empresas=True,rls_reservas=True,rls_inventario=True,
-        empresas_visibles=1,empresa_esperada_visible=1,procedimientos_autorizados=1,
+        empresas_visibles=1,empresa_esperada_visible=1,planes_reserva_vigentes=1,
+        procedimientos_autorizados=1,
     )
     return {**r,**patch}
 
@@ -115,6 +116,7 @@ def test_cu16_adaptador_exito_atomico_y_ids_del_tenant():
     {"restringido":False},
     {"rls_empresas":False},{"rls_reservas":False},{"rls_inventario":False},
     {"empresas_visibles":2},{"empresa_esperada_visible":0},
+    {"planes_reserva_vigentes":0},{"planes_reserva_vigentes":2},
     {"procedimientos_autorizados":0},{"procedimientos_autorizados":2},
     {"principal":""},
 ])
