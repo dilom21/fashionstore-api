@@ -187,12 +187,22 @@ def test_cu16_uso_de_contexto_sql_no_sustituye_jwt_y_membresia():
 def test_cu16_rutas_de_escritura_no_se_abren():
     assert _ruta_saas_permitida("POST","/tenant/reservas") is False
     assert _ruta_saas_permitida("PATCH","/tenant/reservas/1/cancelar") is False
-    from app.main import app
-    # Endpoint registrado bajo segundo flag apagado.
+    # Verificar el cableado del router en la app y su declaración real.
+    # No depender de la instancia global app.main de otros módulos de tests:
+    # las pruebas HTTP aisladas cubren ejecución/errores/autorización.
+    from app.modules.reservas.api.tenant_reserva_write_router import (
+        router as reservas_router,
+    )
+    main_src = (ROOT / "app/main.py").read_text(encoding="utf-8")
+    assert (
+        "from app.modules.reservas.api.tenant_reserva_write_router "
+        "import router as tenant_reserva_write_router"
+    ) in main_src
+    assert "app.include_router(tenant_reserva_write_router)" in main_src
     assert any(
         route.path.rstrip("/") == "/tenant/reservas"
         and "POST" in getattr(route, "methods", [])
-        for route in app.routes if hasattr(route, "path")
+        for route in reservas_router.routes
     )
     assert "app.include_router" not in CODE
 
