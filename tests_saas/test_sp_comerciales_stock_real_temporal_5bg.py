@@ -141,7 +141,7 @@ def test_5bg_cu18_administrador_liberacion_unica():
 
 
 def test_5bg_baseline_y_limpieza_del_cluster_solo_pg18():
-    assert "pg_ctl" in S
+    assert "initdb,pgctl=postgres_bin()" in S
     assert "initdb" in S
     assert '"--auth-host=scram-sha-256"' in S
     assert '"--auth-local=scram-sha-256"' in S
