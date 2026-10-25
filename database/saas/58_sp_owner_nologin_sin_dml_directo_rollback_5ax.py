@@ -280,8 +280,8 @@ def main():
         finally:
             c.execute("ROLLBACK")
             PREFLIGHT(c)
-            ENSURE(ONE(c,"SELECT count(*) FROM pg_catalog.pg_roles
-                         WHERE rolname=ANY(%s)",([WRITER,VERIFIER_OWNER,*ROLES],))
+            ENSURE(ONE(c,"""SELECT count(*) FROM pg_catalog.pg_roles
+                         WHERE rolname=ANY(%s)""",([WRITER,VERIFIER_OWNER,*ROLES],))
                    ==0,"roles individuales o propietarios persistieron")
             ENSURE(ONE(c,"SELECT count(*) FROM pg_policies WHERE schemaname='public'")
                    ==41,"41 policies originales no restauradas")
