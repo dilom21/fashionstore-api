@@ -114,5 +114,5 @@ def test_runner_8_11_13_con_evidencia_real_esperada():
 def test_no_confundir_laboratorio_con_despliegue_comercial():
     assert "NO ES el flujo de reservas de la aplicacion final" in RACE
     assert "FALTA: SP CU16 definitivo" in RACE
-    assert "SAAS AUTH false" in RACE
+    assert "SaaS AUTH false" in RACE
     assert "NO ES la de produccion" in SQL
