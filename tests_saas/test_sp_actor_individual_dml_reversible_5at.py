@@ -22,7 +22,8 @@ def test_5at_cluster_fijo_y_rollback_estricto():
     assert "finally:" in S
     assert 'conn.execute("COMMIT")' not in S
     assert 'fashionstore_restore_' not in S
-    assert 'supabase' not in S.lower()
+    assert "NO utilizar en PG 5432, Supabase" in S
+    assert "supabase db push" not in S.lower()
     assert "41 políticas originales" in S
     assert '"SELECT to_regclass(' in S
 
