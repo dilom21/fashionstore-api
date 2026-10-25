@@ -94,3 +94,15 @@ def test_5bb_no_confunde_restriccion_owner_con_login_real():
     assert "cluster" in S
     assert "desechable" in S
     assert "flags SaaS OFF" in S
+
+
+
+def test_5bb_legacy_5ar_no_conserva_privilegios_definer_dba():
+    assert "neutralizar_verificador_5ar_obsoleto(c)" in S
+    assert "public.fs_lab_verificar_actor_5ar(bigint,bigint)" in S
+    assert "SECURITY INVOKER" in S
+    assert "REVOKE ALL ON FUNCTION {old} FROM {targets}" in S
+    assert "for role in ALL_ACTORS:" in S
+    assert "has_function_privilege(%s," in S
+    assert "fs_lab_verificar_actor_5ar\" not in ddl" in S
+    assert "5BB LEGACY PASS" in S
