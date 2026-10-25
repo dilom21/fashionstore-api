@@ -20,6 +20,9 @@ from app.core.saas_superadmin_auth import get_superadmin_saas
 from app.modules.sucursales.repositories.saas_superadmin_repository import (
     SuperadminSaaSError, SuperadminSaaSRepository as Repo,
 )
+from app.modules.sucursales.repositories.saas_initial_admin_repository import (
+    registrar_primer_administrador,
+)
 
 router=APIRouter(prefix="/saas/superadmin",tags=["Superadministrador SaaS"],
                  dependencies=[Depends(get_superadmin_saas)])
@@ -51,6 +54,28 @@ class CrearEmpresa(EntradaSegura):
 
 class Estado(EntradaSegura):
     estado:bool
+
+class PrimerAdministrador(EntradaSegura):
+    # Siempre una cuenta NUEVA: no tomar usuario_id/rol_id del cliente.
+    correo:str=Field(min_length=5,max_length=150,
+        pattern=r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+    password:str=Field(min_length=8,max_length=128,repr=False)
+    nombres:str=Field(min_length=1,max_length=120)
+    apellidos:str=Field(min_length=1,max_length=120)
+    ci:str=Field(min_length=1,max_length=35)
+    ciudad_id:int=Field(gt=0)
+    nombre_sucursal:str=Field(min_length=1,max_length=120)
+    direccion_sucursal:str=Field(min_length=1,max_length=255)
+    telefono:str|None=Field(default=None,max_length=30)
+
+    @field_validator("nombres","apellidos","ci",
+                     "nombre_sucursal","direccion_sucursal")
+    @classmethod
+    def no_vacio(cls,value:str):
+        result=value.strip()
+        if not result:
+            raise ValueError("Campo obligatorio")
+        return result
 
 
 class CrearPlan(EntradaSegura):
@@ -118,6 +143,15 @@ def listar_empresas(db:Session=Depends(get_db)):
 def registrar_empresa(datos:CrearEmpresa,db:Session=Depends(get_db)):
     return _result(db,lambda:Repo.crear_empresa(db,**datos.model_dump()),
                    escritura=True)
+
+
+@router.post("/empresas/{empresa_id}/administrador-inicial",status_code=201)
+def alta_administrador_inicial(empresa_id:int,datos:PrimerAdministrador,
+                                db:Session=Depends(get_db)):
+    if empresa_id<=0:
+        raise HTTPException(status_code=404,detail="Empresa no encontrada")
+    return _result(db,lambda:registrar_primer_administrador(
+        db,empresa_id=empresa_id,**datos.model_dump()),escritura=True)
 
 
 @router.patch("/empresas/{empresa_id}/estado")
