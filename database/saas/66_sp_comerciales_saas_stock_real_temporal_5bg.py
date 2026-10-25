@@ -377,7 +377,7 @@ def sembrar_ficticios(c):
       ("""INSERT INTO public.reserva
         (id,empresa_id,cliente_id,sucursal_id,carrito_id,fecha_reserva,
          fecha_atencion,estado,observacion)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (300,2,201,2,99,ts,ts+timedelta(days=2),"CONFIRMADA","B ficticia")),
       ("""INSERT INTO public.detalle_reserva
         (empresa_id,reserva_id,inventario_id,cantidad) VALUES (%s,%s,%s,%s)""",
