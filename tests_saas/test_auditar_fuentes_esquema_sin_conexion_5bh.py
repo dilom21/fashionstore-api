@@ -15,7 +15,7 @@ def test_5bh_sintaxis_python():
     ast.parse(S)
 
 
-def test_5bh_sin_importacion_db_network_driver:
+def test_5bh_sin_importacion_db_network_driver():
     tree=ast.parse(S)
     imported=[]
     for node in tree.body:
