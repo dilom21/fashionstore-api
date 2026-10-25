@@ -100,7 +100,12 @@ def test_5an_grants_no_confunden_archivo_y_numero_de_argumentos():
             for statement in grants
         )
     policies = [x for x in fake.calls if "CREATE POLICY fs_lab_5an_" in x]
-    assert len(policies) == 4
+    assert len(policies) == 6
+    assert any("fs_lab_5an_usuario_select" in p for p in policies)
+    assert any("fs_lab_5an_rol_select" in p for p in policies)
+    assert any("ue.empresa_id" in p and "session_user" in p for p in policies)
+    assert any("ue.usuario_id = usuario.id" in p for p in policies)
+    assert any("ue.rol_id = rol.id" in p for p in policies)
 
 
 
@@ -140,3 +145,39 @@ def test_5an_diagnostico_rls_exige_membresia_y_lock():
     denied = FakeDB(lock_visible=False)
     with pytest.raises(RuntimeError, match="membresia no visible"):
         m["diagnosticar_membresia"](denied, 3, 7, "CLIENTE")
+
+
+
+def test_5an_usuario_y_rol_tienen_rls_temporal_sin_hash():
+    import runpy
+
+    m = runpy.run_path(str(SCRIPT))
+    class DummyConn:
+        def __init__(self):
+            self.calls = []
+        def execute(self, sql):
+            self.calls.append(sql)
+
+    fake = DummyConn()
+    m["grant_minimal_lab"](fake)
+    sql = "\n".join(fake.calls)
+    assert "ALTER TABLE public.usuario ENABLE ROW LEVEL SECURITY" in sql
+    assert "ALTER TABLE public.rol ENABLE ROW LEVEL SECURITY" in sql
+    assert "GRANT SELECT (id,estado) ON public.usuario" in sql
+    assert "GRANT SELECT (id,nombre,estado) ON public.rol" in sql
+    assert "GRANT SELECT ON public.usuario" not in sql
+    assert "GRANT SELECT ON public.rol" not in sql
+    assert "WITH CHECK" in sql
+    assert "session_user" in sql
+    assert 'ue.estado IS TRUE' in sql
+    assert "CREATE POLICY fs_lab_5an_usuario_select" in sql
+    assert "CREATE POLICY fs_lab_5an_rol_select" in sql
+
+
+def test_5an_usuario_y_rol_ajenos_ocultos_antes_del_call():
+    assert 'usuario B se filtro al principal A' in S
+    assert 'usuario A se filtro al principal B' in S
+    assert 'rol de B se filtro al principal A' in S
+    assert 'rol de A se filtro al principal B' in S
+    assert 'policies temporales no son exactamente seis' in S
+    assert 'c.execute("ROLLBACK")' in S
