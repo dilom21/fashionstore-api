@@ -21,6 +21,10 @@ class Settings(BaseSettings):
     # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueño
     # NOLOGIN dedicado; sin valor, la escritura SaaS falla cerrada.
     saas_actor_sql_owner: str | None = None
+    # Un SP SECURITY DEFINER comercial sólo es elegible si su propietario
+    # NOLOGIN se identifica exactamente y sus ACL/search_path son seguros.
+    # None bloquea por defecto el modo DEFINER; no instalar desde FastAPI.
+    saas_sp_sql_owner: str | None = None
 
     # CU22 - Pago electronico con Stripe (Test Mode).
     # Los secretos se leen del entorno (.env local, no versionado). Si no estan
