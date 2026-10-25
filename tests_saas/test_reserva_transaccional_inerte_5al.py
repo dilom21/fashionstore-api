@@ -187,22 +187,25 @@ def test_cu16_uso_de_contexto_sql_no_sustituye_jwt_y_membresia():
 def test_cu16_rutas_de_escritura_no_se_abren():
     assert _ruta_saas_permitida("POST","/tenant/reservas") is False
     assert _ruta_saas_permitida("PATCH","/tenant/reservas/1/cancelar") is False
-    # Verificar el cableado del router en la app y su declaración real.
-    # No depender de la instancia global app.main de otros módulos de tests:
-    # las pruebas HTTP aisladas cubren ejecución/errores/autorización.
-    from app.modules.reservas.api.tenant_reserva_write_router import (
-        router as reservas_router,
-    )
-    main_src = (ROOT / "app/main.py").read_text(encoding="utf-8")
-    assert (
-        "from app.modules.reservas.api.tenant_reserva_write_router "
-        "import router as tenant_reserva_write_router"
-    ) in main_src
-    assert "app.include_router(tenant_reserva_write_router)" in main_src
+    # FastAPI 0.137+ preserva routers incluidos como _IncludedRouter
+    # sin .path; enumerar rutas efectivas con la API oficial.
+    from fastapi.routing import iter_route_contexts
+    from app.main import app
+    rutas = list(iter_route_contexts(app.routes))
     assert any(
-        route.path.rstrip("/") == "/tenant/reservas"
-        and "POST" in getattr(route, "methods", [])
-        for route in reservas_router.routes
+        context.path.rstrip("/") == "/tenant/reservas"
+        and "POST" in getattr(context.route, "methods", set())
+        for context in rutas
+    )
+    assert any(
+        context.path == "/tenant/reservas/{reserva_id}/cancelar"
+        and "PATCH" in getattr(context.route, "methods", set())
+        for context in rutas
+    )
+    assert any(
+        context.path == "/tenant/reservas/{reserva_id}/finalizar-sin-compra"
+        and "PATCH" in getattr(context.route, "methods", set())
+        for context in rutas
     )
     assert "app.include_router" not in CODE
 
