@@ -41,6 +41,7 @@ from app.modules.temporadas_colecciones.api.router import (
     router as temporadas_colecciones_router,
 )
 from app.modules.usuarios.api.router import router as usuarios_router
+from app.modules.usuarios.api.tenant_membership_router import router as tenant_miembros_router
 from app.modules.ventas.api.router import router as ventas_router
 from app.modules.ventas.api.tenant_commercial_router import router as tenant_commercial_router
 
@@ -90,6 +91,8 @@ app.include_router(tenant_reserva_prevalidacion_router)
 app.include_router(tenant_reserva_write_router)
 # Empresa SaaS: administracion de plan y sucursales con aislamiento tenant.
 app.include_router(tenant_empresa_admin_router)
+# CU04 SaaS: solo rutas empresariales con admin/JWT y membresía propia.
+app.include_router(tenant_miembros_router)
 app.include_router(bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
