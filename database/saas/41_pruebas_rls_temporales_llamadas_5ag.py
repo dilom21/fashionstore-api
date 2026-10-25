@@ -144,7 +144,8 @@ def aborted_sql(conn, statement, args=()):
     conn.execute("BEGIN")
     try:
         try:
-            rows = conn.execute(statement, args).fetchall() if "RETURNING" in statement.upper() else None
+            cursor = conn.execute(statement, args)
+            rows = cursor.fetchall() if cursor.description is not None else None
         except psycopg.Error as exc:
             return exc.sqlstate, None
         return None, rows
