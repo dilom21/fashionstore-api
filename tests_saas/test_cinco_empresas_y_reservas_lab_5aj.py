@@ -51,7 +51,7 @@ def test_sql_transaccion_atomica_con_guardas_conteos():
     assert "NO IDEMPOTENTE" in SQL
     for item in ("<> 46","<> 48","<> 35","<> 2"):
         assert item in SQL
-    assert re.search(r"<>\\s*41", SQL)
+    assert re.search(r"<>\s*41", SQL)
 
 
 def test_sql_reserva_seguridad_invoker_verdadera():
