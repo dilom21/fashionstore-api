@@ -82,6 +82,10 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
     if (metodo, ruta) == ("POST", "/tenant/carritos/items"):
         return True
+    # CU16 comercial: doble opt-in, jamás abrir sin flag específico.
+    # Un endpoint con fallas de principal SQL/RLS igualmente falla cerrado.
+    if (metodo, ruta) == ("POST", "/tenant/reservas"):
+        return settings.saas_reservas_enabled
     # CU16: SOLO prevalidacion sin DML; crear/cancelar reserva siguen 503.
     if (metodo, ruta) == ("POST", "/tenant/reservas/prevalidar"):
         return True
