@@ -33,3 +33,7 @@ La base histórica/restaurada `fashionstore_restore_20261023_193554_594` del ser
 5. Ensayar autenticación real PostgreSQL/HTTP para las cinco empresas, límites de BASIC/PROFESIONAL, reportes, offline/IA y demás requisitos del parcial, antes de activar SaaS o desplegar.
 
 **Estado de 5AL:** código y pruebas disponibles para validación local. Esto NO significa que el SaaS sea desplegable. No ejecutar ningún DDL/SQL contra la base de las cinco empresas.
+
+## Integración posterior — rutas CU16/CU17/CU18 detrás de DOBLE FLAG
+
+Este documento describe el estado histórico 5AL. El código actual añade `POST /tenant/reservas`, `PATCH /tenant/reservas/{id}/cancelar` y `PATCH /tenant/reservas/{id}/finalizar-sin-compra` en `app/main.py`, pero el nuevo flag `SAAS_RESERVAS_ENABLED=false` mantiene las tres rutas en 503 incluso si se activa `SAAS_AUTH_ENABLED`. Los endpoints rechazan identidades sin contexto/rol, y los servicios exigen RLS real, un único tenant visible, suscripción vigente con `permite_reservas` y permisos `EXECUTE` exclusivos a cada SP tenant. **No activar ningún flag hasta ejecutar pruebas reales del SP definitivo en el laboratorio separado, validar HTTP y provisionar SQL principals restringidos**. No se ha aplicado DDL contra las cinco empresas ni Supabase.
