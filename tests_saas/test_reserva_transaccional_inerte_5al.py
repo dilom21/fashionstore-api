@@ -190,7 +190,8 @@ def test_cu16_rutas_de_escritura_no_se_abren():
     from app.main import app
     # Endpoint registrado bajo segundo flag apagado.
     assert any(
-        route.path == "/tenant/reservas" and "POST" in getattr(route, "methods", [])
+        route.path.rstrip("/") == "/tenant/reservas"
+        and "POST" in getattr(route, "methods", [])
         for route in app.routes if hasattr(route, "path")
     )
     assert "app.include_router" not in CODE
