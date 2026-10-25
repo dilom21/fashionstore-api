@@ -140,7 +140,6 @@ def auditar_rutinas(c):
        ORDER BY p.proname""",(list(AUDITED_ROUTINES),)).fetchall()
     ENSURE(len(datos)==len(AUDITED_ROUTINES),
            "no se encontraron todas las cinco rutinas protegidas")
-    owners={*X["PROCEDURES"].keys():WRITER} if False else {}
     for name,kind,definer,owner,public_revoked,limited,path_ok in datos:
         expected=WRITER if name in PROCEDURES else (
             VERIFIER_OWNER if name=="fs_verificar_actor_reserva" else
