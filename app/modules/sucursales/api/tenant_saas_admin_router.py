@@ -96,6 +96,13 @@ def mi_plan(tenant: Miembro, db: Session = Depends(get_db)):
         lambda: Repo.plan_actual(db, tenant.empresa_id), escritura=False)
 
 
+@router.get("/suscripcion")
+def mi_suscripcion(tenant: Miembro, db: Session = Depends(get_db)):
+    """Consulta vigencia, estado, plan y capacidades de la empresa propia."""
+    return _resolver(db,
+        lambda: Repo.plan_actual(db, tenant.empresa_id), escritura=False)
+
+
 @router.get("/sucursales")
 def mis_sucursales(tenant: Miembro, db: Session = Depends(get_db)):
     return _resolver(db,
