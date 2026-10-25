@@ -1,6 +1,6 @@
 -- FashionStore / B3-5AE: SEMILLA FICTICIA CON DATOS COMERCIALES REALES DE LAB.
 -- UNICO DESTINO: 127.0.0.1:55432 / fashionstore_rls_lab_5u / PG18.
--- No usuarios ni password_hash, no datos históricos; fuente 5432 NO CONSULTADA.
+-- Sin credenciales ni informacion privada; fuente 5432 NO CONSULTADA.
 -- Falla de cualquier FK, CHECK o trigger -> ROLLBACK COMPLETO.
 BEGIN;
 SET LOCAL statement_timeout = '60s';
