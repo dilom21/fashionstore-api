@@ -100,7 +100,7 @@ def test_5an_grants_no_confunden_archivo_y_numero_de_argumentos():
             for statement in grants
         )
     policies = [x for x in fake.calls if "CREATE POLICY fs_lab_5an_" in x]
-    assert len(policies) == 6
+    assert len(policies) == 11
     assert any("fs_lab_5an_usuario_select" in p for p in policies)
     assert any("fs_lab_5an_rol_select" in p for p in policies)
     assert any("ue.empresa_id" in p and "session_user" in p for p in policies)
@@ -179,5 +179,32 @@ def test_5an_usuario_y_rol_ajenos_ocultos_antes_del_call():
     assert 'usuario A se filtro al principal B' in S
     assert 'rol de B se filtro al principal A' in S
     assert 'rol de A se filtro al principal B' in S
-    assert 'policies temporales no son exactamente seis' in S
+    assert 'policies temporales no son exactamente once' in S
     assert 'c.execute("ROLLBACK")' in S
+
+
+
+def test_5an_catalogo_y_permisos_globales_respetan_tenant():
+    import runpy
+
+    mod = runpy.run_path(str(SCRIPT))
+    class DummyConn:
+        def __init__(self): self.calls=[]
+        def execute(self, sql): self.calls.append(sql)
+
+    fake=DummyConn()
+    mod["grant_minimal_lab"](fake)
+    policy_sql = "\n".join(
+        statement for statement in fake.calls
+        if "CREATE POLICY fs_lab_5an_" in statement
+    )
+    for table in ("talla","color","rol_funcion","funcion","accion"):
+        assert f"CREATE POLICY fs_lab_5an_{table}_select" in policy_sql
+        assert f"ALTER TABLE public.{table} ENABLE ROW LEVEL SECURITY" in "\n".join(fake.calls)
+    assert "variante_producto vp" in policy_sql
+    assert "JOIN public.usuario_empresa ue" in policy_sql
+    assert "ue.rol_id = rol_funcion.rol_id" in policy_sql
+    assert "session_user" in policy_sql
+    assert "catalogo A no visible por RLS" in S
+    assert "permisos CU18 B no visibles por RLS" in S
+    assert '==52' in S
