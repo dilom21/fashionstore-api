@@ -32,6 +32,8 @@ import sys
 import tempfile
 from datetime import datetime, timedelta, timezone
 
+import jwt
+
 from fastapi import Depends, FastAPI, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from fastapi.testclient import TestClient
@@ -199,6 +201,14 @@ def probar_http_jwt_y_sql(admin,passwords,auth_pass):
             require(missing.status_code==401,"JWT ausente aceptado")
             altered=req(client,tokens[(1,101)]+"x")
             require(altered.status_code==401,"JWT adulterado aceptado")
+            expired_claims=jwt.decode(
+                tokens[(1,101)],settings.secret_key,
+                algorithms=[settings.jwt_algorithm])
+            expired_claims["exp"]=datetime.now(timezone.utc)-timedelta(minutes=1)
+            expired=jwt.encode(expired_claims,settings.secret_key,
+                               algorithm=settings.jwt_algorithm)
+            require(req(client,expired).status_code==401,
+                    "JWT firmado pero caducado fue aceptado")
             # Token bien firmado pero empresa distinta a la del usuario.
             cross=emitir_token_empresa(
                 usuario_id=101,empresa_id=2,contexto="cliente")
