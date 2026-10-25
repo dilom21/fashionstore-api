@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+import re
 import secrets
 import shutil
 import socket
@@ -68,8 +69,10 @@ def postgres_bin():
         if initdb.is_file() and pg_ctl.is_file():
             ver = subprocess.run([str(initdb), "--version"],
                 capture_output=True,text=True,timeout=8,errors="replace")
-            require(ver.returncode==0 and "PostgreSQL 18" in ver.stdout,
-                    "solamente se acepta initdb PostgreSQL 18")
+            require(ver.returncode==0 and re.search(
+                    r"PostgreSQL\)?\s+18(?:[.\s]|$)", ver.stdout
+                ) is not None,
+                "solamente se acepta initdb PostgreSQL 18")
             return initdb, pg_ctl
     raise RuntimeError("5BC: no se encontraron initdb/pg_ctl PostgreSQL 18. "
                        "Instala el paquete servidor PG18 o añade su bin a PATH.")
