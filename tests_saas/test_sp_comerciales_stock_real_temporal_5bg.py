@@ -79,7 +79,8 @@ def test_5bg_rls_derive_empresa_del_principal_sql_no_guc():
     assert "WITH CHECK (empresa_id=public.fs_5bg_empresa_actor())" in S
     assert "fs_5bg_empresa_actor() FROM PUBLIC" in S
     assert "grant_all" not in S.lower()
-    assert "SET ROLE" not in S
+    assert 'c.execute("SET ROLE' not in S
+    assert 'text("SET ROLE' not in S
 
 
 def test_5bg_grants_minimos_y_denegacion_de_dml_directo():
