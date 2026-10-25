@@ -80,9 +80,14 @@ def preparar_membresias(admin,passwd):
       contexto text NOT NULL,activa boolean NOT NULL,
       PRIMARY KEY(empresa_id,usuario_id,contexto)
     )""")
-    admin.executemany("""INSERT INTO public.fs_5be_membresia
-      (empresa_id,usuario_id,contexto,activa) VALUES (%s,%s,%s,%s)""",
-      MEMBERSHIPS)
+    # psycopg3.Connection no implementa .executemany; para tres
+    # membresías ficticias usar execute parametrizado por registro.
+    for empresa,usuario,contexto,activa in MEMBERSHIPS:
+        admin.execute("""INSERT INTO public.fs_5be_membresia
+          (empresa_id,usuario_id,contexto,activa) VALUES (%s,%s,%s,%s)""",
+          (empresa,usuario,contexto,activa))
+    require(admin.execute("SELECT count(*) FROM public.fs_5be_membresia"
+        ).fetchone()[0]==3,"faltan membresías ficticias de arranque")
     admin.execute("REVOKE ALL ON public.fs_5be_membresia FROM PUBLIC")
     admin.execute("SET password_encryption='scram-sha-256'")
     admin.execute(sql.SQL("""CREATE ROLE {} LOGIN NOINHERIT
@@ -113,15 +118,30 @@ def comprobar_acls_auth(auth_engine):
     with auth_engine.connect() as c:
         who=tuple(c.execute(text("SELECT session_user,current_user")).one())
         require(who==(AUTH,AUTH),"cuenta de membresías usa identidad DBA")
-        visible=c.execute(text("""SELECT has_table_privilege(
+        # 5BB: SELECT(columnas) NO equivale a SELECT sobre la tabla.
+        # La lectura de la tabla completa debe seguir denegada.
+        visible_tabla=c.execute(text("""SELECT has_table_privilege(
           session_user,'public.fs_5be_membresia','SELECT')""")).scalar_one()
-        require(visible is True,"auth no puede consultar membresías")
+        require(visible_tabla is False,
+                "auth tiene SELECT de tabla completa; excede ACL mínima")
+        for columna in ("empresa_id","usuario_id","contexto","activa"):
+            allowed=c.execute(text("""SELECT has_column_privilege(
+               session_user,'public.fs_5be_membresia',:columna,'SELECT')"""),
+               {"columna":columna}).scalar_one()
+            require(allowed is True,
+                    "auth no tiene SELECT sobre columna "+columna)
+        # No basta con ACL de catálogo: leer mediante login restringido.
+        filas=c.execute(text("""SELECT empresa_id,usuario_id,contexto,activa
+          FROM public.fs_5be_membresia ORDER BY empresa_id,usuario_id""")).all()
+        require([tuple(fila) for fila in filas]==list(MEMBERSHIPS),
+                "auth no recupera las tres membresías ficticias esperadas")
         for table in ("fs_5bc_reserva","fs_5bc_actor"):
-            permitido=c.execute(text("""SELECT has_table_privilege(
+            permitido=c.execute(text("""SELECT has_any_column_privilege(
               session_user,:tabla,'SELECT')"""),
               {"tabla":"public."+table}).scalar_one()
-            require(permitido is False,"auth puede leer "+table)
-        dml=c.execute(text("""SELECT has_table_privilege(
+            require(permitido is False,
+                    "auth puede leer columnas de "+table)
+        dml=c.execute(text("""SELECT has_any_column_privilege(
           session_user,'public.fs_5be_membresia','UPDATE')""")).scalar_one()
         require(dml is False,"auth puede mutar membresía")
         c.rollback()
