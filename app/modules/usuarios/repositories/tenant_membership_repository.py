@@ -56,12 +56,14 @@ ROLES_BASE=frozenset({
 })
 
 
-def _empresa_administrable(db:Session,empresa_id:int):
-    # Un único lock maestro por empresa también bloquea dos cambios
+def _empresa_administrable(db:Session,empresa_id:int,*,bloqueo:bool):
+    # Escrituras: un lock maestro por empresa serializa dos cambios
     # simultáneos que podrían revocar dos admins distintos.
-    existente=db.scalar(select(empresa.c.id)
-        .where(empresa.c.id==empresa_id,empresa.c.estado.is_(True))
-        .with_for_update(of=empresa))
+    query=select(empresa.c.id).where(
+        empresa.c.id==empresa_id,empresa.c.estado.is_(True))
+    if bloqueo:
+        query=query.with_for_update(of=empresa)
+    existente=db.scalar(query)
     if existente is None:
         raise GestionMembresiaTenantError(404,"Empresa no disponible")
 
@@ -153,12 +155,12 @@ def _evitar_sin_administrador(db:Session,empresa_id:int,usuario_id:int):
 class GestionMembresiasTenantRepository:
     @staticmethod
     def listar(db:Session,empresa_id:int):
-        _empresa_administrable(db,empresa_id)
+        _empresa_administrable(db,empresa_id,bloqueo=False)
         return _lista(db,empresa_id)
 
     @staticmethod
     def roles_disponibles(db:Session,empresa_id:int):
-        _empresa_administrable(db,empresa_id)
+        _empresa_administrable(db,empresa_id,bloqueo=False)
         # Roles de base o YA utilizados por este tenant. No mostrar
         # roles globales creados exclusivamente por otra empresa.
         used=exists(select(usuario_empresa.c.id).where(
@@ -174,7 +176,7 @@ class GestionMembresiasTenantRepository:
     @staticmethod
     def cambiar_rol(db:Session,*,empresa_id:int,actor_id:int,
                     usuario_id:int,rol_id:int):
-        _empresa_administrable(db,empresa_id)
+        _empresa_administrable(db,empresa_id,bloqueo=True)
         actual=_membresia(db,empresa_id,usuario_id)
         if actual["rol_id"]==rol_id:
             rows=_lista(db,empresa_id,usuario_id)
@@ -216,7 +218,7 @@ class GestionMembresiasTenantRepository:
     @staticmethod
     def cambiar_estado(db:Session,*,empresa_id:int,actor_id:int,
                        usuario_id:int,estado:bool):
-        _empresa_administrable(db,empresa_id)
+        _empresa_administrable(db,empresa_id,bloqueo=True)
         actual=_membresia(db,empresa_id,usuario_id)
         if actual["estado"]==estado:
             return _lista(db,empresa_id,usuario_id)[0]
