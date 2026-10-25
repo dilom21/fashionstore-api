@@ -159,7 +159,7 @@ def cargar_sql_real():
         RAISE EXCEPTION 'Actor SQL no acreditado'
             USING ERRCODE='42501';
     END IF;"""
-        edited,n=re.subn(r"(?m)^BEGIN\\s*$",lambda _:guard,raw,count=1)
+        edited,n=re.subn(r"(?m)^BEGIN\s*$",lambda _:guard,raw,count=1)
         require(n==1 and edited.count("fs_5bc_verificar(")==1,
                 "no se instaló guardia única al inicio del SP "+proc)
         require(edited.index("fs_5bc_verificar(") <
@@ -310,8 +310,7 @@ def instalar_sp_originales(c,fuentes):
             sql.Identifier(WRITER)))
     for proc in PROCEDURES:
         meta=c.execute("""SELECT p.prosecdef,pg_get_userbyid(p.proowner),
-                p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[],
-                has_function_privilege('public',p.oid,'EXECUTE')
+                p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
               FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n
                ON n.oid=p.pronamespace
               WHERE n.nspname='public' AND p.proname=%s AND p.prokind='p'""",
@@ -375,13 +374,13 @@ def sembrar_ficticios(c):
           (11,1,11,1,1)),
       ("INSERT INTO public.detalle_carrito VALUES (%s,%s,%s,%s,%s)",
           (12,1,12,1,1)),
-      ("INSERT INTO public.reserva
+      ("""INSERT INTO public.reserva
         (id,empresa_id,cliente_id,sucursal_id,carrito_id,fecha_reserva,
          fecha_atencion,estado,observacion)
-        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s)",
+        VALUES (%s,%s,%s,%s,%s,%s,%s,%s,%s,%s)""",
         (300,2,201,2,99,ts,ts+timedelta(days=2),"CONFIRMADA","B ficticia")),
-      ("INSERT INTO public.detalle_reserva
-        (empresa_id,reserva_id,inventario_id,cantidad) VALUES (%s,%s,%s,%s)",
+      ("""INSERT INTO public.detalle_reserva
+        (empresa_id,reserva_id,inventario_id,cantidad) VALUES (%s,%s,%s,%s)""",
         (2,300,2,1)),
       ("INSERT INTO public.funcion VALUES (%s,%s,%s)",
           (1,"GESTIONAR_RESERVAS",True)),
