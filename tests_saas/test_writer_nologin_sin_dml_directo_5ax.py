@@ -102,3 +102,13 @@ def test_5ax_postflight_no_persisten_roles_mapa_ni_policies():
     assert '==41,"41 policies originales no restauradas"' in S
     assert "0 SP" in S
     assert "3 reservas y 4 carritos" in S
+
+
+
+def test_5ax_security_definer_no_permita_actor_ajeno_ni_compartido():
+    assert "auditar_guardia_definer(c,ids,a2,carrito2)" in S
+    assert "M[\"LAB\"][\"CALL_CREATE\"]" in S
+    assert 'reason=="Actor SQL no coincide con usuario de la empresa"' in S
+    assert "has_function_privilege(" in S
+    assert "5AX IDENTIDAD PASS" in S
+    assert "5AX BRECHA: SP DEFINER aceptó actor ajeno" in S
