@@ -220,7 +220,8 @@ def test_cu04_allowlist_solo_cuatro_rutas_exactas_no_legacy():
         if isinstance(node,ast.FunctionDef) and node.name=="_ruta_saas_permitida":
             body.append(node)
     namespace={"re":re,"frozenset":frozenset,
-               "settings":SimpleNamespace(saas_reservas_enabled=False)}
+               "settings":SimpleNamespace(saas_reservas_enabled=False,
+                   saas_superadmin_enabled=False)}
     exec(compile(ast.Module(body=body,type_ignores=[]),
                  str(GATE),"exec"),namespace)
     gate=namespace["_ruta_saas_permitida"]
