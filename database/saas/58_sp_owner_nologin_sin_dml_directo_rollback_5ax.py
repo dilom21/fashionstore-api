@@ -73,7 +73,7 @@ def preparar_writer(c):
         AND NOT rolinherit""",(WRITER,))==1,
         "5AX propietario SP no restringido")
     for caller in ROLES:
-        ENSURE(ONE(c,"SELECT pg_has_role(%s,%s,'MEMBER')",
+        ENSURE(ONE(c,"SELECT pg_has_role(%s::name,%s::name,'MEMBER')",
                    (caller,WRITER)) is False,
                "5AX actor puede adquirir privilegios del writer")
 
