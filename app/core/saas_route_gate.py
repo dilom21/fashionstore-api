@@ -90,7 +90,7 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         return settings.saas_reservas_enabled
     # CU16 comercial: doble opt-in, jamás abrir sin flag específico.
     # Un endpoint con fallas de principal SQL/RLS igualmente falla cerrado.
-    if (metodo, ruta) == ("POST", "/tenant/reservas"):
+    if metodo == "POST" and ruta == "/tenant/reservas":
         return settings.saas_reservas_enabled
     # CU16: SOLO prevalidacion sin DML; crear/cancelar reserva siguen 503.
     if (metodo, ruta) == ("POST", "/tenant/reservas/prevalidar"):
