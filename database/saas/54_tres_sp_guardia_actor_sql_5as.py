@@ -66,7 +66,8 @@ def ampliar_mapa_para_b(c, tenant_b, usuario_b):
         VALUES(%s,%s,%s)""", (SQL_B1,tenant_b,usuario_b))
     c.execute(f"GRANT USAGE ON SCHEMA public TO {SQL_B1}")
     c.execute(f"""GRANT EXECUTE ON FUNCTION
-        public.fs_lab_verificar_actor_5ar(bigint,bigint) TO {SQL_B1}""")
+        public.fs_lab_verificar_actor_5ar(bigint,bigint)
+        TO {SQL_B1},{TENANT_B}""")
     ENSURE(ONE(c, """SELECT has_table_privilege(
         %s,'public.fs_lab_actor_sql_5ar','SELECT')""", (SQL_B1,)) is False,
         "B1 puede consultar el mapa de identidades protegido")
@@ -121,6 +122,10 @@ def intento_denegado(c, *, principal, nombre_sp, empresa,
         WHERE n.nspname='public' AND p.proname=%s AND p.prokind='p'
         """,(nombre_sp,)) is True,
         "usuario no tiene EXECUTE: prueba inconclusa")
+    ENSURE(ONE(c,"""SELECT has_function_privilege(
+        session_user,'public.fs_lab_verificar_actor_5ar(bigint,bigint)',
+        'EXECUTE')""") is True,
+        "sin EXECUTE sobre verificador de actor: prueba inconclusa")
     # La GUC es editable por este mismo principal; nunca debe permitir
     # que p_usuario_id o session_user sean suplantados.
     c.execute("SELECT set_config('app.usuario_id',%s,true)",
@@ -138,9 +143,12 @@ def intento_denegado(c, *, principal, nombre_sp, empresa,
                 (empresa,reserva_o_carrito,actor_falso,"5AS denegación"))
     except psycopg.Error as err:
         codigo=err.sqlstate
+        mensaje = err.diag.message_primary
         c.execute("ROLLBACK TO SAVEPOINT sp_5as_denegado")
-        ENSURE(codigo=="42501",
-               f"{principal}/{nombre_sp}: SQLSTATE {codigo} distinto de 42501")
+        ENSURE(codigo=="42501"
+               and mensaje=="Actor SQL no coincide con usuario de la empresa",
+               f"{principal}/{nombre_sp}: rechazo distinto a la guardia "
+               f"de identidad (SQLSTATE={codigo}, mensaje={mensaje})")
         print(f"5AS {NOMBRES_SP[nombre_sp][1]} DENEGADO PASS: "
               f"{principal} no acredita p_usuario_id ajeno ({codigo})")
     else:
