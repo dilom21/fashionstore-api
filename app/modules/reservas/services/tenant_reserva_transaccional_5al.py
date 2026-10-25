@@ -63,6 +63,36 @@ _PRINCIPAL_SQL = text("""
     FROM pg_roles r WHERE r.rolname=session_user
 """)
 
+# 5AU: el rol PostgreSQL ha de acreditar al MISMO usuario del JWT.
+# Nombre fijo (no interpolado del request); esta funcion aun NO esta instalada.
+# No usar app.usuario_id ni SET ROLE/SET SESSION AUTHORIZATION como prueba.
+_VERIFICADOR_ACTOR_SQL_META = text("""
+    SELECT
+      pg_get_userbyid(p.proowner) AS propietario,
+      p.prosecdef AS security_definer,
+      (p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[])
+        AS path_seguro,
+      has_function_privilege(session_user,p.oid,'EXECUTE') AS puede_ejecutar,
+      (r.rolcanlogin IS FALSE AND r.rolsuper IS FALSE
+          AND r.rolbypassrls IS FALSE) AS propietario_restringido,
+      (NOT has_schema_privilege(session_user,'public','CREATE')
+       AND NOT has_database_privilege(session_user,current_database(),'CREATE'))
+        AS llamador_sin_ddl,
+      (p.proacl IS NOT NULL AND NOT EXISTS(
+          SELECT 1 FROM aclexplode(p.proacl) acl
+          WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+      )) AS publico_revocado
+    FROM pg_proc p
+    JOIN pg_roles r ON r.oid=p.proowner
+    WHERE p.oid=to_regprocedure(
+        'public.fs_verificar_actor_reserva(bigint,bigint)'
+    )
+""")
+_VERIFICADOR_ACTOR_SQL_REAL = text("""
+    SELECT public.fs_verificar_actor_reserva(:empresa_id,:usuario_id)
+""")
+
+
 _RESERVA_CONFIRMADA = text("""
     SELECT r.id
     FROM public.reserva r
@@ -85,9 +115,10 @@ def verificar_principal_reserva(
     """Fail-closed: SQL principal real debe estar restringido al MISMO tenant.
 
     Se requiere exactamente una empresa visible con RLS vigente. Eso descarta
-    conexiones superusuario/BYPASSRLS y servicios de SQL principal compartido
-    con visibilidad global. No intenta demostrar por si solo identidad de
-    usuario, que corresponde a JWT+membresía y al SP real.
+    conexiones superusuario/BYPASSRLS y servicios con visibilidad global.
+    Ademas exige una funcion SQL auditada cuyo propietario NOLOGIN
+    predeterminado es verificado y que vincula session_user al usuario
+    firmado del JWT. Si aun no esta instalada, devuelve 503 (fail-closed).
     """
     if procedimiento not in {
         "sp_crear_reserva_tenant",
@@ -120,6 +151,37 @@ def verificar_principal_reserva(
     ):
         raise ReservaTenantDeshabilitada(
             "Rol SQL de reserva no aislado o procedimiento CU16 no autorizado"
+        )
+    # Segundo factor obligatorio: la empresa aislada no basta para
+    # demostrar identidad del usuario dentro del mismo tenant (hallazgo 5AQ).
+    # El dueño exacto de la función es configuración administrativa; un
+    # atacante no puede elegirlo a través del JWT ni del body HTTP.
+    from app.core.config import settings
+    propietario_esperado = settings.saas_actor_sql_owner
+    if (not isinstance(propietario_esperado, str)
+            or not propietario_esperado
+            or propietario_esperado == r["principal"]):
+        raise ReservaTenantDeshabilitada(
+            "Identidad SQL individual no configurada"
+        )
+    meta = db.execute(_VERIFICADOR_ACTOR_SQL_META).mappings().one_or_none()
+    if (not meta
+            or meta.get("propietario") != propietario_esperado
+            or not all(meta.get(key) is True for key in (
+                "security_definer", "path_seguro", "puede_ejecutar",
+                "propietario_restringido", "llamador_sin_ddl",
+                "publico_revocado",
+            ))):
+        raise ReservaTenantDeshabilitada(
+            "Verificador SQL individual no instalado o inseguro"
+        )
+    actor_ok = db.scalar(_VERIFICADOR_ACTOR_SQL_REAL, {
+        "empresa_id": tenant.empresa_id,
+        "usuario_id": tenant.usuario_id,
+    })
+    if actor_ok is not True:
+        raise ReservaTenantDeshabilitada(
+            "El principal SQL no acredita la identidad JWT"
         )
     return r["principal"]
 
