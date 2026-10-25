@@ -12,7 +12,7 @@ def test_5ag_usa_solo_clúster_independiente():
     assert 'HOST, PORT, DB = "127.0.0.1", 55432, "fashionstore_rls_lab_5u"' in SRC
     assert 'c:/si2_parcial1/fashionstore-rls-lab-5v-data' in SRC
     assert '"servidor lab incorrecto"' in SRC
-    assert "5432" not in SRC
+    assert "port=5432" not in SRC and "PORT = 5432" not in SRC
 
 
 def test_5ag_preflight_valida_baseline_y_roles():
