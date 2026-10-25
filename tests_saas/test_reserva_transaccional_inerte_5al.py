@@ -16,6 +16,8 @@ from app.modules.reservas.services.tenant_reserva_transaccional_5al import (
     crear_reserva_transaccional_sin_exposicion_http,
     ReservaTenantDeshabilitada,
     ReservaTenantIntegridadError,
+    cancelar_reserva_transaccional_tenant,
+    finalizar_reserva_sin_compra_transaccional_tenant,
 )
 
 ROOT=Path(__file__).resolve().parents[1]
@@ -199,3 +201,87 @@ def test_cu16_sigue_sin_5_empresas_modificadas():
     assert "CREATE PROCEDURE" not in CODE
     assert "CREATE POLICY" not in CODE
     assert "supabase" not in CODE.lower()
+
+
+
+class CambioDB(FakeDB):
+    def __init__(self, estado, fail=None, **kwargs):
+        super().__init__(**kwargs)
+        self.estado=estado
+        self.fail=fail
+
+    def execute(self,sql,args=None):
+        query=str(sql)
+        self.queries.append(query)
+        self.params.append(dict(args) if args is not None else None)
+        if "SELECT session_user AS principal" in query:
+            return QueryResult(self.row)
+        if "CALL public.sp_cancelar_reserva_tenant" in query or (
+            "CALL public.sp_finalizar_reserva_sin_compra_tenant" in query
+        ):
+            if self.fail:
+                raise self.fail
+            return QueryResult(None)
+        raise AssertionError("Sentencia inesperada")
+
+    def scalar(self,sql,args=None):
+        self.queries.append(str(sql))
+        self.params.append(dict(args))
+        return self.estado
+
+
+def test_cancelacion_atomica_con_principal_y_tenant():
+    db=CambioDB("CANCELADA")
+    estado=cancelar_reserva_transaccional_tenant(
+        db,tenant=tenant(),reserva_id=77,observacion="No asistiré"
+    )
+    assert estado=="CANCELADA" and db.commits==1 and db.rollbacks==0
+    assert db.params[0]["procedimiento"]=="sp_cancelar_reserva_tenant"
+    assert db.params[1]["empresa_id"]==15 and db.params[1]["usuario_id"]==42
+    assert db.params[2]["reserva_id"]==77
+    assert db.params[2]["cliente"] is True
+
+
+def test_finalizacion_atomica_personal():
+    from dataclasses import replace
+    db=CambioDB("ATENDIDA")
+    staff=replace(tenant(),rol_nombre="CAJERO",contexto="personal")
+    estado=finalizar_reserva_sin_compra_transaccional_tenant(
+        db,tenant=staff,reserva_id=81,observacion=None
+    )
+    assert estado=="ATENDIDA" and db.commits==1 and db.rollbacks==0
+    assert db.params[0]["procedimiento"]=="sp_finalizar_reserva_sin_compra_tenant"
+    assert db.params[2]["cliente"] is False
+
+
+@pytest.mark.parametrize("accion,estado",[
+    ("cancelar","ATENDIDA"),("finalizar","CANCELADA"),
+])
+def test_cambio_reserva_rechaza_estado_inesperado_y_revierte(accion,estado):
+    from dataclasses import replace
+    db=CambioDB(estado)
+    staff=replace(tenant(),rol_nombre="ADMINISTRADOR",contexto="personal")
+    ejecutor=(cancelar_reserva_transaccional_tenant if accion=="cancelar"
+              else finalizar_reserva_sin_compra_transaccional_tenant)
+    with pytest.raises(ReservaTenantIntegridadError):
+        ejecutor(db,tenant=staff,reserva_id=99)
+    assert db.commits==0 and db.rollbacks==1
+
+
+def test_cambio_reserva_no_ejecuta_sp_si_falta_principal_restringido():
+    db=CambioDB("CANCELADA",row=principal(restringido=False))
+    with pytest.raises(ReservaTenantDeshabilitada):
+        cancelar_reserva_transaccional_tenant(db,tenant=tenant(),reserva_id=99)
+    assert db.commits==0 and db.rollbacks==1
+    assert not any("CALL public." in query for query in db.queries)
+
+
+def test_cambio_reserva_rechaza_actor_de_rol_incorrecto_sin_sql():
+    from dataclasses import replace
+    db=CambioDB("ATENDIDA")
+    with pytest.raises(PermissionError):
+        finalizar_reserva_sin_compra_transaccional_tenant(
+            db,tenant=replace(tenant(),contexto="cliente",rol_nombre="CLIENTE"),
+            reserva_id=10
+        )
+    assert db.queries==[] and db.commits==0
