@@ -20,6 +20,7 @@ from app.modules.carrito.api.tenant_read_router import router as tenant_carrito_
 from app.modules.reservas.api.tenant_prevalidacion_router import router as tenant_reserva_prevalidacion_router
 from app.modules.reservas.api.tenant_reserva_write_router import router as tenant_reserva_write_router
 from app.modules.sucursales.api.tenant_saas_admin_router import router as tenant_empresa_admin_router
+from app.modules.sucursales.api.saas_superadmin_router import router as saas_superadmin_router
 from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
 from app.modules.devoluciones.api.router import router as devoluciones_router
@@ -91,6 +92,8 @@ app.include_router(tenant_reserva_prevalidacion_router)
 app.include_router(tenant_reserva_write_router)
 # Empresa SaaS: administracion de plan y sucursales con aislamiento tenant.
 app.include_router(tenant_empresa_admin_router)
+# CU01/CU02: superadministración global, propia credencial y flags OFF.
+app.include_router(saas_superadmin_router)
 # CU04 SaaS: solo rutas empresariales con admin/JWT y membresía propia.
 app.include_router(tenant_miembros_router)
 app.include_router(bitacora_router)
