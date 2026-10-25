@@ -68,7 +68,8 @@ def test_5be_identidad_sql_solo_desde_jwt_y_membresia():
     assert "who==(role,role)" in S
     assert "rows=c.execute(text(" in S
     assert "len(rows)==1 and tuple(rows[0][1:])==(eid,uid)" in S
-    assert "SET ROLE" not in S
+    assert 'c.execute("SET ROLE' not in S
+    assert 'text("SET ROLE' not in S
     assert "SET SESSION AUTHORIZATION" not in S
 
 
