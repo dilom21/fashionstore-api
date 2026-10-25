@@ -98,9 +98,14 @@ def preparar_membresias(admin,passwd):
       ON public.fs_5be_membresia TO {}""").format(sql.Identifier(AUTH)))
     admin.execute(sql.SQL("GRANT USAGE ON SCHEMA public TO {}").format(
       sql.Identifier(AUTH)))
-    require(admin.execute("""SELECT rolpassword LIKE 'SCRAM-SHA-256$%'
-       FROM pg_authid WHERE rolname=%s""",(AUTH,)).fetchone()[0] is True,
-       "el login de lectura no usa SCRAM")
+    # psycopg3 interpreta '%' como introductor de placeholder aun dentro
+    # de un literal SQL LIKE. Leer SOLO en memoria y validar prefijo
+    # evita el parser '%'' y jamás imprime la credencial ni su hash.
+    hashed=admin.execute("""SELECT rolpassword
+       FROM pg_catalog.pg_authid WHERE rolname=%s""",(AUTH,)).fetchone()
+    require(hashed is not None and isinstance(hashed[0],str)
+            and hashed[0].startswith("SCRAM-SHA-256$"),
+            "el login de lectura no usa SCRAM")
     print("5BE MEMBRESÍA PASS: cuenta auth SQL separada, "
           "SELECT únicamente de membresías ficticias")
 
