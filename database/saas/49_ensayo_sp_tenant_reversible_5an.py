@@ -228,6 +228,43 @@ def fixtures(c):
                     (detalle_id,)))
 
 
+
+def diagnosticar_membresia(c, empresa_id, usuario_id, rol):
+    """Visibilidad RLS del actor, con y sin FOR SHARE; solo datos ficticios."""
+    tablas = {
+        "empresa": ("SELECT count(*) FROM public.empresa WHERE id=%s AND estado IS TRUE", (empresa_id,)),
+        "usuario": ("SELECT count(*) FROM public.usuario WHERE id=%s AND estado IS TRUE", (usuario_id,)),
+        "rol": ("SELECT count(*) FROM public.rol WHERE nombre=%s AND estado IS TRUE", (rol,)),
+        "membresia": ("SELECT count(*) FROM public.usuario_empresa WHERE empresa_id=%s AND usuario_id=%s AND estado IS TRUE", (empresa_id,usuario_id)),
+        "suscripcion": ("SELECT count(*) FROM public.suscripcion WHERE empresa_id=%s AND estado='ACTIVA' AND (clock_timestamp() AT TIME ZONE 'America/La_Paz')::date BETWEEN fecha_inicio AND fecha_vencimiento", (empresa_id,)),
+        "plan": ("SELECT count(*) FROM public.plan_saas WHERE estado IS TRUE AND permite_reservas IS TRUE", None),
+    }
+    diagnostico = {name: one(c,sql,params) for name,(sql,params) in tablas.items()}
+    join = """
+        SELECT ue.rol_id
+        FROM public.usuario_empresa ue
+        JOIN public.usuario u ON u.id=ue.usuario_id AND u.estado IS TRUE
+        JOIN public.empresa e ON e.id=ue.empresa_id AND e.estado IS TRUE
+        JOIN public.rol r ON r.id=ue.rol_id AND r.estado IS TRUE
+        JOIN public.suscripcion ss ON ss.empresa_id=e.id AND ss.estado='ACTIVA'
+        JOIN public.plan_saas pl ON pl.id=ss.plan_saas_id
+        WHERE ue.empresa_id=%s AND ue.usuario_id=%s
+          AND ue.estado IS TRUE AND r.nombre=%s
+          AND pl.estado IS TRUE AND pl.permite_reservas IS TRUE
+          AND (clock_timestamp() AT TIME ZONE 'America/La_Paz')::date
+              BETWEEN ss.fecha_inicio AND ss.fecha_vencimiento
+    """
+    parametros=(empresa_id,usuario_id,rol)
+    diagnostico["join"] = len(c.execute(join,parametros).fetchall())
+    diagnostico["join_for_share"] = len(
+        c.execute(join + " FOR SHARE OF ue, ss",parametros).fetchall()
+    )
+    print("5AN AUTH RLS: " + ", ".join(
+        f"{nombre}={valor}" for nombre,valor in diagnostico.items()
+    ))
+    ensure(all(valor == 1 for valor in diagnostico.values()),
+           "validacion de membresia no visible con permisos RLS/FOR SHARE")
+
 def run_calls(c, ids):
     a,b=ids["a_empresa"],ids["b_empresa"]
     ua,ub=ids["a_usuario"],ids["b_usuario"]
@@ -237,6 +274,7 @@ def run_calls(c, ids):
            "A ve mas de una empresa")
     ensure(one(c,"SELECT id FROM public.empresa")==a,
            "A principal no coincide")
+    diagnosticar_membresia(c,a,ua,"CLIENTE")
     result=c.execute(CALL_CREATE,(a,ids["a_carrito"],ua,future,
                                   "Ensayo 5AN rollback",None)).fetchone()
     ensure(result is not None and isinstance(result[0],int) and result[0]>0,
@@ -262,6 +300,7 @@ def run_calls(c, ids):
            "B ve mas de una empresa")
     ensure(one(c,"SELECT id FROM public.empresa")==b,
            "B principal no coincide")
+    diagnosticar_membresia(c,b,ub,"ADMINISTRADOR")
     c.execute(CALL_CHANGE.format("sp_finalizar_reserva_sin_compra_tenant"),
               (b,ids["b_reserva"],ub,"Finalizacion 5AN"))
     ensure(one(c,"SELECT estado FROM public.reserva WHERE id=%s",
@@ -301,7 +340,8 @@ def main():
         finally:
             # Después de ROLLBACK se restituyen tanto rol como estructura.
             c.execute("ROLLBACK")
-        preflight(c)
+            preflight(c)
+            print("5AN ROLLBACK Y PREFLIGHT OK: laboratorio restaurado")
         print("5AN OK: ROLLBACK completo, 0 SP CU16-18 permanentes, "
               "5 empresas finales intactas")
         print("5AN FALTA: JWT HTTP y aislamiento de usuario dentro "
