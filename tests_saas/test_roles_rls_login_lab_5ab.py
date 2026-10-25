@@ -13,6 +13,8 @@ def test_5ab_db_y_puerto_restringidos():
     assert "fashionstore_rls_lab_5u" in SQL and "55432" in SQL
     assert "current_database()" in SQL and "inet_server_port()" in SQL
     assert "data_directory" in SQL and "C:/SI2_Parcial1/fashionstore-rls-lab-5v-data" in SQL
+    assert "host(inet_server_addr()) IS DISTINCT FROM '127.0.0.1'" in SQL
+    assert "inet_server_addr()::text" not in SQL
     assert "c:/si2_parcial1/fashionstore-rls-lab-5v-data" in PS
 
 
