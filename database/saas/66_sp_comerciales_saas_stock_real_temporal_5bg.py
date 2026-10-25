@@ -310,18 +310,31 @@ def instalar_sp_originales(c,fuentes):
             sql.Identifier(WRITER)))
     for proc in PROCEDURES:
         meta=c.execute("""SELECT p.prosecdef,pg_get_userbyid(p.proowner),
-                p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[]
+                p.proconfig @> ARRAY['search_path=pg_catalog, pg_temp']::text[],
+                (p.proacl IS NOT NULL AND NOT EXISTS (
+                  SELECT 1 FROM aclexplode(p.proacl) acl
+                  WHERE acl.grantee=0 AND acl.privilege_type='EXECUTE'
+                )) AS publico_revocado,
+                r.rolcanlogin,r.rolsuper,r.rolbypassrls,
+                p.pronargs
               FROM pg_catalog.pg_proc p JOIN pg_catalog.pg_namespace n
                ON n.oid=p.pronamespace
+              JOIN pg_catalog.pg_roles r ON r.oid=p.proowner
               WHERE n.nspname='public' AND p.proname=%s AND p.prokind='p'""",
               (proc,)).fetchone()
-        # Comprobar directamente proacl y owner, no public como login;
-        # el rol PUBLIC no es un principal autenticable.
+        expected=6 if proc=="sp_crear_reserva_tenant" else 4
         require(meta is not None and meta[0] is True
-                and meta[1]==WRITER and meta[2] is True,
-                "5BG BRECHA: SP sin SECURITY DEFINER NOLOGIN/path: "+proc)
-    print("5BG SP REALES PASS: tres FUENTES de borradores CU16–CU18 "
-          "montadas con guardia 5AV y owner 5AX NOLOGIN")
+                and meta[1]==WRITER and meta[2] is True
+                and meta[3] is True
+                and meta[4] is False and meta[5] is False
+                and meta[6] is False and meta[7]==expected,
+                "5BG BRECHA: SP con OWNER/SECDEF/PUBLIC/search_path "
+                "o firma inseguros: "+proc)
+    require(one(c,"SELECT has_schema_privilege(%s,'public','CREATE')",
+                (WRITER,)) is False,
+            "5BG BRECHA: WRITER conserva CREATE después de instalación")
+    print("5BG SP REALES PASS: tres FUENTES CU16–CU18, guardia 5AV, "
+          "owner NOLOGIN, ACL PUBLIC revocada y search_path seguro")
 
 
 def sembrar_ficticios(c):
