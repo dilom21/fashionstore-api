@@ -97,4 +97,4 @@ def test_5az_no_confunde_sesion_simulada_con_login_real():
     assert "son SIMULADAS" in S
     assert "no logins reales" in S
     assert "PENDIENTE: login PG no-superuser REAL" in S
-    assert "NO COMMIT" in S
+    assert "0 COMMIT persistentes" in S
