@@ -34,7 +34,7 @@ def test_5ax_no_login_no_bypass_y_sin_create():
     assert "REVOKE CREATE ON SCHEMA public" in S
     assert "has_schema_privilege(%s,'public','CREATE')" in S
     assert "has_database_privilege(%s,current_database(),'CREATE')" in S
-    assert "pg_has_role(%s,%s,'MEMBER')" in S
+    assert "pg_has_role(%s::name,%s::name,'MEMBER')" in S
 
 
 def test_5ax_rls_para_writer_no_hace_bypass():
