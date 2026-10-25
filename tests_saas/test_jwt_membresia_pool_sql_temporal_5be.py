@@ -40,7 +40,8 @@ def test_5be_lectura_membresia_vigente_sql_real():
     assert "PRIMARY KEY(empresa_id,usuario_id,contexto)" in S
     assert "GRANT SELECT" in S
     assert "NOINHERIT" in S and "NOBYPASSRLS" in S
-    assert "rolpassword LIKE 'SCRAM-SHA-256$%'" in S
+    assert 'FROM pg_catalog.pg_authid WHERE rolname=%s' in S
+    assert 'hashed[0].startswith("SCRAM-SHA-256$")' in S
     assert "with auth_engine.connect() as c:" in S
     assert "filas=c.execute(text(" in S
     assert "return len(filas)==1 and filas[0][0] is True" in S
@@ -157,3 +158,17 @@ def test_5be_auth_select_por_columna_no_equivale_al_de_tabla():
     assert "has_any_column_privilege(" in S
     assert "auth puede leer columnas de " in S
     assert "auth puede mutar membresía" in S
+
+
+
+def test_5be_psycopg3_no_like_percent_in_literal_sql():
+    # Regresión: psycopg3 interpreta % dentro de LIKE como placeholder.
+    # La consulta parametrizada sólo recupera el hash en memoria.
+    assert "rolpassword LIKE 'SCRAM-SHA-256$%'" not in S
+    assert 'SELECT rolpassword' in S
+    assert 'FROM pg_catalog.pg_authid WHERE rolname=%s' in S
+    assert 'hashed=admin.execute(' in S
+    assert "isinstance(hashed[0],str)" in S
+    assert 'hashed[0].startswith("SCRAM-SHA-256$")' in S
+    assert 'print(hashed)' not in S
+    assert 'log(hashed)' not in S
