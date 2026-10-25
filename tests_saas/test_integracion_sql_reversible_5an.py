@@ -101,3 +101,42 @@ def test_5an_grants_no_confunden_archivo_y_numero_de_argumentos():
         )
     policies = [x for x in fake.calls if "CREATE POLICY fs_lab_5an_" in x]
     assert len(policies) == 4
+
+
+
+def test_5an_diagnostico_rls_exige_membresia_y_lock():
+    """El diagnóstico distingue SELECT normal y SELECT FOR SHARE real."""
+    import runpy
+    import pytest
+
+    m = runpy.run_path(str(SCRIPT))
+
+    class Rows:
+        def __init__(self, value):
+            self.value = value
+
+        def fetchone(self):
+            return (self.value,)
+
+        def fetchall(self):
+            return [] if self.value == 0 else [(71,)]
+
+    class FakeDB:
+        def __init__(self, lock_visible=True):
+            self.lock_visible = lock_visible
+            self.queries = []
+
+        def execute(self, sql, values=None):
+            self.queries.append((sql, values))
+            if "FOR SHARE OF ue, ss" in sql and not self.lock_visible:
+                return Rows(0)
+            return Rows(1)
+
+    ok = FakeDB()
+    m["diagnosticar_membresia"](ok, empresa_id=3, usuario_id=7, rol="CLIENTE")
+    assert len(ok.queries) == 8
+    assert "FOR SHARE OF ue, ss" in ok.queries[-1][0]
+
+    denied = FakeDB(lock_visible=False)
+    with pytest.raises(RuntimeError, match="membresia no visible"):
+        m["diagnosticar_membresia"](denied, 3, 7, "CLIENTE")
