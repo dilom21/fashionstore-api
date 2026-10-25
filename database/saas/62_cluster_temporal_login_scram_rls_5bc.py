@@ -84,14 +84,37 @@ def port_free():
         return sock.connect_ex((HOST,PORT)) != 0
 
 
-def command(parts, timeout=90):
-    p = subprocess.run([str(x) for x in parts], text=True,
-        stdout=subprocess.PIPE,stderr=subprocess.PIPE,
-        timeout=timeout,errors="replace")
+def command(parts, timeout=90, *, server_control=False, logfile=None):
+    """Evita PIPE en pg_ctl: el servidor hereda stdout/stderr en Windows.
+
+    Un postgres.exe que conserva PIPE impide que subprocess.communicate()
+    vea EOF aunque pg_ctl haya salido, produciendo el timeout 5BC previo.
+    Para pg_ctl se desvía salida a DEVNULL; los diagnósticos de arranque
+    se leen exclusivamente del archivo temporal PostgreSQL.
+    """
+    args=[str(x) for x in parts]
+    try:
+        p=subprocess.run(args,stdin=subprocess.DEVNULL,
+            stdout=(subprocess.DEVNULL if server_control
+                    else subprocess.PIPE),
+            stderr=(subprocess.DEVNULL if server_control
+                    else subprocess.PIPE),
+            text=True,timeout=timeout,errors="replace")
+    except subprocess.TimeoutExpired as err:
+        raise RuntimeError(
+            "5BC: proceso PostgreSQL temporal excedió el tiempo límite; "
+            "revisar log del cluster temporal y estado de 55433"
+        ) from err
     if p.returncode != 0:
-        # Ningún argumento de los comandos contiene contraseña.
-        detail=(p.stderr.strip() or p.stdout.strip())[-1100:]
-        raise RuntimeError("5BC: falló proceso local PostgreSQL: "+detail)
+        if server_control and logfile is not None and Path(logfile).is_file():
+            detail=Path(logfile).read_text(encoding="utf-8",
+                errors="replace")[-1500:]
+        else:
+            detail=(p.stderr or p.stdout or "")[-1500:]
+        raise RuntimeError(
+            "5BC: proceso PostgreSQL temporal falló (exit "
+            +str(p.returncode)+"): "+detail
+        )
     return p
 
 
@@ -318,44 +341,70 @@ def run():
     # Contraseñas únicas por ejecución, no impresas, ni .env, ni repo.
     admin_password=secrets.token_urlsafe(36)
     role_passwords={r:secrets.token_urlsafe(36) for r in ROLES}
-    with tempfile.TemporaryDirectory(prefix="fashionstore-5bc-auth-") as root:
-        directory=Path(root)
-        datadir=directory/"fresh_pg18_only_5bc"
-        pwfile=directory/"bootstrap_pw.txt"
-        logfile=directory/"postgres_5bc.log"
+    # No usar TemporaryDirectory automático mientras postgres.exe
+    # pueda estar vivo: ante excepción o Ctrl+C NO destruir un data_dir
+    # que siga en uso. Sólo borrar cuando el servidor ha terminado.
+    directory=Path(tempfile.mkdtemp(prefix="fashionstore-5bc-auth-"))
+    datadir=directory/"fresh_pg18_only_5bc"
+    pwfile=directory/"bootstrap_pw.txt"
+    logfile=directory/"postgres_5bc.log"
+    started=False
+    cleanup_ok=False
+    try:
         with open(pwfile,"x",encoding="ascii") as stream:
             stream.write(admin_password+"\n")
-        started=False
-        try:
-            command([initdb,"-D",datadir,"-U","postgres",
-                    "--auth-host=scram-sha-256",
-                    "--auth-local=scram-sha-256",
-                    "--pwfile",pwfile,"--no-instructions"],timeout=90)
-            pwfile.unlink(missing_ok=True)
-            # Solo TCP 127.0.0.1 y autenticación SCRAM.
-            (datadir/"pg_hba.conf").write_text(
-                "local all all scram-sha-256\n"
-                "host all all 127.0.0.1/32 scram-sha-256\n"
-                "host all all ::1/128 reject\n",
-                encoding="ascii")
-            command([pgctl,"-D",datadir,"-l",logfile,"-w","-t","25",
-                     "-o",f"-c listen_addresses={HOST} -p {PORT} -c ssl=off",
-                     "start"],timeout=55)
-            started=True
-            with connect("postgres",admin_password) as admin:
-                validate_cluster(admin,datadir)
-                print("5BC CLUSTER PASS: PG18 nuevo, 127.0.0.1:55433, "
-                      "directorio TEMP único verificado")
-                prepare_schema(admin,role_passwords)
-                audit_live(admin,role_passwords)
-        finally:
-            pwfile.unlink(missing_ok=True)
-            if started or (datadir/"postmaster.pid").exists():
+        print("5BC INITDB: creando cluster PostgreSQL 18 temporal...",
+              flush=True)
+        command([initdb,"-D",datadir,"-U","postgres",
+                "--auth-host=scram-sha-256",
+                "--auth-local=scram-sha-256",
+                "--pwfile",pwfile,"--no-instructions"],timeout=90)
+        pwfile.unlink(missing_ok=True)
+        (datadir/"pg_hba.conf").write_text(
+            "local all all scram-sha-256\n"
+            "host all all 127.0.0.1/32 scram-sha-256\n"
+            "host all all ::1/128 reject\n",
+            encoding="ascii")
+        print("5BC START: iniciando pg_ctl en 127.0.0.1:55433...",
+              flush=True)
+        command([pgctl,"-D",datadir,"-l",logfile,"-w","-t","25",
+                 "-o",f"-c listen_addresses={HOST} -p {PORT} -c ssl=off",
+                 "start"],timeout=55,server_control=True,logfile=logfile)
+        started=True
+        with connect("postgres",admin_password) as admin:
+            validate_cluster(admin,datadir)
+            print("5BC CLUSTER PASS: PG18 nuevo, 127.0.0.1:55433, "
+                  "directorio TEMP único verificado",flush=True)
+            prepare_schema(admin,role_passwords)
+            audit_live(admin,role_passwords)
+    finally:
+        pwfile.unlink(missing_ok=True)
+        pid=datadir/"postmaster.pid"
+        if started or pid.exists():
+            print("5BC STOP: deteniendo únicamente el cluster temporal...",
+                  flush=True)
+            try:
                 command([pgctl,"-D",datadir,"-w","-t","25",
-                         "-m","immediate","stop"],timeout=50)
-                print("5BC CLEANUP PASS: instancia desechable detenida")
-            # TemporaryDirectory destruye el directorio completo,
-            # incluido catálogo, SCRAM hashes y logs, al salir de with.
+                         "-m","fast","stop"],timeout=50,
+                        server_control=True,logfile=logfile)
+                print("5BC CLEANUP PASS: instancia desechable detenida",
+                      flush=True)
+            except Exception as stop_err:
+                print("5BC STOP ALERTA: "+str(stop_err),file=sys.stderr)
+                # Nunca usar taskkill genérico: los otros servidores
+                # :5432 / :55432 deben continuar intactos.
+        if not pid.exists() and port_free():
+            shutil.rmtree(directory)
+            cleanup_ok=True
+            print("5BC TEMP PASS: directorio temporal eliminado",flush=True)
+        else:
+            # Preservar el cluster para detenerlo de forma precisa
+            # usando pg_ctl -D <directorio>, nunca borrar con proceso vivo.
+            print("5BC LIMPIEZA PENDIENTE: directorio preservado: "
+                  +str(datadir),file=sys.stderr,flush=True)
+    require(cleanup_ok,
+            "el proceso temporal no se detuvo; NO borrar data_directory "
+            "ni ejecutar otra prueba hasta revisar 55433")
     require(port_free(),"55433 todavía escucha después de cleanup")
     print("5BC OK: 3 conexiones SQL REALES SCRAM, RLS y SP protegido")
     print("5BC FINAL: directorio temporal eliminado; 5432/55432 no tocados")
