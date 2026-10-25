@@ -67,6 +67,9 @@ _RUTA_CARRITO_LINEA = re.compile(
     r"^/tenant/carritos/[1-9][0-9]*/items/[1-9][0-9]*$"
 )
 _RUTA_CARRITO = re.compile(r"^/tenant/carritos/[1-9][0-9]*$")
+_RUTA_RESERVA_CU16_CU18 = re.compile(
+    r"^/tenant/reservas/[1-9][0-9]*/(?:cancelar|finalizar-sin-compra)$"
+)
 _RUTA_EMPRESA_SUCURSAL_ESTADO = re.compile(
     r"^/tenant/empresa/sucursales/[1-9][0-9]*/estado$"
 )
@@ -82,6 +85,9 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
     if (metodo, ruta) == ("POST", "/tenant/carritos/items"):
         return True
+    # Cancelar CU16/CU17 y finalizar CU18 solo con doble opt-in.
+    if metodo == "PATCH" and _RUTA_RESERVA_CU16_CU18.fullmatch(ruta):
+        return settings.saas_reservas_enabled
     # CU16 comercial: doble opt-in, jamás abrir sin flag específico.
     # Un endpoint con fallas de principal SQL/RLS igualmente falla cerrado.
     if (metodo, ruta) == ("POST", "/tenant/reservas"):
