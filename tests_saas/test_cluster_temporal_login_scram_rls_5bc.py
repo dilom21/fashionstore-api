@@ -37,7 +37,7 @@ def test_5bc_escoge_binarios_exactos_pg18_y_arranque_local():
     assert '"--auth-local=scram-sha-256"' in S
     assert "host all all 127.0.0.1/32 scram-sha-256" in S
     assert "-c listen_addresses={HOST} -p {PORT} -c ssl=off" in S
-    assert 'started or (datadir/"postmaster.pid").exists()' in S
+    assert "if started or pid.exists():" in S
 
 
 def test_5bc_contrasenas_aleatorias_sin_almacenamiento_fijo():
