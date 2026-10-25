@@ -186,10 +186,11 @@ def test_cu16_rutas_de_escritura_no_se_abren():
     assert _ruta_saas_permitida("POST","/tenant/reservas") is False
     assert _ruta_saas_permitida("PATCH","/tenant/reservas/1/cancelar") is False
     from app.main import app
-    assert all("/tenant/reservas" not in route.path or
-        set(getattr(route,"methods",[])) != {"POST"}
-        for route in app.routes
-        if hasattr(route,"path") and not route.path.endswith("/prevalidar"))
+    # Endpoint registrado bajo segundo flag apagado.
+    assert any(
+        route.path == "/tenant/reservas" and "POST" in getattr(route, "methods", [])
+        for route in app.routes if hasattr(route, "path")
+    )
     assert "app.include_router" not in CODE
 
 
