@@ -201,3 +201,14 @@ def test_5bc_identidad_sql_indica_campo_exacto_sin_afectar_postgres():
         assert "recibido=" in msg and "esperado=" in msg
         assert "contraseña" not in msg.lower()
         assert "data_directory" not in msg
+
+
+
+def test_5bc_identidad_ip_inet_excluye_mascara_sin_relajar_host():
+    # PostgreSQL 18: inet::text agrega /32; host(inet) devuelve IP pura.
+    assert "host(inet_server_addr()),inet_server_port()" in S
+    assert "inet_server_addr()::text" not in S
+    assert 'HOST = "127.0.0.1"' in S
+    assert '"ip_servidor":HOST' in S
+    assert "verificar_identidad_sql(db,login,addr,port,version)" in S
+    assert 'Path(actual_dir).resolve()==datadir.resolve()' in S
