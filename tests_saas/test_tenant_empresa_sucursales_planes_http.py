@@ -169,6 +169,18 @@ def test_cinco_empresas_separadas_plan_y_sucursales(caso):
         assert "password_hash" not in datos.text
 
 
+def test_consultar_suscripcion_vigente_y_capacidades(caso):
+    client,_,_,_=caso
+    respuesta=client.get("/tenant/empresa/suscripcion")
+    assert respuesta.status_code==200
+    data=respuesta.json()
+    assert data["codigo"]=="BASICO"
+    assert data["estado_suscripcion"]=="ACTIVA"
+    assert data["permite_reportes_ia"] is False
+    assert data["permite_reservas"] is True
+    assert data["max_sucursales_activas"]==2
+
+
 def test_basico_limite_2_backend_y_sin_comit_de_exceso(caso):
     client,_,factory,_=caso
     assert crear(client,"Uno").status_code==201
