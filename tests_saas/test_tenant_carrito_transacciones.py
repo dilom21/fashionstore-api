@@ -315,16 +315,17 @@ def test_falta_token_devuelve_401_sin_crear_carrito(escenario_carrito):
 
 def test_resto_del_flujo_comercial_sigue_bloqueado_503(escenario_carrito):
     client, _, factory = escenario_carrito
-    for metodo, ruta in (
-        ("POST", "/carritos/items"),
-        ("POST", "/tenant/carritos/crear-reserva"),
-        ("PUT", "/tenant/carritos/123/items/9"),
-        ("POST", "/tenant/carritos/123"),
-        ("DELETE", "/tenant/carritos/123/items"),
-        ("POST", "/tenant/comercial/pagos"),
-        ("POST", "/tenant/comercial/ventas"),
-    ):
-        assert client.request(metodo, ruta, json={}).status_code == 503
+    rutas = (
+        ("POST", "/carritos/items", 401),
+        ("POST", "/tenant/carritos/crear-reserva", 503),
+        ("PUT", "/tenant/carritos/123/items/9", 503),
+        ("POST", "/tenant/carritos/123", 503),
+        ("DELETE", "/tenant/carritos/123/items", 503),
+        ("POST", "/tenant/comercial/pagos", 503),
+        ("POST", "/tenant/comercial/ventas", 503),
+    )
+    for metodo, ruta, esperado in rutas:
+        assert client.request(metodo, ruta, json={}).status_code == esperado
     assert _total(factory, Carrito.__table__) == 0
 
 
@@ -887,7 +888,8 @@ def test_gate_de_lectura_no_abre_subrutas_arbitrarias(escenario_carrito):
         "/tenant/carritos/0", "/tenant/carritos/1/items",
         "/tenant/carritos/1/extra", "/carritos",
     ):
-        assert client.get(ruta).status_code == 503, ruta
+        esperado = 401 if ruta == "/carritos" else 503
+        assert client.get(ruta).status_code == esperado, ruta
     assert client.get("/tenant/carritos/99999").status_code == 404
 
 
@@ -1127,7 +1129,8 @@ def test_sigue_bloqueada_la_creacion_y_cancelacion_real(escenario_carrito):
         ("POST", "/tenant/comercial/ventas"),
     ]
     for metodo, ruta in rutas:
-        assert client.request(metodo, ruta, json={}).status_code == 503
+        esperado = 401 if ruta == "/reservas" else 503
+        assert client.request(metodo, ruta, json={}).status_code == esperado
     assert _total(factory, Reserva.__table__) == 0
 
 

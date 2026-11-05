@@ -11,10 +11,14 @@ Nunca conecta por sí mismo, no concede permisos ni instala procedimientos.
 from __future__ import annotations
 
 from datetime import datetime
+import hashlib
+import json
+from uuid import UUID
 
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
+from app.core.tenant_idempotency_models import OperacionClienteIdempotente
 
 from app.core.tenant_context import TenantContext
 from app.modules.reservas.services.tenant_sp_calls_5o import (
@@ -266,6 +270,7 @@ def crear_reserva_transaccional_sin_exposicion_http(
     carrito_id: int,
     fecha_atencion: datetime,
     observacion: str | None = None,
+    operacion_id: str | None = None,
 ) -> int:
     """CU16 preparado, pero TODAVIA NO CONECTADO a FastAPI.
 
@@ -277,6 +282,34 @@ def crear_reserva_transaccional_sin_exposicion_http(
     COMMIT; ante cualquier fallo ROLLBACK. La reserva nunca puede asociarse
     a empresa/cliente/carrito distintos, incluso si el SP retorna un ID.
     """
+    huella = hashlib.sha256(json.dumps({
+        "carrito_id": carrito_id,
+        "fecha_atencion": fecha_atencion.isoformat(),
+        "observacion": observacion,
+    }, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    registro = None
+    if operacion_id is not None:
+        try:
+            UUID(operacion_id)
+        except ValueError as exc:
+            raise ValueError("Operacion id invalida") from exc
+        registro = db.query(OperacionClienteIdempotente).filter_by(
+            empresa_id=tenant.empresa_id, usuario_id=tenant.usuario_id,
+            tipo="RESERVA", operacion_id=operacion_id,
+        ).one_or_none()
+        if registro is not None:
+            if registro.huella != huella:
+                raise ReservaTenantIntegridadError("La operacion idempotente fue reutilizada con otra carga")
+            if registro.respuesta_json:
+                return int(json.loads(registro.respuesta_json)["reserva_id"])
+            raise ReservaTenantIntegridadError("La operacion idempotente sigue en proceso")
+        registro = OperacionClienteIdempotente(
+            empresa_id=tenant.empresa_id, usuario_id=tenant.usuario_id,
+            tipo="RESERVA", operacion_id=operacion_id, huella=huella,
+            estado="EN_PROCESO",
+        )
+        db.add(registro)
+        db.flush()
     llamada = preparar_creacion_reserva(
         tenant=tenant, carrito_id=carrito_id,
         fecha_atencion=fecha_atencion, observacion=observacion,
@@ -297,6 +330,10 @@ def crear_reserva_transaccional_sin_exposicion_http(
         })
         if coincide != reserva_id:
             raise ReservaTenantIntegridadError("Reserva devuelta no pertenece al tenant")
+        if registro is not None:
+            registro.estado = "PROCESADA"
+            registro.recurso_id = reserva_id
+            registro.respuesta_json = json.dumps({"reserva_id": reserva_id})
         db.commit()
         return reserva_id
     except Exception:

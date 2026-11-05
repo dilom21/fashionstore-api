@@ -1,0 +1,501 @@
+{
+  "manifiesto_id": "126-5c0-staging-local",
+  "version": "5C0-local-staging",
+  "fecha_utc": "2026-11-01T00:55:10+00:00",
+  "etapa": "5C0",
+  "estado": "CANDIDATO_LAB",
+  "aplicable_a_produccion": false,
+  "aplicable_a_staging_real": false,
+  "motivos_no_produccion": [
+    "B2: no existe respaldo con datos del origen; solo se autorizo estructura (pg_dump --schema-only) y datos ficticios.",
+    "El esquema heredado NO se recrea: esta fase exige que el operador haya restaurado el dump autorizado con 96_laboratorio_esquema_real_5br.py.",
+    "B5: los secretos de staging deben aprovisionarse en un gestor externo (91_guia_secretos_staging_5bp.md)."
+  ],
+  "politica": {
+    "orden": "explicito por campo 'orden'; nunca orden lexicografico ni ejecucion de toda la carpeta",
+    "checksums": "SHA-256 obligatorio de cada archivo; hash distinto aborta antes del primer DDL",
+    "migraciones_sin_clasificar": "abortan la verificacion local",
+    "seeds_demo": "prohibidos en cualquier ruta aplicable",
+    "idempotencia": "cada fase puede reaplicarse; la version se registra en saas_migracion.version_aplicada",
+    "unico_mecanismo_de_ejecucion": "86_preflight_migracion_pg17_5bp.py --aplicar-lab --manifiesto <este archivo> (loopback + base desechable + doble confirmacion)",
+    "diferencia_con_5bp": "Las fases F00/F01 de la Etapa G creaban una reconstruccion sintetica (40/14/12). Aqui se sustituyen por F00R (certificacion del esquema original restaurado) y F02R (semilla ficticia compatible con los dominios CHECK reales).",
+    "prohibido": [
+      "supabase db push sobre supabase/migrations",
+      "conectar el runner a un origen remoto o productivo",
+      "aplicar esta secuencia sobre una base sin el esquema historico restaurado"
+    ]
+  },
+  "motor_esperado": {
+    "nombre": "PostgreSQL",
+    "version_minima": 17,
+    "version_probada": "17.7",
+    "nota": "El origen declara PostgreSQL 17.6; el laboratorio usa 17.7. PostgreSQL 18.6 NO sustituye la evidencia."
+  },
+  "secretos_requeridos": [
+    {
+      "clave": "runtime_password",
+      "uso": "password del rol LOGIN fs_saas_runtime (solo laboratorio)",
+      "fuente": "variable de entorno FASHIONSTORE_LAB_5BR_RUNTIME_PASSWORD"
+    },
+    {
+      "clave": "admin_runtime_password",
+      "uso": "password del rol LOGIN saas_admin_runtime (solo laboratorio)",
+      "fuente": "variable de entorno FASHIONSTORE_LAB_5BR_ADMIN_PASSWORD"
+    },
+    {
+      "clave": "tenant_assertion_key",
+      "uso": "clave HMAC de la asercion de tenant (saas.rls_secret)",
+      "fuente": "variable de entorno FASHIONSTORE_LAB_5BR_ASSERTION_KEY"
+    }
+  ],
+  "requisitos_globales": {
+    "host": "127.0.0.1",
+    "puertos_prohibidos": [
+      5432,
+      55432,
+      55433,
+      55440,
+      55441,
+      55442,
+      55443,
+      55444,
+      55445,
+      55446,
+      55447
+    ],
+    "puerto_por_defecto": 55448,
+    "marcador_base": "(lab|desechable|staging_tmp|restore)",
+    "confirmaciones_requeridas": [
+      "--aplicar-lab",
+      "--confirm-desechable",
+      "--base <nombre>",
+      "--manifiesto database/saas/98_manifiesto_migracion_esquema_real_5br.json"
+    ],
+    "version_registro": "saas_migracion.version_aplicada",
+    "precondicion_esquema": "41 tablas / 27 triggers / 24 rutinas / 1 vista restauradas del dump autorizado (fase F00R)"
+  },
+  "fases": [
+    {
+      "id": "F00R-esquema-real-verificado",
+      "orden": 10,
+      "operacion": "esquema_real_verificado",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Certifica que el destino es el esquema ORIGINAL restaurado (41/27/24/1, token_recuperacion, 13 triggers y 12 rutinas que 5BL no tenia, 0 empresa_id, 0 politicas).",
+      "archivos": [
+        "database/saas/99_ensayo_esquema_real_5br.py"
+      ],
+      "requisitos": []
+    },
+    {
+      "id": "F02R-semilla-esquema-real",
+      "orden": 30,
+      "operacion": "semilla_esquema_real",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Datos ficticios compatibles con los dominios CHECK REALES (movimiento_inventario.tipo, venta.canal, pago.estado, reserva.estado, vestidor AR). Carga con session_replication_role=replica.",
+      "archivos": [
+        "database/saas/99_ensayo_esquema_real_5br.py",
+        "database/saas/99_semilla_esquema_real_5br.sql"
+      ],
+      "requisitos": [
+        "F00R-esquema-real-verificado"
+      ]
+    },
+    {
+      "id": "F03-historico-secuencias",
+      "orden": 40,
+      "operacion": "historico_secuencias",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Alinea cada secuencia/identidad con los IDs fijos sembrados. Sin esto el primer INSERT de un trigger de auditoria choca con la PK.",
+      "archivos": [
+        "database/saas/75_laboratorio_esquema_historico_5bl.py"
+      ],
+      "requisitos": [
+        "F02R-semilla-esquema-real"
+      ]
+    },
+    {
+      "id": "F04-roles-tenant",
+      "orden": 50,
+      "operacion": "roles_tenant",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Crea fs_saas_runtime (LOGIN restringido) y saas_rls_owner (NOLOGIN).",
+      "archivos": [
+        "database/saas/75_laboratorio_esquema_historico_5bl.py"
+      ],
+      "secreto": "runtime_password",
+      "requisitos": [
+        "F03-historico-secuencias"
+      ]
+    },
+    {
+      "id": "F05-roles-globales",
+      "orden": 60,
+      "operacion": "roles_globales",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Crea saas_admin_owner, saas_actor_sql_owner (NOLOGIN) y saas_admin_runtime (LOGIN sin privilegios de tabla).",
+      "archivos": [
+        "database/saas/76_laboratorio_operativo_5bm.py"
+      ],
+      "secreto": "admin_runtime_password",
+      "requisitos": [
+        "F04-roles-tenant"
+      ]
+    },
+    {
+      "id": "F06-nucleo-00100-00300",
+      "orden": 70,
+      "operacion": "nucleo_saas",
+      "tipo": "python",
+      "solo_laboratorio": false,
+      "descripcion": "00100 nucleo SaaS + bootstrap del tenant historico + 00200 empresa_id + 00300 integridad compuesta. Sin cambios respecto de la Etapa G.",
+      "archivos": [
+        "database/saas/70_staging_saas_desde_cero_5bj.py",
+        "supabase/migrations/20261030000100_saas_core_portable.sql",
+        "supabase/migrations/20261030000200_saas_empresa_id_portable.sql",
+        "supabase/migrations/20261030000300_saas_integridad_tenant_portable.sql"
+      ],
+      "gucs": {
+        "saas.bootstrap_empresa_slug": "empresa-a",
+        "saas.bootstrap_crear_membresias": "true"
+      },
+      "requisitos": [
+        "F05-roles-globales"
+      ]
+    },
+    {
+      "id": "F07-rls-00400",
+      "orden": 80,
+      "operacion": "rls_principal",
+      "tipo": "python",
+      "solo_laboratorio": false,
+      "descripcion": "00400: asercion HMAC, saas.tenant_actual(), FORCE RLS y privilegios del principal restringido.",
+      "archivos": [
+        "database/saas/75_laboratorio_esquema_historico_5bl.py",
+        "supabase/migrations/20261030000400_saas_rls_principal_restringido_portable.sql"
+      ],
+      "secreto": "tenant_assertion_key",
+      "requisitos": [
+        "F06-nucleo-00100-00300"
+      ]
+    },
+    {
+      "id": "F08-compatibilidad-00500",
+      "orden": 90,
+      "operacion": "compatibilidad",
+      "tipo": "python",
+      "solo_laboratorio": false,
+      "descripcion": "00500: triggers/rutinas historicas endurecidos, bitacora tenant y rutinas legacy revocadas.",
+      "archivos": [
+        "database/saas/75_laboratorio_esquema_historico_5bl.py",
+        "supabase/migrations/20261030000500_saas_compatibilidad_5bl.sql"
+      ],
+      "requisitos": [
+        "F07-rls-00400"
+      ]
+    },
+    {
+      "id": "F08R-compatibilidad-esquema-real-00550",
+      "orden": 95,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "00550 (nueva 5BR): revoca ACL de plataforma, habilita lectura explicita de los 8 diccionarios globales bajo RLS, cierra token_recuperacion y certifica fail-closed los 41/27/24 objetos originales.",
+      "archivos": [
+        "supabase/migrations/20261030000550_saas_compatibilidad_esquema_real_5br.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner"
+      },
+      "requisitos": [
+        "F08-compatibilidad-00500"
+      ]
+    },
+    {
+      "id": "F09-operativo-00600",
+      "orden": 100,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "00600: plano global saas_admin, reservas tenant y venta de contado idempotente.",
+      "archivos": [
+        "supabase/migrations/20261030000600_saas_operativo_5bm.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F08R-compatibilidad-esquema-real-00550"
+      ]
+    },
+    {
+      "id": "F10-compras-00700",
+      "orden": 110,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "00700: ordenes de compra, recepciones, devoluciones y kardex.",
+      "archivos": [
+        "supabase/migrations/20261030000700_saas_compras_devoluciones_5bn.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F09-operativo-00600"
+      ]
+    },
+    {
+      "id": "F11-personal-rbac-00800",
+      "orden": 120,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "00800: alta de personal con invitacion de un solo uso y RBAC nominal por empresa.",
+      "archivos": [
+        "supabase/migrations/20261030000800_saas_personal_rbac_5bo.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F10-compras-00700"
+      ]
+    },
+    {
+      "id": "F12-superadmin-00900",
+      "orden": 130,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "00900: rate limit compartido y auditoria global del plano superadmin.",
+      "archivos": [
+        "supabase/migrations/20261030000900_saas_superadmin_hardening_5bo.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F11-personal-rbac-00800"
+      ]
+    },
+    {
+      "id": "F13-invitaciones-01000",
+      "orden": 140,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "01000: rate limit compartido del endpoint publico de aceptacion de invitaciones (B9).",
+      "archivos": [
+        "supabase/migrations/20261030001000_saas_invitaciones_rate_limit_5bp.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F12-superadmin-00900"
+      ]
+    },
+    {
+      "id": "F15-acl-plataforma-01100",
+      "orden": 145,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "01100 (nueva 5BR): revoca los DEFAULT PRIVILEGES heredados del dump y los privilegios materializados de anon/authenticated/service_role sobre objetos nuevos y existentes; retira EXECUTE implicito de PUBLIC y verifica fail-closed.",
+      "archivos": [
+        "supabase/migrations/20261030001100_saas_acl_plataforma_esquema_real_5br.sql"
+      ],
+      "requisitos": [
+        "F13-invitaciones-01000"
+      ]
+    },
+    {
+      "id": "F16-acl-superficies-01200",
+      "orden": 148,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "01200 (nueva 5BS): revoca USAGE, privilegios materializados y EXECUTE de PUBLIC en los esquemas saas/saas_admin/saas_migracion; retira el EXECUTE PUBLIC residual de saas.es_principal_runtime y verifica fail-closed con saas.validar_acl_superficies_5bs().",
+      "archivos": [
+        "supabase/migrations/20261030001200_saas_acl_superficies_5bs.sql"
+      ],
+      "requisitos": [
+        "F15-acl-plataforma-01100"
+      ]
+    },
+    {
+      "id": "F14-fixtures-empresas",
+      "orden": 150,
+      "operacion": "fixtures_empresas",
+      "tipo": "python",
+      "solo_laboratorio": true,
+      "descripcion": "Datos ficticios A/B (mas C suspendida y D inactiva) para las pruebas de aislamiento. Nunca forma parte de un despliegue.",
+      "archivos": [
+        "database/saas/74_laboratorio_rls_principal_5bk.py"
+      ],
+      "requisitos": [
+        "F15-acl-plataforma-01100"
+      ]
+    },
+    {
+      "id": "F17-rbac-diccionarios-personal-owner",
+      "orden": 160,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "Recrea catalogo_lectura_saas en los ocho diccionarios historicos incluyendo a saas_personal_owner (creado por 00800, posterior a 00550). Corrige el 403 PERMISO_INSUFICIENTE de sp_alta_personal_tenant.",
+      "archivos": [
+        "supabase/migrations/20261030001300_saas_rbac_catalogos_personal_owner_5bx.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F11-personal-rbac-00800",
+        "F16-acl-superficies-01200"
+      ]
+    },
+    {
+      "id": "F18-proveedores-tenant",
+      "orden": 170,
+      "operacion": "sql",
+      "tipo": "sql",
+      "solo_laboratorio": false,
+      "descripcion": "Agrega sp_crear_proveedor_tenant y sp_reemplazar_productos_proveedor_tenant (SECURITY INVOKER, search_path fijo, RBAC + plan + RLS + bitacora). Desbloquea el alta de compras en una empresa nueva.",
+      "archivos": [
+        "supabase/migrations/20261031001400_saas_proveedores_tenant_5c0.sql"
+      ],
+      "gucs": {
+        "saas.runtime_role": "fs_saas_runtime",
+        "saas.rls_owner_role": "saas_rls_owner",
+        "saas.admin_runtime_role": "saas_admin_runtime",
+        "saas.admin_owner_role": "saas_admin_owner",
+        "saas.actor_owner_role": "saas_actor_sql_owner"
+      },
+      "requisitos": [
+        "F10-compras-00700",
+        "F14-fixtures-empresas"
+      ]
+    }
+  ],
+  "exclusiones": [
+    {
+      "archivo": "supabase/migrations/20261023000100_saas_base_tables.sql",
+      "categoria": "laboratorio_historico",
+      "motivo": "Version local previa del nucleo SaaS (Etapa B); la secuencia portable es 20261030*.",
+      "prohibido_en": [
+        "staging",
+        "produccion"
+      ]
+    },
+    {
+      "archivo": "supabase/migrations/20261023000200_vanter_tenancy_historica.sql",
+      "categoria": "laboratorio_historico",
+      "motivo": "Tenancy historica de laboratorio; reemplazada por 20261030000200.",
+      "prohibido_en": [
+        "staging",
+        "produccion"
+      ]
+    },
+    {
+      "archivo": "supabase/migrations/20261023000300_integridad_tenant_local.sql",
+      "categoria": "laboratorio_historico",
+      "motivo": "Integridad local previa; reemplazada por 20261030000300.",
+      "prohibido_en": [
+        "staging",
+        "produccion"
+      ]
+    },
+    {
+      "archivo": "supabase/migrations/20261023000400_cuatro_tenants_demo_local.sql",
+      "categoria": "datos_demo",
+      "motivo": "Seed de CUATRO tenants ficticios con datos de demostracion.",
+      "prohibido_en": [
+        "laboratorio",
+        "staging",
+        "produccion"
+      ],
+      "firma_contenido": "cuatro_tenants_demo"
+    },
+    {
+      "archivo": "database/saas/75_esquema_historico_reconstruido_5bl.sql",
+      "categoria": "reconstruccion_no_usada",
+      "motivo": "Reconstruccion PARCIAL (40/14/12) reemplazada por el esquema original restaurado. No se aplica en 5BR."
+    },
+    {
+      "archivo": "database/saas/74_laboratorio_rls_principal_5bk.py",
+      "categoria": "herramienta_laboratorio",
+      "motivo": "Aprovisiona laboratorio desechable; no es migracion."
+    },
+    {
+      "archivo": "database/saas/76_laboratorio_operativo_5bm.py",
+      "categoria": "herramienta_laboratorio",
+      "motivo": "Solo se reutiliza su creador de roles globales."
+    },
+    {
+      "archivo": "database/saas/77_laboratorio_operativo_5bn.py",
+      "categoria": "herramienta_laboratorio",
+      "motivo": "Aprovisiona laboratorio E2; prohibido en esta etapa."
+    },
+    {
+      "archivo": "database/saas/78_laboratorio_operativo_5bo.py",
+      "categoria": "herramienta_laboratorio",
+      "motivo": "Aprovisiona laboratorio F; prohibido en esta etapa."
+    }
+  ],
+  "checksums": {
+    "database/saas/99_ensayo_esquema_real_5br.py": "f6faa029b19cc6baf4322515d36113e68cdd11721d1f551a5af62982f21b569f",
+    "database/saas/99_semilla_esquema_real_5br.sql": "47ccecab07b062ef51739ef92bf0f1073494cdd52fe05c1e1294c7a8e562566e",
+    "database/saas/75_laboratorio_esquema_historico_5bl.py": "ac2919b3d52f9232205ff1e93ff0c7ba4777c8ef7571a9eb216b0b589c11624e",
+    "database/saas/76_laboratorio_operativo_5bm.py": "8d0dd77c6875c385154837cd4ff4c224726f16095828cfad1c49a3aa39ce27ec",
+    "database/saas/70_staging_saas_desde_cero_5bj.py": "26f9914755d7f1e3e019abd3de7367673ce303797a6f9994a0e100267f7c89ec",
+    "supabase/migrations/20261030000100_saas_core_portable.sql": "5a198204322ab777519e5a06507178f0e3d637dd7540f593960a2f2cc36f894b",
+    "supabase/migrations/20261030000200_saas_empresa_id_portable.sql": "1b5e59e670ebdbafbf32f888071d379195afcaf7cb3cb88be281e705c13fe9c7",
+    "supabase/migrations/20261030000300_saas_integridad_tenant_portable.sql": "ca7a76705e6dcbb5a6eef9fee207ad3fcef4438b62c8406260132acbd4a1dfcc",
+    "supabase/migrations/20261030000400_saas_rls_principal_restringido_portable.sql": "9ff57bf0dd2e37364cf599d912a151bf403840a8bdca8ec950f59b064060bd19",
+    "supabase/migrations/20261030000500_saas_compatibilidad_5bl.sql": "e1aa745d4cbb07bc049a330f4bba593c4f3000d12796520a77ceab41e8b4758e",
+    "supabase/migrations/20261030000550_saas_compatibilidad_esquema_real_5br.sql": "39feaed958b8ca79b9f56be8f094def7bc00eb5aed9dbed01af17df6d8bfd153",
+    "supabase/migrations/20261030000600_saas_operativo_5bm.sql": "b4386a4e9ea39b681efe0bfb3170934d7abcf05eaf85aecc59fa0e06b3ad95c0",
+    "supabase/migrations/20261030000700_saas_compras_devoluciones_5bn.sql": "3535fbda6ad2e5619a44f62166a28675c8aea35b34f2464e92f0e14d63611bcb",
+    "supabase/migrations/20261030000800_saas_personal_rbac_5bo.sql": "dee6d980ea089a13739f451f3db2b7998c0bcb27219e86f8d4ec51f38b55d4ea",
+    "supabase/migrations/20261030000900_saas_superadmin_hardening_5bo.sql": "a7aaba43516acfb3494fa04469ef378ed9bd0ae49d52100dccc9f690773bea09",
+    "supabase/migrations/20261030001000_saas_invitaciones_rate_limit_5bp.sql": "74bc5b77499fe1f085e783b2cbd5bd45dddf659b9a4255a178a9107c6618c6b4",
+    "supabase/migrations/20261030001100_saas_acl_plataforma_esquema_real_5br.sql": "8def9b2e99daaf143c25845801d078f09630adc68ed67fcdfde4e494dadcb4a1",
+    "supabase/migrations/20261030001200_saas_acl_superficies_5bs.sql": "aeb5718bf196c7633598b44b630d7aae8f80a836f70c329aa72d5d4dc87975b5",
+    "database/saas/74_laboratorio_rls_principal_5bk.py": "644cc65ff7fe6c032d5d5949cbb237a1c7d20bcb21614c0d6003b186e23b004b",
+    "supabase/migrations/20261030001300_saas_rbac_catalogos_personal_owner_5bx.sql": "5f52e013ab2a5a1551e489fb6de51abd9fb41e31f3f9b7b595f9ccf2334ec6c7",
+    "supabase/migrations/20261031001400_saas_proveedores_tenant_5c0.sql": "4e7334b1f9bc96635ededc7c96ba59d29aaf4fd94aa5233311b7faee81ece9cb"
+  },
+  "notas_5bx": "Derivado del manifiesto 108 (5BS) sin modificar esa version historica. Agrega la fase F17 (01300) que restituye el acceso de lectura de saas_personal_owner a los diccionarios del esquema historico: 00550 se aplico antes de que 00800 creara ese rol y el guard lo omitio, lo que rompia CU03/CU04 (alta de personal) con 403 en el esquema real.",
+  "notas_5c0": "Manifiesto derivado de 113 (5BX). Agrega la fase F18 con los SPs tenant de alta de proveedores y asociacion de productos. Se mantienen las 18 fases previas, sus checksums y la exclusion del seed demo 20261023000400_cuatro_tenants_demo_local.sql."
+}

@@ -10,9 +10,9 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from sqlalchemy.exc import DBAPIError, IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -52,6 +52,26 @@ class ReservaCreadaTenantResponse(BaseModel):
     reserva_id: int
     carrito_id: int
     estado: str
+    idempotente: bool = False
+
+
+_SQLSTATE_HTTP = {
+    "42501": (403, "Operación no autorizada"),
+    "23514": (409, "Estado o stock inconsistente"),
+    "23505": (409, "Reserva en conflicto"),
+    "40001": (409, "Reintento en curso"),
+    "40P01": (409, "Conflicto de concurrencia"),
+    "22023": (422, "Datos de reserva invalidos"),
+    "22P02": (422, "Datos de reserva invalidos"),
+}
+
+
+def _http_desde_dbapi(exc: DBAPIError) -> HTTPException:
+    estado = getattr(getattr(exc, "orig", None), "sqlstate", None)
+    codigo, detalle = _SQLSTATE_HTTP.get(
+        str(estado), (503, "Reserva no disponible")
+    )
+    return HTTPException(status_code=codigo, detail=detalle)
 
 
 @router.post("", response_model=ReservaCreadaTenantResponse, status_code=201)
@@ -59,6 +79,7 @@ def crear_reserva_tenant(
     datos: CrearReservaTenantRequest,
     cliente: Cliente,
     db: Session = Depends(get_db),
+    idempotency_key: str | None = Header(default=None, alias="Idempotency-Key"),
 ):
     # Defensa adicional: llamar directamente al router no evita el flag.
     if not settings.saas_auth_enabled or not settings.saas_reservas_enabled:
@@ -71,9 +92,11 @@ def crear_reserva_tenant(
             carrito_id=datos.carrito_id,
             fecha_atencion=datos.fecha_atencion,
             observacion=datos.observacion,
+            operacion_id=idempotency_key,
         )
         return ReservaCreadaTenantResponse(
-            reserva_id=reserva_id, carrito_id=datos.carrito_id, estado="PENDIENTE"
+            reserva_id=reserva_id, carrito_id=datos.carrito_id, estado="PENDIENTE",
+            idempotente=idempotency_key is not None,
         )
     except ReservaTenantDeshabilitada as exc:
         raise HTTPException(
@@ -88,6 +111,8 @@ def crear_reserva_tenant(
         raise HTTPException(status_code=403, detail="Operación no autorizada") from exc
     except IntegrityError as exc:
         raise HTTPException(status_code=409, detail="Reserva en conflicto") from exc
+    except DBAPIError as exc:
+        raise _http_desde_dbapi(exc) from exc
     except SQLAlchemyError as exc:
         raise HTTPException(
             status_code=503, detail="Reserva no disponible"
@@ -115,6 +140,8 @@ def _error_cambio_reserva(exc: Exception) -> HTTPException:
         return HTTPException(status_code=403, detail="Operacion no autorizada")
     if isinstance(exc, IntegrityError):
         return HTTPException(status_code=409, detail="Reserva en conflicto")
+    if isinstance(exc, DBAPIError):
+        return _http_desde_dbapi(exc)
     if isinstance(exc, SQLAlchemyError):
         return HTTPException(status_code=503, detail="Reserva no disponible")
     raise exc

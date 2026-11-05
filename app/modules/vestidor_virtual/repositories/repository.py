@@ -7,7 +7,7 @@ esas viven en ``services/service.py``.
 
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session, joinedload
 
 from app.modules.catalogo.models.models import (
@@ -31,20 +31,35 @@ def _ahora() -> datetime:
 
 
 class VestidorRepository:
+    @staticmethod
+    def _next_sqlite_id(db: Session, model) -> int | None:
+        """Emulate PostgreSQL BIGINT identity only in offline SQLite tests."""
+        if db.get_bind().dialect.name != "sqlite":
+            return None
+        return int(db.scalar(select(func.coalesce(func.max(model.id), 0) + 1)) or 1)
+
     # ------------------------------------------------------------------
     # Catalogo (validaciones)
     # ------------------------------------------------------------------
 
     @staticmethod
-    def obtener_producto(db: Session, producto_id: int) -> Producto | None:
+    def obtener_producto(
+        db: Session, producto_id: int, *, empresa_id: int | None = None
+    ) -> Producto | None:
         """Producto por id sin filtrar por estado (el 404 se decide en service)."""
-        return db.get(Producto, producto_id)
+        statement = select(Producto).where(Producto.id == producto_id)
+        if empresa_id is not None:
+            statement = statement.where(Producto.empresa_id == empresa_id)
+        return db.scalar(statement)
 
     @staticmethod
     def obtener_variante(
-        db: Session, variante_id: int
+        db: Session, variante_id: int, *, empresa_id: int | None = None
     ) -> VarianteProducto | None:
-        return db.get(VarianteProducto, variante_id)
+        statement = select(VarianteProducto).where(VarianteProducto.id == variante_id)
+        if empresa_id is not None:
+            statement = statement.where(VarianteProducto.empresa_id == empresa_id)
+        return db.scalar(statement)
 
     # ------------------------------------------------------------------
     # Configuraciones AR
@@ -56,6 +71,7 @@ class VestidorRepository:
         *,
         producto_id: int,
         color_id: int | None = None,
+        empresa_id: int | None = None,
     ) -> list[ConfiguracionVestidorAR]:
         """Configuraciones activas PNG_2D de torso de un producto.
 
@@ -89,17 +105,31 @@ class VestidorRepository:
         )
         if color_id is not None:
             statement = statement.where(RecursoProducto.color_id == color_id)
+        if empresa_id is not None:
+            statement = statement.where(
+                ConfiguracionVestidorAR.empresa_id == empresa_id,
+                RecursoProducto.empresa_id == empresa_id,
+            )
         return list(db.scalars(statement).all())
 
     @staticmethod
     def obtener_configuracion(
-        db: Session, configuracion_id: int
+        db: Session, configuracion_id: int, *, empresa_id: int | None = None
     ) -> ConfiguracionVestidorAR | None:
         statement = (
             select(ConfiguracionVestidorAR)
+            .join(
+                RecursoProducto,
+                ConfiguracionVestidorAR.recurso_producto_id == RecursoProducto.id,
+            )
             .options(joinedload(ConfiguracionVestidorAR.recurso))
             .where(ConfiguracionVestidorAR.id == configuracion_id)
         )
+        if empresa_id is not None:
+            statement = statement.where(
+                ConfiguracionVestidorAR.empresa_id == empresa_id,
+                RecursoProducto.empresa_id == empresa_id,
+            )
         return db.scalar(statement)
 
     # ------------------------------------------------------------------
@@ -108,13 +138,16 @@ class VestidorRepository:
 
     @staticmethod
     def obtener_sesion(
-        db: Session, sesion_id: int
+        db: Session, sesion_id: int, *, empresa_id: int | None = None
     ) -> SesionVestidorAR | None:
-        return db.get(SesionVestidorAR, sesion_id)
+        statement = select(SesionVestidorAR).where(SesionVestidorAR.id == sesion_id)
+        if empresa_id is not None:
+            statement = statement.where(SesionVestidorAR.empresa_id == empresa_id)
+        return db.scalar(statement)
 
     @staticmethod
     def obtener_sesion_activa(
-        db: Session, cliente_id: int
+        db: Session, cliente_id: int, *, empresa_id: int | None = None
     ) -> SesionVestidorAR | None:
         statement = (
             select(SesionVestidorAR)
@@ -125,14 +158,20 @@ class VestidorRepository:
             .order_by(SesionVestidorAR.id.desc())
             .limit(1)
         )
+        if empresa_id is not None:
+            statement = statement.where(SesionVestidorAR.empresa_id == empresa_id)
         return db.scalar(statement)
 
     @staticmethod
-    def crear_sesion(db: Session, cliente_id: int) -> SesionVestidorAR:
+    def crear_sesion(
+        db: Session, cliente_id: int, *, empresa_id: int | None = None
+    ) -> SesionVestidorAR:
         sesion = SesionVestidorAR(
+            id=VestidorRepository._next_sqlite_id(db, SesionVestidorAR),
             cliente_id=cliente_id,
             fecha_inicio=_ahora(),
             estado=ESTADO_SESION_ACTIVA,
+            **({"empresa_id": empresa_id} if empresa_id is not None else {}),
         )
         db.add(sesion)
         db.flush()
@@ -144,9 +183,12 @@ class VestidorRepository:
 
     @staticmethod
     def obtener_prueba(
-        db: Session, prueba_id: int
+        db: Session, prueba_id: int, *, empresa_id: int | None = None
     ) -> PruebaVestidorAR | None:
-        return db.get(PruebaVestidorAR, prueba_id)
+        statement = select(PruebaVestidorAR).where(PruebaVestidorAR.id == prueba_id)
+        if empresa_id is not None:
+            statement = statement.where(PruebaVestidorAR.empresa_id == empresa_id)
+        return db.scalar(statement)
 
     @staticmethod
     def crear_prueba(
@@ -155,13 +197,16 @@ class VestidorRepository:
         sesion_id: int,
         configuracion_id: int,
         variante_producto_id: int | None,
+        empresa_id: int | None = None,
     ) -> PruebaVestidorAR:
         prueba = PruebaVestidorAR(
+            id=VestidorRepository._next_sqlite_id(db, PruebaVestidorAR),
             sesion_vestidor_ar_id=sesion_id,
             configuracion_vestidor_ar_id=configuracion_id,
             variante_producto_id=variante_producto_id,
             fecha_inicio=_ahora(),
             estado="INICIADA",
+            **({"empresa_id": empresa_id} if empresa_id is not None else {}),
         )
         db.add(prueba)
         db.flush()

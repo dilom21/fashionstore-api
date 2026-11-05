@@ -92,13 +92,13 @@ def _fila_a_candidato(fila) -> CandidatoInventario:
     )
 
 
-def _statement_base():
+def _statement_base(empresa_id: int | None = None):
     """SELECT de candidatos con las reglas de disponibilidad publicas.
 
     Mismas condiciones que CU09/CU15: producto, variante, categoria, talla,
     color y sucursal activos, y stock disponible > 0.
     """
-    return (
+    statement = (
         select(*_columnas())
         .select_from(Inventario)
         .join(
@@ -121,6 +121,16 @@ def _statement_base():
             (Inventario.stock_actual - Inventario.stock_reservado) > 0,
         )
     )
+    if empresa_id is not None:
+        statement = statement.where(
+            Inventario.empresa_id == empresa_id,
+            VarianteProducto.empresa_id == empresa_id,
+            Producto.empresa_id == empresa_id,
+            Categoria.empresa_id == empresa_id,
+            Sucursal.empresa_id == empresa_id,
+            Temporada.empresa_id == empresa_id,
+        )
+    return statement
 
 
 class AsistenciaRepository:
@@ -135,6 +145,7 @@ class AsistenciaRepository:
         presupuesto_max: Decimal | None = None,
         sucursal_id: int | None = None,
         sucursal: str | None = None,
+        empresa_id: int | None = None,
     ) -> list[CandidatoInventario]:
         """Candidatos reales tras aplicar los filtros estructurados.
 
@@ -143,7 +154,7 @@ class AsistenciaRepository:
         enviar cualquier candidato al modelo. Las preferencias blandas no
         entran aqui.
         """
-        statement = _statement_base()
+        statement = _statement_base(empresa_id)
         if talla:
             statement = statement.where(
                 func.lower(Talla.nombre) == talla.strip().lower()
@@ -168,7 +179,7 @@ class AsistenciaRepository:
 
     @staticmethod
     def obtener_candidato_por_inventario(
-        db: Session, inventario_id: int
+        db: Session, inventario_id: int, *, empresa_id: int | None = None
     ) -> CandidatoInventario | None:
         """Revalida un inventario concreto contra la BD (activo y con stock).
 
@@ -176,14 +187,14 @@ class AsistenciaRepository:
         la IA. Devuelve ``None`` si ya no cumple las reglas.
         """
         statement = (
-            _statement_base().where(Inventario.id == inventario_id).limit(1)
+            _statement_base(empresa_id).where(Inventario.id == inventario_id).limit(1)
         )
         fila = db.execute(statement).first()
         return _fila_a_candidato(fila) if fila is not None else None
 
     @staticmethod
     def resolver_imagenes(
-        db: Session, candidatos: list[CandidatoInventario]
+        db: Session, candidatos: list[CandidatoInventario], *, empresa_id: int | None = None
     ) -> list[CandidatoInventario]:
         """Completa ``imagen`` con el recurso activo mas afin al color.
 
@@ -211,6 +222,8 @@ class AsistenciaRepository:
                 RecursoProducto.es_principal.desc(), RecursoProducto.id
             )
         )
+        if empresa_id is not None:
+            statement = statement.where(RecursoProducto.empresa_id == empresa_id)
         por_producto: dict[int, list[tuple[int | None, bool, str]]] = {}
         for producto_id, color_id, url, principal in db.execute(
             statement

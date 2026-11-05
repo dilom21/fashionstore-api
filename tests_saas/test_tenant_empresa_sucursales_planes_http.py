@@ -23,7 +23,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.saas_route_gate import BloqueoRutasLegacySaaS
+from app.core.saas_route_gate import BloqueoRutasLegacySaaS, _ruta_saas_permitida
 from app.core.tenant_context import TenantContext
 from app.core.tenant_dependencies import get_current_tenant_context
 from app.modules.sucursales.api.tenant_saas_admin_router import router
@@ -194,24 +194,30 @@ def test_basico_limite_2_backend_y_sin_comit_de_exceso(caso):
 
 
 def test_upgrade_y_downgrade_respeta_sucursales(caso):
+    """El cambio de plan por autoservicio NO existe: CU02 lo reserva a superadmin.
+
+    El contrato real es 503 en la ruta tenant. El limite del plan se sigue
+    aplicando: con BASICO (2 sucursales) la segunda alta entra y la tercera no.
+    """
     client,_,factory,_=caso
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":" profesional "}).status_code==200
+        "codigo":" profesional "}).status_code==503
     assert crear(client,"Tres").status_code==201
-    assert crear(client,"Cuatro").status_code==201
-    assert contar(factory,2)==3
-    downgrade=client.patch("/tenant/empresa/plan",json={"codigo":"BASICO"})
-    assert downgrade.status_code==409
-    assert client.get("/tenant/empresa/plan").json()["codigo"]=="PROFESIONAL"
+    assert crear(client,"Cuatro").status_code==409
+    assert contar(factory,2)==2
+    plan=client.get("/tenant/empresa/plan").json()
+    assert plan["codigo"]=="BASICO"
+    assert plan["sucursales_activas"]==2
 
 
-def test_downgrade_permitido_hasta_dos_sucursales(caso):
+def test_cambio_de_plan_por_autoservicio_bloqueado(caso):
     client,estado,_,_=caso
     estado["empresa_id"]=2
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"PROFESIONAL"}).status_code==200
+        "codigo":"PROFESIONAL"}).status_code==503
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"BASICO"}).status_code==200
+        "codigo":"BASICO"}).status_code==503
+    assert client.get("/tenant/empresa/plan").json()["codigo"]=="BASICO"
 
 
 @pytest.mark.parametrize("ruta",["/tenant/empresa/plan",
@@ -228,9 +234,21 @@ def test_contexto_cliente_no_puede_administrar(caso):
     estado["contexto"]="cliente"
     estado["rol"]="CLIENTE"
     assert crear(client,"X").status_code==403
+    # La ruta de cambio de plan ni siquiera llega a la autorizacion: el gate la
+    # cierra con 503 (CU02 exige superadmin global). Nunca se abre para el cliente.
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"PROFESIONAL"}).status_code==403
+        "codigo":"PROFESIONAL"}).status_code==503
     assert contar(factory,2)==1
+
+
+def test_patch_plan_tenant_sigue_fuera_de_la_allowlist(caso, monkeypatch):
+    """Ni con el opt-in de superadmin se habilita el PATCH tenant de plan."""
+    client,estado,_,_=caso
+    monkeypatch.setattr(settings,"saas_superadmin_enabled",True)
+    estado["rol"]="ADMINISTRADOR"
+    assert client.patch("/tenant/empresa/plan",json={
+        "codigo":"PROFESIONAL"}).status_code==503
+    assert _ruta_saas_permitida("PATCH","/tenant/empresa/plan") is False
 
 
 def test_no_permitir_editar_sucursal_ajena(caso):

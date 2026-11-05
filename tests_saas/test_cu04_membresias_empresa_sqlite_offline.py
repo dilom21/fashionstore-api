@@ -227,12 +227,25 @@ def test_cu04_allowlist_solo_cuatro_rutas_exactas_no_legacy():
     gate=namespace["_ruta_saas_permitida"]
     for url in ("/tenant/empresa/usuarios","/tenant/empresa/roles"):
         assert gate("GET",url)
-        assert not gate("POST",url)
+    # 5BO: el alta de personal es una ruta POST EXACTA nueva (CU03/CU04).
+    assert gate("POST","/tenant/empresa/usuarios")
+    assert not gate("POST","/tenant/empresa/roles")
+    assert not gate("POST","/tenant/empresa/usuarios/101")
     for url in ("/tenant/empresa/usuarios/101/rol",
-                "/tenant/empresa/usuarios/101/estado"):
+                "/tenant/empresa/usuarios/101/estado",
+                "/tenant/empresa/usuarios/101/sucursal"):
         assert gate("PATCH",url)
         assert not gate("GET",url)
         assert not gate("DELETE",url)
+    # 5BO: matriz RBAC nominal por rol de la propia empresa.
+    assert gate("PATCH","/tenant/empresa/roles/3/permisos")
+    assert not gate("GET","/tenant/empresa/roles/3/permisos")
+    assert not gate("PATCH","/tenant/empresa/roles/0/permisos")
+    assert gate("GET","/tenant/empresa/permisos")
+    assert not gate("POST","/tenant/empresa/permisos")
+    # 5BO: aceptacion de invitacion (publica, token de un solo uso).
+    assert gate("POST","/auth/tenant/invitaciones/aceptar")
+    assert not gate("GET","/auth/tenant/invitaciones/aceptar")
     for url in ("/tenant/empresa/usuarios/0/estado",
                 "/tenant/empresa/usuarios/-1/rol",
                 "/tenant/empresa/usuarios/101/rol/extra",

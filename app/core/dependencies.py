@@ -4,7 +4,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.config import settings
 from app.core.database import get_db
 from app.core.security import decode_access_token
 from app.modules.autenticacion_seguridad.models.models import Cliente, Usuario
@@ -41,9 +40,11 @@ def get_current_user(
         raise _error_no_autorizado()
 
     # Los JWT de empresa no pueden heredar privilegios globales del
-    # primer parcial. En modo SaaS, esta dependencia legacy se bloquea
-    # completamente hasta migrar cada endpoint a TenantContext.
-    if payload.get("scope") == "tenant" or settings.saas_auth_enabled:
+    # primer parcial. 5C1: la superficie legacy ya no depende de
+    # SAAS_AUTH_ENABLED; cuando ambas conviven, el arranque exige un destino de
+    # datos separado (app.core.surface_guard), de modo que esta dependencia
+    # solo tiene que impedir que un token tenant se use en una ruta heredada.
+    if payload.get("scope") == "tenant":
         raise _error_no_autorizado()
 
     try:

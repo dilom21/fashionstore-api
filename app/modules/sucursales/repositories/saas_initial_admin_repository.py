@@ -17,12 +17,14 @@ sigue cerrada por sus dos flags y privilegios SQL productivos pendientes.
 """
 from __future__ import annotations
 
+import json
 from datetime import date, datetime, timezone
 from argon2 import PasswordHasher
 from sqlalchemy import (
     BigInteger, Boolean, Date, DateTime, String, and_, column, func,
-    insert, select, table,
+    insert, select, table, text,
 )
+from sqlalchemy.exc import DBAPIError
 from sqlalchemy.orm import Session
 
 from app.core.password_policy import validar_password_segura
@@ -104,6 +106,52 @@ def _empresa_libre_y_plan(db:Session,empresa_id:int):
             "Empresa sin una suscripción vigente que admita sucursales")
 
 
+def _es_postgres(db:Session)->bool:
+    try:
+        bind=db.get_bind()
+    except AttributeError:
+        return False
+    return getattr(getattr(bind,"dialect",None),"name","")=="postgresql"
+
+
+def _registrar_postgres(db:Session,*,empresa_id:int,correo:str,
+                        password_hash:str,nombres:str,apellidos:str,ci:str,
+                        ciudad_id:int,nombre_sucursal:str,
+                        direccion_sucursal:str,telefono:str|None)->dict:
+    """CU01 sobre el principal GLOBAL: una sola funcion, una sola transaccion.
+
+    El plano administrativo no recibe DML de tabla; la funcion SECURITY DEFINER
+    con dueno NOLOGIN valida empresa/suscripcion/ciudad/roles y crea sucursal,
+    usuario, empleado y membresia. El hash Argon2 se calcula en Python.
+    """
+    try:
+        valor=db.scalar(text(
+            "SELECT saas_admin.registrar_primer_administrador("
+            "CAST(:empresa AS bigint), CAST(:correo AS text), "
+            "CAST(:hash AS text), CAST(:nombres AS text), "
+            "CAST(:apellidos AS text), CAST(:ci AS text), "
+            "CAST(:ciudad AS bigint), CAST(:sucursal AS text), "
+            "CAST(:direccion AS text), CAST(:telefono AS text))"),
+            {"empresa":empresa_id,"correo":correo,"hash":password_hash,
+             "nombres":nombres,"apellidos":apellidos,"ci":ci,
+             "ciudad":ciudad_id,"sucursal":nombre_sucursal,
+             "direccion":direccion_sucursal,"telefono":telefono})
+    except DBAPIError as exc:
+        estado=getattr(getattr(exc,"orig",None),"sqlstate",None)
+        if estado=="23505":
+            raise SuperadminSaaSError(409,"Correo o documento ya registrado") from exc
+        raise
+    if isinstance(valor,(str,bytes)):
+        valor=json.loads(valor)
+    if not isinstance(valor,dict):
+        raise SuperadminSaaSError(503,"Alta inicial sin respuesta valida")
+    if valor.get("ok") is not True:
+        raise SuperadminSaaSError(
+            int(valor.get("codigo",409)),str(valor.get("mensaje","Conflicto de alta")))
+    valor.pop("ok",None)
+    return valor
+
+
 def registrar_primer_administrador(
     db:Session,*,empresa_id:int,correo:str,password:str,nombres:str,
     apellidos:str,ci:str,ciudad_id:int,nombre_sucursal:str,
@@ -123,6 +171,13 @@ def registrar_primer_administrador(
     documento=ci.strip()
     if not email or not documento or not nombres.strip() or not apellidos.strip():
         raise SuperadminSaaSError(422,"Datos del administrador incompletos")
+    if _es_postgres(db):
+        return _registrar_postgres(
+            db,empresa_id=empresa_id,correo=email,
+            password_hash=_hasher.hash(password),nombres=nombres.strip(),
+            apellidos=apellidos.strip(),ci=documento,ciudad_id=ciudad_id,
+            nombre_sucursal=nombre_sucursal.strip(),
+            direccion_sucursal=direccion_sucursal.strip(),telefono=telefono)
 
     _empresa_libre_y_plan(db,empresa_id)
     city=db.scalar(select(ciudad.c.id).where(

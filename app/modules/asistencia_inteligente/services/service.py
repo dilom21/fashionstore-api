@@ -299,7 +299,7 @@ class AsistenciaInteligenteService:
 
     @staticmethod
     def recomendar(
-        db: Session, datos: RecomendacionRequest
+        db: Session, datos: RecomendacionRequest, *, empresa_id: int | None = None
     ) -> RecomendacionesResponse:
         # Primer corte solo con los filtros estructurados: si ni siquiera
         # estos coinciden, no hace falta extraer intencion ni llamar a la IA.
@@ -309,6 +309,7 @@ class AsistenciaInteligenteService:
             color=datos.color,
             presupuesto_max=datos.presupuesto_max,
             sucursal_id=datos.sucursal_id,
+            empresa_id=empresa_id,
         )
         if not candidatos:
             return _sin_coincidencias()
@@ -325,6 +326,7 @@ class AsistenciaInteligenteService:
             presupuesto_max=datos.presupuesto_max,
             sucursal_id=datos.sucursal_id,
             intencion_ia=_extraer_intencion(proveedor, datos.consulta),
+            empresa_id=empresa_id,
         )
         candidatos = AsistenciaRepository.obtener_candidatos(
             db,
@@ -333,6 +335,7 @@ class AsistenciaInteligenteService:
             presupuesto_max=restricciones.presupuesto_max,
             sucursal_id=restricciones.sucursal_id,
             sucursal=restricciones.sucursal,
+            empresa_id=empresa_id,
         )
         if not candidatos:
             return _sin_coincidencias()
@@ -357,7 +360,7 @@ class AsistenciaInteligenteService:
 
             # 2) revalidar stock/estado directamente en la BD
             revalidado = AsistenciaRepository.obtener_candidato_por_inventario(
-                db, inventario_id
+                db, inventario_id, empresa_id=empresa_id
             )
             if revalidado is None:
                 continue
@@ -390,7 +393,7 @@ class AsistenciaInteligenteService:
             seleccion = list(unicos.values())
 
         con_imagen = AsistenciaRepository.resolver_imagenes(
-            db, [candidato for candidato, _ in seleccion]
+            db, [candidato for candidato, _ in seleccion], empresa_id=empresa_id
         )
         imagenes = {
             candidato.inventario_id: candidato.imagen

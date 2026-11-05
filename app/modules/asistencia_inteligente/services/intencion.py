@@ -205,13 +205,18 @@ def extraer_color(db: Session, texto: str) -> str | None:
     return _mejor_coincidencia(texto, nombres, tokens=True, min_token=3)
 
 
-def extraer_sucursal(db: Session, texto: str) -> str | None:
-    nombres = _nombres(db, Sucursal.nombre, Sucursal.estado.is_(True))
+def extraer_sucursal(
+    db: Session, texto: str, empresa_id: int | None = None
+) -> str | None:
+    activo = Sucursal.estado.is_(True)
+    if empresa_id is not None:
+        activo = activo & (Sucursal.empresa_id == empresa_id)
+    nombres = _nombres(db, Sucursal.nombre, activo)
     return _mejor_coincidencia(texto, nombres, tokens=True, min_token=4)
 
 
 def extraer_deterministas(
-    db: Session, consulta: str
+    db: Session, consulta: str, empresa_id: int | None = None
 ) -> RestriccionesDuras:
     """Restricciones deducidas sin IA, por patron o por nombre de catalogo."""
     texto = (consulta or "").lower()
@@ -219,7 +224,7 @@ def extraer_deterministas(
         talla=extraer_talla(db, texto),
         color=extraer_color(db, texto),
         presupuesto_max=extraer_presupuesto(texto),
-        sucursal=extraer_sucursal(db, texto),
+        sucursal=extraer_sucursal(db, texto, empresa_id),
     )
 
 
@@ -237,6 +242,7 @@ def resolver_restricciones(
     presupuesto_max: Decimal | None,
     sucursal_id: int | None,
     intencion_ia: RestriccionesDuras | None,
+    empresa_id: int | None = None,
 ) -> RestriccionesDuras:
     """Combina los filtros estructurados con lo extraido de la consulta libre.
 
@@ -244,7 +250,7 @@ def resolver_restricciones(
     la intencion de la IA y, por ultimo, la coincidencia exacta con el
     catalogo. Si hay sucursal explicita por id, se ignora el nombre extraido.
     """
-    deterministas = extraer_deterministas(db, consulta)
+    deterministas = extraer_deterministas(db, consulta, empresa_id)
     ia = intencion_ia or sin_restricciones()
 
     sucursal = None

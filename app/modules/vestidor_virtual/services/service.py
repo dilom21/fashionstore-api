@@ -159,6 +159,7 @@ class VestidorVirtualService:
         *,
         variante_id: int | None = None,
         color_id: int | None = None,
+        empresa_id: int | None = None,
     ) -> ConfiguracionesProductoResponse:
         """Configuraciones AR activas de un producto.
 
@@ -166,13 +167,17 @@ class VestidorVirtualService:
         - Producto existente sin configuraciones -> compatible=False, [].
         - Filtro opcional por color o por variante (su color).
         """
-        producto = VestidorRepository.obtener_producto(db, producto_id)
+        producto = VestidorRepository.obtener_producto(
+            db, producto_id, empresa_id=empresa_id
+        )
         if producto is None:
             raise ProductoNoEncontradoError()
 
         color_filtro = color_id
         if variante_id is not None:
-            variante = VestidorRepository.obtener_variante(db, variante_id)
+            variante = VestidorRepository.obtener_variante(
+                db, variante_id, empresa_id=empresa_id
+            )
             if variante is None or variante.producto_id != producto_id:
                 return ConfiguracionesProductoResponse(
                     producto_id=producto_id,
@@ -189,7 +194,8 @@ class VestidorVirtualService:
             )
 
         configuraciones = VestidorRepository.listar_configuraciones_activas(
-            db, producto_id=producto_id, color_id=color_filtro
+            db, producto_id=producto_id, color_id=color_filtro,
+            empresa_id=empresa_id,
         )
         items = [
             _serializar_configuracion(producto_id, configuracion)
@@ -206,25 +212,33 @@ class VestidorVirtualService:
     # ------------------------------------------------------------------
 
     @staticmethod
-    def crear_sesion(db: Session, cliente) -> SesionARResponse:
+    def crear_sesion(
+        db: Session, cliente, *, empresa_id: int | None = None
+    ) -> SesionARResponse:
         """Crea (o reutiliza) la sesion ACTIVA del cliente autenticado.
 
         Politica idempotente: si el cliente ya tiene una sesion ACTIVA se
         devuelve esa misma, evitando acumular sesiones activas innecesarias.
         ``cliente_id`` y ``fecha_inicio`` NUNCA vienen del body.
         """
-        existente = VestidorRepository.obtener_sesion_activa(db, cliente.id)
+        existente = VestidorRepository.obtener_sesion_activa(
+            db, cliente.id, empresa_id=empresa_id
+        )
         if existente is not None:
             return _serializar_sesion(existente)
 
         try:
-            sesion = VestidorRepository.crear_sesion(db, cliente.id)
+            sesion = VestidorRepository.crear_sesion(
+                db, cliente.id, empresa_id=empresa_id
+            )
             db.commit()
         except IntegrityError as exc:
             db.rollback()
             raise RegistroInvalidoError() from exc
 
-        sesion = VestidorRepository.obtener_sesion(db, sesion.id)
+        sesion = VestidorRepository.obtener_sesion(
+            db, sesion.id, empresa_id=empresa_id
+        )
         if sesion is None:
             raise SesionNoEncontradaError()
         return _serializar_sesion(sesion)
@@ -239,8 +253,12 @@ class VestidorVirtualService:
         cliente,
         sesion_id: int,
         datos: IniciarPruebaRequest,
+        *,
+        empresa_id: int | None = None,
     ) -> PruebaARResponse:
-        sesion = VestidorRepository.obtener_sesion(db, sesion_id)
+        sesion = VestidorRepository.obtener_sesion(
+            db, sesion_id, empresa_id=empresa_id
+        )
         if sesion is None:
             raise SesionNoEncontradaError()
         if sesion.cliente_id != cliente.id:
@@ -249,7 +267,7 @@ class VestidorVirtualService:
             raise SesionNoActivaError()
 
         configuracion = VestidorRepository.obtener_configuracion(
-            db, datos.configuracion_id
+            db, datos.configuracion_id, empresa_id=empresa_id
         )
         if configuracion is None:
             raise ConfiguracionNoEncontradaError()
@@ -262,7 +280,7 @@ class VestidorVirtualService:
 
         if datos.variante_producto_id is not None:
             variante = VestidorRepository.obtener_variante(
-                db, datos.variante_producto_id
+                db, datos.variante_producto_id, empresa_id=empresa_id
             )
             if variante is None or variante.producto_id != recurso.producto_id:
                 raise VarianteIncompatibleError()
@@ -273,13 +291,16 @@ class VestidorVirtualService:
                 sesion_id=sesion.id,
                 configuracion_id=configuracion.id,
                 variante_producto_id=datos.variante_producto_id,
+                empresa_id=empresa_id,
             )
             db.commit()
         except IntegrityError as exc:
             db.rollback()
             raise RegistroInvalidoError() from exc
 
-        prueba = VestidorRepository.obtener_prueba(db, prueba.id)
+        prueba = VestidorRepository.obtener_prueba(
+            db, prueba.id, empresa_id=empresa_id
+        )
         if prueba is None:
             raise PruebaNoEncontradaError()
         return _serializar_prueba(prueba)
@@ -290,17 +311,20 @@ class VestidorVirtualService:
 
     @staticmethod
     def finalizar_prueba(
-        db: Session, cliente, prueba_id: int, estado: str
+        db: Session, cliente, prueba_id: int, estado: str,
+        *, empresa_id: int | None = None,
     ) -> PruebaARResponse:
         if estado not in ESTADOS_FINALES_PRUEBA:
             raise EstadoInvalidoError()
 
-        prueba = VestidorRepository.obtener_prueba(db, prueba_id)
+        prueba = VestidorRepository.obtener_prueba(
+            db, prueba_id, empresa_id=empresa_id
+        )
         if prueba is None:
             raise PruebaNoEncontradaError()
 
         sesion = VestidorRepository.obtener_sesion(
-            db, prueba.sesion_vestidor_ar_id
+            db, prueba.sesion_vestidor_ar_id, empresa_id=empresa_id
         )
         if sesion is None:
             raise PruebaNoEncontradaError()
@@ -320,7 +344,9 @@ class VestidorVirtualService:
             db.rollback()
             raise RegistroInvalidoError() from exc
 
-        prueba = VestidorRepository.obtener_prueba(db, prueba.id)
+        prueba = VestidorRepository.obtener_prueba(
+            db, prueba.id, empresa_id=empresa_id
+        )
         if prueba is None:
             raise PruebaNoEncontradaError()
         return _serializar_prueba(prueba)
@@ -331,12 +357,15 @@ class VestidorVirtualService:
 
     @staticmethod
     def finalizar_sesion(
-        db: Session, cliente, sesion_id: int, estado: str
+        db: Session, cliente, sesion_id: int, estado: str,
+        *, empresa_id: int | None = None,
     ) -> SesionARResponse:
         if estado not in ESTADOS_FINALES_SESION:
             raise EstadoInvalidoError()
 
-        sesion = VestidorRepository.obtener_sesion(db, sesion_id)
+        sesion = VestidorRepository.obtener_sesion(
+            db, sesion_id, empresa_id=empresa_id
+        )
         if sesion is None:
             raise SesionNoEncontradaError()
         if sesion.cliente_id != cliente.id:
@@ -355,7 +384,9 @@ class VestidorVirtualService:
             db.rollback()
             raise RegistroInvalidoError() from exc
 
-        sesion = VestidorRepository.obtener_sesion(db, sesion.id)
+        sesion = VestidorRepository.obtener_sesion(
+            db, sesion.id, empresa_id=empresa_id
+        )
         if sesion is None:
             raise SesionNoEncontradaError()
         return _serializar_sesion(sesion)

@@ -1,5 +1,15 @@
+import os
+import tempfile
 import uuid
 from datetime import date, datetime, timezone
+
+# Test collection must never inherit a remote DATABASE_URL.  Keep the default
+# disposable and local; callers may opt into a different local URL explicitly.
+_test_database_url = os.environ.get("FASHIONSTORE_TEST_DATABASE_URL")
+if not _test_database_url:
+    _test_database_url = f"sqlite:///{tempfile.mktemp(prefix='fashionstore-test-', suffix='.db')}"
+os.environ["DATABASE_URL"] = _test_database_url
+os.environ.setdefault("APP_ENV", "test")
 
 import pytest
 from fastapi.testclient import TestClient

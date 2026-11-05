@@ -17,6 +17,37 @@ class CredencialesBootstrapTenant:
     password_hash: str = field(repr=False)
 
 
+def _es_postgres(db: Session) -> bool:
+    """En PostgreSQL el login usa funciones cerradas; SQLite solo pruebas offline."""
+    try:
+        bind = db.get_bind()
+    except AttributeError:
+        return False
+    return getattr(getattr(bind, "dialect", None), "name", "") == "postgresql"
+
+
+# Etapa C (5BK): con principal restringido el rol de ejecucion NO tiene SELECT
+# sobre public.usuario ni sobre las tablas SaaS. El bootstrap consulta dos
+# funciones SECURITY DEFINER (propietario NOLOGIN) que devuelven exactamente la
+# proyeccion necesaria y nada mas. Los GRANT son EXECUTE, no SELECT.
+_SQL_CREDENCIALES_PG = text(
+    "SELECT usuario_id, password_hash FROM saas.login_credenciales(:correo)"
+)
+
+_SQL_CONTEXTO_PG = text(
+    """
+    SELECT usuario_id, empresa_id, empresa_slug, empresa_nombre, rol_id,
+           rol_nombre, plan_codigo, permite_reportes_ia
+    FROM saas.login_membresia(
+        CAST(:usuario_id AS bigint),
+        CAST(:empresa_id AS bigint),
+        CAST(:empresa_slug AS text),
+        CAST(:contexto AS text)
+    )
+    """
+)
+
+
 # 5R: lectura mínima antes de conocer la empresa; no carga Usuario ORM,
 # Rol ni otras columnas. No exponer esta consulta a clientes SQL directos.
 # AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquí.
@@ -94,10 +125,15 @@ class TenantAuthRepository:
         correo_normalizado = correo.strip().lower()
         if not correo_normalizado:
             return None
-        rows = db.execute(
-            _SQL_CREDENCIALES_BOOTSTRAP_TENANT,
-            {"correo": correo_normalizado},
-        ).mappings().all()
+        if _es_postgres(db):
+            rows = db.execute(
+                _SQL_CREDENCIALES_PG, {"correo": correo_normalizado}
+            ).mappings().all()
+        else:
+            rows = db.execute(
+                _SQL_CREDENCIALES_BOOTSTRAP_TENANT,
+                {"correo": correo_normalizado},
+            ).mappings().all()
         # Fail closed: un usuario activo por correo como máximo.
         if len(rows) != 1:
             return None
@@ -118,15 +154,14 @@ class TenantAuthRepository:
     ) -> dict | None:
         if (empresa_id is None) == (empresa_slug is None):
             raise ValueError("Indicar exactamente una empresa por ID o slug")
-        rows = db.execute(
-            _SQL_CONTEXTO_TENANT,
-            {
-                "usuario_id": usuario_id,
-                "empresa_id": empresa_id,
-                "empresa_slug": empresa_slug,
-                "contexto": contexto,
-            },
-        ).mappings().all()
+        parametros = {
+            "usuario_id": usuario_id,
+            "empresa_id": empresa_id,
+            "empresa_slug": empresa_slug,
+            "contexto": contexto,
+        }
+        consulta = _SQL_CONTEXTO_PG if _es_postgres(db) else _SQL_CONTEXTO_TENANT
+        rows = db.execute(consulta, parametros).mappings().all()
         # Una empresa debe tener una sola suscripcion vigente y una membresia.
         if len(rows) != 1:
             return None

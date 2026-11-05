@@ -1,0 +1,22 @@
+# 5C0 - PLANTILLA SINTETICA de configuracion para staging cloud SaaS.
+# NO contiene credenciales reales: los valores entre <> los inyecta el gestor
+# de secretos. Los hosts son ficticios (*.invalid) y solo sirven para probar
+# el validador offline. No copiar este archivo a un servicio cloud.
+#
+# Uso del validador:
+#   python database/saas/125_preflight_estatico_staging_5c0.py --env <ruta>
+APP_ENV=staging
+SAAS_DEPLOY_ENV=staging
+SAAS_DEPLOY_DB_HOST=db.staging-ficticio.invalid
+SAAS_DEPLOY_DB_PORT=5432
+SAAS_DEPLOY_DB_NAME=fashionstore_saas_staging
+SAAS_DEPLOY_DB_USER=fs_saas_runtime
+SAAS_DEPLOY_ADMIN_USER=saas_admin_runtime
+SAAS_DEPLOY_DENY_HOSTS=db.legacy-ficticio.invalid,db.produccion-ficticio.invalid
+# DSN completos SOLO como referencia de forma; el gestor de secretos inyecta
+# la contrasena real. El validador no imprime credenciales.
+DATABASE_URL=postgresql+psycopg://fs_saas_runtime:<PASSWORD_GESTOR>@db.staging-ficticio.invalid:5432/fashionstore_saas_staging
+SAAS_ADMIN_DATABASE_URL=postgresql+psycopg://saas_admin_runtime:<PASSWORD_GESTOR>@db.staging-ficticio.invalid:5432/fashionstore_saas_staging
+# NUNCA en cloud:
+SAAS_ALLOW_REMOTE_DB=
+SAAS_LOCAL_ONLY=

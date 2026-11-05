@@ -16,7 +16,7 @@ from starlette.websockets import WebSocketDisconnect
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.saas_route_gate import BloqueoRutasLegacySaaS
+from app.core.saas_route_gate import BloqueoRutasLegacySaaS, _ruta_saas_permitida
 
 
 def _app_ficticia() -> FastAPI:
@@ -78,10 +78,12 @@ def _app_ficticia() -> FastAPI:
         ("GET", "/productos?empresa_id=1"),
     ],
 )
-def test_modo_saas_bloquea_rutas_legacy_y_falsos_prefijos(
+def test_modo_corte_saas_bloquea_rutas_legacy_y_falsos_prefijos(
     monkeypatch, metodo, ruta
 ):
+    # 5C1: el modo corte es SaaS con la superficie legacy apagada.
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
     with TestClient(_app_ficticia()) as client:
         respuesta = client.request(metodo, ruta)
         assert respuesta.status_code == 503
@@ -124,6 +126,7 @@ def test_guard_instalado_en_app_real_y_bloqueo_sin_tocar_db(monkeypatch):
     )
 
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
     with TestClient(app) as client:
         for ruta in ("/productos", "/categorias", "/health/db", "/openapi.json"):
             respuesta = client.get(ruta)
@@ -133,6 +136,7 @@ def test_guard_instalado_en_app_real_y_bloqueo_sin_tocar_db(monkeypatch):
 
 def test_modo_saas_bloquea_websocket_legacy(monkeypatch):
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
     with TestClient(_app_ficticia()) as client:
         with pytest.raises(WebSocketDisconnect) as exc:
             with client.websocket_connect("/ws/legacy") as websocket:
@@ -145,3 +149,90 @@ def test_modo_legacy_conserva_websocket(monkeypatch):
     with TestClient(_app_ficticia()) as client:
         with client.websocket_connect("/ws/legacy") as websocket:
             assert websocket.receive_text() == "MENSAJE LEGADO DE PRUEBA"
+
+
+# ---------------------------------------------------------------------------
+# 5C1: coexistencia de superficies (SaaS + legacy en el mismo proceso)
+# ---------------------------------------------------------------------------
+
+
+def test_coexistencia_abre_rutas_heredadas_sin_romper_allowlist_tenant(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", True)
+
+    with TestClient(_app_ficticia()) as client:
+        # Superficie legacy: responde como en el primer parcial.
+        assert client.get("/productos").status_code == 200
+        assert client.post("/ventas").status_code == 200
+        assert client.get("/auth/clientes/me/perfil").status_code == 200
+        assert client.get("/no-existe").status_code == 404
+
+        # Diagnostico/documentacion siguen cerrados aunque SaaS este activo.
+        for ruta in ("/health/db", "/openapi.json", "/docs"):
+            assert client.get(ruta).status_code == 503, ruta
+
+        # La allowlist tenant NO se relaja: prefijos falsos siguen en 503.
+        assert client.get("/auth/tenant/me/extra").status_code == 503
+        assert client.get("/auth/tenant/login").status_code == 503
+        assert client.post("/auth/tenant/me").status_code == 503
+
+        # Contratos tenant validos intactos.
+        assert client.get("/auth/tenant/me").status_code == 200
+        assert client.post("/auth/tenant/login").status_code == 200
+
+
+def test_coexistencia_conserva_websocket_heredado(monkeypatch):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", True)
+
+    with TestClient(_app_ficticia()) as client:
+        with client.websocket_connect("/ws/legacy") as websocket:
+            assert websocket.receive_text() == "MENSAJE LEGADO DE PRUEBA"
+
+
+def test_coexistencia_no_confunde_prefijo_parecido_con_superficie_tenant(
+    monkeypatch,
+):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
+
+    with TestClient(_app_ficticia()) as client:
+        # `/tenants-legacy` es legacy, no tenant: se bloquea por superficie.
+        assert client.get("/tenants-legacy").status_code == 503
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("GET", "/tenant/public/alpha/catalogo"),
+        ("GET", "/tenant/public/alpha/catalogo/1"),
+        ("GET", "/tenant/public/alpha/sucursales"),
+        ("GET", "/tenant/reportes/resumen"),
+        ("POST", "/tenant/reportes/generativo"),
+        ("POST", "/tenant/asistencia-inteligente/recomendaciones"),
+        ("POST", "/tenant/vestidor-virtual/sesiones"),
+        ("PATCH", "/tenant/vestidor-virtual/pruebas/9/finalizar"),
+        ("GET", "/tenant/merchandising/temporadas"),
+        ("POST", "/tenant/merchandising/promociones"),
+        ("PUT", "/tenant/merchandising/colecciones/7/productos"),
+    ],
+)
+def test_t05_t06_allowlist_opens_only_audited_exact_routes(method, path):
+    assert _ruta_saas_permitida(method, path) is True
+
+
+@pytest.mark.parametrize(
+    "method,path",
+    [
+        ("GET", "/tenant/public/alpha/unknown"),
+        ("GET", "/tenant/public/Alpha/catalogo"),
+        ("GET", "/tenant/public/alpha/catalogo/0"),
+        ("DELETE", "/tenant/merchandising/temporadas/1"),
+        ("GET", "/tenant/reportes/resumen/extra"),
+        ("POST", "/tenant/vestidor-virtual/sesiones/0/pruebas"),
+    ],
+)
+def test_t05_t06_allowlist_rejects_wrong_methods_and_false_prefixes(method, path):
+    assert _ruta_saas_permitida(method, path) is False

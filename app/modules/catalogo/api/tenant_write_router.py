@@ -2,12 +2,13 @@
 
 Nunca recibe empresa_id de HTTP. No altera los handlers legados.
 """
+import logging
 from decimal import Decimal
 from typing import Annotated, Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
@@ -23,6 +24,7 @@ from app.modules.catalogo.repositories.tenant_write_repository import TenantCata
 router = APIRouter(prefix="/tenant/catalogo", tags=["Catalogo SaaS (escrituras)"])
 AdminTenant = Annotated[TenantContext, Depends(get_current_tenant_admin)]
 T = TypeVar("T")
+logger = logging.getLogger(__name__)
 
 
 class EscrituraTenantBase(BaseModel):
@@ -101,6 +103,41 @@ def _operacion(db: Session, fn: Callable[[], T]) -> T:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail="Conflicto con los datos del catalogo de la empresa",
+        ) from exc
+    except DBAPIError as exc:
+        # Un error de privilegios del principal restringido NO puede salir como
+        # 500 generico: se registra del lado servidor (sin SQL ni PII en la
+        # respuesta) y se responde un contrato estable 503/409.
+        db.rollback()
+        sqlstate = getattr(getattr(exc, "orig", None), "sqlstate", None)
+        if sqlstate == "42501":
+            logger.error(
+                "Catalogo SaaS: privilegio insuficiente del principal SQL "
+                "(sqlstate=42501) en una escritura de catalogo"
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=(
+                    "El principal SQL restringido no tiene privilegios para esta "
+                    "operacion de catalogo"
+                ),
+            ) from exc
+        if sqlstate == "23514":
+            # Invariante de la base (p.ej. talla/color desactivada en el mismo
+            # instante): conflicto neutro, nunca 500 ni detalle SQL.
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="El catalogo de referencia ya no esta disponible",
+            ) from exc
+        if sqlstate in {"40001", "40P01"}:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Conflicto transitorio de concurrencia; reintente",
+            ) from exc
+        logger.exception("Catalogo SaaS: error de base de datos no clasificado")
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="El almacenamiento del catalogo no esta disponible",
         ) from exc
     except Exception:
         db.rollback()

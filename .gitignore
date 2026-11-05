@@ -19,3 +19,20 @@ venv/
 # OS
 .DS_Store
 Thumbs.db
+
+# Local databases, dumps, backups, and temporary data
+*.db
+*.sqlite
+*.sqlite3
+*.dump
+*.bak
+*.backup
+
+# Coordination and evidence artifacts
+CTX_*.md
+PROMPT_*.md
+CONTEXTO_*.md
+REP_*.md
+Master_Prompt*.md
+database/saas/evidencias/
+odd/tasks/

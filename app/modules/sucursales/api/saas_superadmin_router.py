@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.saas_admin_db import get_saas_admin_db
 from app.core.saas_superadmin_auth import get_superadmin_saas
 from app.modules.sucursales.repositories.saas_superadmin_repository import (
     SuperadminSaaSError, SuperadminSaaSRepository as Repo,
@@ -135,19 +135,19 @@ def _result(db:Session,accion,*,escritura:bool):
 
 
 @router.get("/empresas")
-def listar_empresas(db:Session=Depends(get_db)):
+def listar_empresas(db:Session=Depends(get_saas_admin_db)):
     return _result(db,lambda:Repo.listar_empresas(db),escritura=False)
 
 
 @router.post("/empresas",status_code=201)
-def registrar_empresa(datos:CrearEmpresa,db:Session=Depends(get_db)):
+def registrar_empresa(datos:CrearEmpresa,db:Session=Depends(get_saas_admin_db)):
     return _result(db,lambda:Repo.crear_empresa(db,**datos.model_dump()),
                    escritura=True)
 
 
 @router.post("/empresas/{empresa_id}/administrador-inicial",status_code=201)
 def alta_administrador_inicial(empresa_id:int,datos:PrimerAdministrador,
-                                db:Session=Depends(get_db)):
+                                db:Session=Depends(get_saas_admin_db)):
     if empresa_id<=0:
         raise HTTPException(status_code=404,detail="Empresa no encontrada")
     return _result(db,lambda:registrar_primer_administrador(
@@ -155,7 +155,7 @@ def alta_administrador_inicial(empresa_id:int,datos:PrimerAdministrador,
 
 
 @router.patch("/empresas/{empresa_id}/estado")
-def estado_empresa(empresa_id:int,datos:Estado,db:Session=Depends(get_db)):
+def estado_empresa(empresa_id:int,datos:Estado,db:Session=Depends(get_saas_admin_db)):
     if empresa_id<=0:
         raise HTTPException(status_code=404,detail="Empresa no encontrada")
     return _result(db,lambda:Repo.cambiar_estado_empresa(
@@ -163,18 +163,18 @@ def estado_empresa(empresa_id:int,datos:Estado,db:Session=Depends(get_db)):
 
 
 @router.get("/planes")
-def listar_planes(db:Session=Depends(get_db)):
+def listar_planes(db:Session=Depends(get_saas_admin_db)):
     return _result(db,lambda:Repo.listar_planes(db),escritura=False)
 
 
 @router.post("/planes",status_code=201)
-def registrar_plan(datos:CrearPlan,db:Session=Depends(get_db)):
+def registrar_plan(datos:CrearPlan,db:Session=Depends(get_saas_admin_db)):
     return _result(db,lambda:Repo.crear_plan(db,datos.model_dump()),
                    escritura=True)
 
 
 @router.patch("/planes/{plan_id}/estado")
-def estado_plan(plan_id:int,datos:Estado,db:Session=Depends(get_db)):
+def estado_plan(plan_id:int,datos:Estado,db:Session=Depends(get_saas_admin_db)):
     if plan_id<=0:
         raise HTTPException(status_code=404,detail="Plan no encontrado")
     return _result(db,lambda:Repo.cambiar_estado_plan(
@@ -182,7 +182,7 @@ def estado_plan(plan_id:int,datos:Estado,db:Session=Depends(get_db)):
 
 
 @router.get("/empresas/{empresa_id}/suscripciones")
-def listar_suscripciones(empresa_id:int,db:Session=Depends(get_db)):
+def listar_suscripciones(empresa_id:int,db:Session=Depends(get_saas_admin_db)):
     if empresa_id<=0:
         raise HTTPException(status_code=404,detail="Empresa no encontrada")
     return _result(db,lambda:Repo.listar_suscripciones(
@@ -191,7 +191,7 @@ def listar_suscripciones(empresa_id:int,db:Session=Depends(get_db)):
 
 @router.post("/empresas/{empresa_id}/suscripciones",status_code=201)
 def crear_suscripcion(empresa_id:int,datos:AsignarSuscripcion,
-                      db:Session=Depends(get_db)):
+                      db:Session=Depends(get_saas_admin_db)):
     if empresa_id<=0:
         raise HTTPException(status_code=404,detail="Empresa no encontrada")
     return _result(db,lambda:Repo.asignar_suscripcion(
@@ -201,7 +201,7 @@ def crear_suscripcion(empresa_id:int,datos:AsignarSuscripcion,
 @router.patch("/empresas/{empresa_id}/suscripciones/{suscripcion_id}/estado")
 def cambiar_suscripcion(empresa_id:int,suscripcion_id:int,
                         datos:EstadoSuscripcion,
-                        db:Session=Depends(get_db)):
+                        db:Session=Depends(get_saas_admin_db)):
     if empresa_id<=0 or suscripcion_id<=0:
         raise HTTPException(status_code=404,detail="Suscripción no encontrada")
     return _result(db,lambda:Repo.cambiar_estado_suscripcion(

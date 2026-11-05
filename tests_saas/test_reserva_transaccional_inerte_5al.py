@@ -9,6 +9,7 @@ os.environ["SAAS_AUTH_ENABLED"] = "false"
 
 import pytest
 
+from app.core.config import settings
 from app.core.saas_route_gate import _ruta_saas_permitida
 from app.core.tenant_context import TenantContext
 from app.modules.reservas.services.tenant_reserva_transaccional_5al import (
@@ -24,6 +25,29 @@ ROOT=Path(__file__).resolve().parents[1]
 CODE=(ROOT/"app/modules/reservas/services/tenant_reserva_transaccional_5al.py").read_text(
     encoding="utf-8"
 )
+
+# 5AQ introdujo un segundo factor: el propietario SQL exacto de los SP. Es
+# configuracion administrativa del entorno, no un dato del JWT ni del body. La
+# suite lo aporta como fixture explicito; la comprobacion sigue activa y se
+# verifica por separado que sin el valor el servicio falla cerrado.
+OWNER_SQL_LAB = "fashionstore_sql_owner_ficticio"
+
+META_VERIFICADOR = dict(
+    propietario=OWNER_SQL_LAB,
+    security_definer=True,
+    path_seguro=True,
+    puede_ejecutar=True,
+    propietario_restringido=True,
+    llamador_sin_ddl=True,
+    llamador_ajeno_al_propietario=True,
+    publico_revocado=True,
+)
+
+
+@pytest.fixture(autouse=True)
+def owner_sql_explicito(monkeypatch):
+    monkeypatch.setattr(settings, "saas_actor_sql_owner", OWNER_SQL_LAB)
+    yield
 
 
 def tenant():
@@ -77,6 +101,8 @@ class FakeDB:
         self.params.append(dict(args) if args is not None else None)
         if "SELECT session_user AS principal" in query:
             return QueryResult(self.row)
+        if "fs_verificar_actor_reserva" in query:
+            return QueryResult(META_VERIFICADOR)
         if "CALL public.sp_crear_reserva_tenant" in query:
             if self.error is not None:
                 raise self.error
@@ -86,6 +112,8 @@ class FakeDB:
     def scalar(self,sql,args=None):
         self.queries.append(str(sql))
         self.params.append(dict(args))
+        if "fs_verificar_actor_reserva" in str(sql):
+            return True
         return self.coincide
 
     def commit(self):
@@ -105,13 +133,15 @@ def test_cu16_adaptador_exito_atomico_y_ids_del_tenant():
     db=FakeDB()
     assert run(db)==404
     assert db.commits==1 and db.rollbacks==0
-    assert len(db.queries)==3
-    args=db.params[1]
+    # Secuencia real del servicio endurecido (5AS/5AQ/5AV):
+    # 0 principal, 1 metadatos del verificador, 2 verificador, 3 CALL, 4 relectura.
+    assert len(db.queries)==5
+    args=db.params[3]
     assert args["empresa_id"]==15 and args["usuario_id"]==42
     assert args["carrito_id"]==17 and args["reserva_id"] is None
     assert db.params[2]["empresa_id"]==15
     assert db.params[2]["usuario_id"]==42
-    assert db.params[2]["reserva_id"]==404
+    assert db.params[4]["reserva_id"]==404
 
 
 @pytest.mark.parametrize("change",[
@@ -179,7 +209,7 @@ def test_cu16_contrato_no_permite_usuario_personal():
 def test_cu16_uso_de_contexto_sql_no_sustituye_jwt_y_membresia():
     assert "preparar_creacion_reserva(" in CODE
     assert "get_current_tenant_cliente" in CODE
-    assert "JWT+membresía" in CODE
+    assert "JWT" in CODE and ("membresía" in CODE or "membresia" in CODE)
     assert "NOT r.rolsuper AND NOT r.rolbypassrls" in CODE
     assert "NOT r.rolinherit" in CODE
 
@@ -230,6 +260,8 @@ class CambioDB(FakeDB):
         self.params.append(dict(args) if args is not None else None)
         if "SELECT session_user AS principal" in query:
             return QueryResult(self.row)
+        if "fs_verificar_actor_reserva" in query:
+            return QueryResult(META_VERIFICADOR)
         if "CALL public.sp_cancelar_reserva_tenant" in query or (
             "CALL public.sp_finalizar_reserva_sin_compra_tenant" in query
         ):
@@ -241,6 +273,8 @@ class CambioDB(FakeDB):
     def scalar(self,sql,args=None):
         self.queries.append(str(sql))
         self.params.append(dict(args))
+        if "fs_verificar_actor_reserva" in str(sql):
+            return True
         return self.estado
 
 
@@ -251,9 +285,9 @@ def test_cancelacion_atomica_con_principal_y_tenant():
     )
     assert estado=="CANCELADA" and db.commits==1 and db.rollbacks==0
     assert db.params[0]["procedimiento"]=="sp_cancelar_reserva_tenant"
-    assert db.params[1]["empresa_id"]==15 and db.params[1]["usuario_id"]==42
-    assert db.params[2]["reserva_id"]==77
-    assert db.params[2]["cliente"] is True
+    assert db.params[3]["empresa_id"]==15 and db.params[3]["usuario_id"]==42
+    assert db.params[4]["reserva_id"]==77
+    assert db.params[4]["cliente"] is True
 
 
 def test_finalizacion_atomica_personal():
@@ -265,7 +299,7 @@ def test_finalizacion_atomica_personal():
     )
     assert estado=="ATENDIDA" and db.commits==1 and db.rollbacks==0
     assert db.params[0]["procedimiento"]=="sp_finalizar_reserva_sin_compra_tenant"
-    assert db.params[2]["cliente"] is False
+    assert db.params[4]["cliente"] is False
 
 
 @pytest.mark.parametrize("accion,estado",[
@@ -299,3 +333,24 @@ def test_cambio_reserva_rechaza_actor_de_rol_incorrecto_sin_sql():
             reserva_id=10
         )
     assert db.queries==[] and db.commits==0
+
+# ---------------------------------------------------------------------------
+# 5BL: el propietario SQL sigue siendo obligatorio (fail closed)
+# ---------------------------------------------------------------------------
+
+
+def test_sin_owner_sql_configurado_falla_cerrado(monkeypatch):
+    monkeypatch.setattr(settings, "saas_actor_sql_owner", None)
+    db = FakeDB()
+    with pytest.raises(ReservaTenantDeshabilitada) as exc:
+        run(db)
+    assert "Identidad SQL individual no configurada" in str(exc.value)
+    assert db.commits == 0 and db.rollbacks == 1
+
+
+def test_owner_sql_igual_al_principal_falla_cerrado(monkeypatch):
+    monkeypatch.setattr(settings, "saas_actor_sql_owner", principal()["principal"])
+    db = FakeDB()
+    with pytest.raises(ReservaTenantDeshabilitada):
+        run(db)
+    assert db.commits == 0 and db.rollbacks == 1

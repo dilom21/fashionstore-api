@@ -9,6 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
+from app.core.saas_rls_assertion import (
+    aplicar_asercion,
+    clave_disponible,
+    es_postgres,
+)
 from app.core.tenant_context import TenantContext, leer_token_empresa
 from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
     TenantAuthRepository,
@@ -86,6 +91,17 @@ def get_current_tenant_context(
         # after_begin lo reaplica si la misma Session abre otra transaccion.
         db.info["usuario_id"] = tenant.usuario_id
         db.info["empresa_id"] = tenant.empresa_id
+        # Etapa C (5BK): el principal SQL restringido resuelve la empresa SOLO
+        # con esta asercion firmada. Sin clave configurada, PostgreSQL queda
+        # deny-all: se falla cerrado con 503 en lugar de consultar sin RLS.
+        if es_postgres(db):
+            if not clave_disponible() or not aplicar_asercion(
+                db, tenant.empresa_id, tenant.usuario_id
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                    detail="El principal SQL restringido no esta configurado",
+                )
         return tenant
     except SQLAlchemyError as exc:
         raise HTTPException(
@@ -94,13 +110,87 @@ def get_current_tenant_context(
         ) from exc
 
 
+def _tiene_permiso_tenant(
+    db: Session, tenant: TenantContext, funcion: str, accion: str
+) -> bool:
+    """RBAC nominal por empresa (5BO).
+
+    En PostgreSQL la autoridad es `saas.tiene_permiso_tenant`, que aplica
+    excepcion por empresa > default por nombre de rol > denegado y NUNCA
+    resuelve permisos de otra empresa. En SQLite (pruebas offline) se conserva
+    la matriz global del primer parcial.
+    """
+    if es_postgres(db):
+        try:
+            return bool(
+                db.scalar(
+                    text(
+                        "SELECT saas.tiene_permiso_tenant("
+                        "CAST(:empresa AS bigint), CAST(:rol AS bigint), "
+                        "CAST(:funcion AS text), CAST(:accion AS text))"
+                    ),
+                    {
+                        "empresa": tenant.empresa_id,
+                        "rol": tenant.rol_id,
+                        "funcion": funcion,
+                        "accion": accion,
+                    },
+                )
+            )
+        except SQLAlchemyError:
+            # Fail closed: sin matriz disponible no se concede el permiso.
+            return False
+    return RolService.tiene_permiso(db, tenant.rol_id, funcion, accion)
+
+
 def require_tenant_permission(funcion: str, accion: str):
     """Aplica permisos de rol ASIGNADO A LA EMPRESA, no usuario.rol_id."""
     def _verificador(
         tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
         db: Session = Depends(get_db),
     ) -> TenantContext:
-        if not RolService.tiene_permiso(db, tenant.rol_id, funcion, accion):
+        if not _tiene_permiso_tenant(db, tenant, funcion, accion):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permiso empresarial insuficiente",
+            )
+        return tenant
+    return _verificador
+
+
+def get_current_tenant_admin_con_permiso(funcion: str, accion: str):
+    """ADMINISTRADOR personal + permiso nominal de la empresa (5BO)."""
+    def _verificador(
+        tenant: Annotated[TenantContext, Depends(get_current_tenant_admin)],
+        db: Session = Depends(get_db),
+    ) -> TenantContext:
+        if not _tiene_permiso_tenant(db, tenant, funcion, accion):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permiso empresarial insuficiente",
+            )
+        return tenant
+    return _verificador
+
+
+def get_current_tenant_personal_con_permiso(funcion: str, accion: str):
+    """Personal de la empresa + permiso nominal (5BO).
+
+    No exige el NOMBRE de rol ADMINISTRADOR: la autoridad es la matriz RBAC
+    por empresa. Un CAJERO solo obtiene acceso si un administrador le concede
+    el permiso de forma explicita, y la matriz del administrador no es
+    editable (anti-escalada).
+    """
+    def _verificador(
+        tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+        db: Session = Depends(get_db),
+    ) -> TenantContext:
+        if tenant.contexto != "personal":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Se requiere personal de esta empresa",
+            )
+        if not _tiene_permiso_tenant(db, tenant, funcion, accion):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Permiso empresarial insuficiente",

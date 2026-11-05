@@ -4,6 +4,26 @@ Los métodos no aceptan empresa desde la petición: reciben empresa_id
 validado por FastAPI. Cada padre se verifica dentro del tenant y los
 UPDATE restringen también por empresa_id. Las FK compuestas de PostgreSQL
 siguen siendo la última defensa ante carreras concurrentes.
+
+Bloqueo de catálogos globales (E2/5BN)
+--------------------------------------
+`talla` y `color` son diccionarios globales y el principal restringido solo
+tiene SELECT sobre ellos. En PostgreSQL 18 **cualquier** cláusula de bloqueo de
+fila (`FOR UPDATE`, `FOR NO KEY UPDATE`, `FOR SHARE`, `FOR KEY SHARE`) exige
+privilegio UPDATE, comprobado empíricamente en el laboratorio: el intento con
+`FOR SHARE` también devuelve 42501. Por eso el bloqueo exclusivo que producía el
+HTTP 500 no se sustituye por otro bloqueo, sino por:
+
+* lectura normal (sin bloqueo) de la talla y el color — cero privilegios nuevos;
+* el invariante "la variante no puede referenciar una talla/color inactiva" se
+  refuerza en la base con el trigger `trg_5bn_validar_catalogos_globales`
+  (migración 5BN), que valida en el mismo INSERT/UPDATE y cubre a cualquier
+  escritor, no solo a este repositorio.
+
+Semántica de concurrencia declarada: ninguna ruta tenant desactiva `talla` ni
+`color` (solo el plano global/SQL). Si una desactivación de plataforma se
+confirma entre la lectura y el INSERT, la sentencia falla con 23514 (HTTP 409)
+en vez de crear una variante inválida, y la respuesta se mantiene neutra.
 """
 from datetime import datetime, timezone
 
@@ -23,13 +43,17 @@ class TenantCatalogoWriteRepository:
         return TenantCatalogoRepository._empresa_valida(empresa_id)
 
     @staticmethod
-    def _id_activo(db: Session, tabla, empresa_id: int | None, id_: int) -> bool:
+    def _id_activo(
+        db: Session, tabla, empresa_id: int | None, id_: int,
+        *, con_bloqueo: bool = True,
+    ) -> bool:
         criterios = [tabla.c.id == id_, tabla.c.estado.is_(True)]
         if empresa_id is not None:
             criterios.append(tabla.c.empresa_id == empresa_id)
-        return db.scalar(
-            select(tabla.c.id).where(*criterios).with_for_update()
-        ) is not None
+        consulta = select(tabla.c.id).where(*criterios)
+        if con_bloqueo:
+            consulta = consulta.with_for_update()
+        return db.scalar(consulta) is not None
 
     @classmethod
     def categoria_activa(cls, db: Session, *, empresa_id: int, categoria_id: int) -> bool:
@@ -45,9 +69,12 @@ class TenantCatalogoWriteRepository:
 
     @classmethod
     def catalogos_globales_activos(cls, db: Session, *, talla_id: int, color_id: int) -> bool:
+        # Diccionarios GLOBALES: el runtime solo tiene SELECT y PostgreSQL exige
+        # UPDATE para cualquier bloqueo de fila. Se lee sin bloquear; el
+        # invariante lo refuerza el trigger trg_5bn_validar_catalogos_globales.
         return (
-            cls._id_activo(db, Talla.__table__, None, talla_id)
-            and cls._id_activo(db, Color.__table__, None, color_id)
+            cls._id_activo(db, Talla.__table__, None, talla_id, con_bloqueo=False)
+            and cls._id_activo(db, Color.__table__, None, color_id, con_bloqueo=False)
         )
 
     @classmethod

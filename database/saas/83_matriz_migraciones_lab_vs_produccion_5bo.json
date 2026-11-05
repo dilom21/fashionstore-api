@@ -1,0 +1,110 @@
+{
+  "etapa": "5BO / Etapa F",
+  "fecha_utc": "2026-10-31",
+  "advertencia": "Lista INFORMATIVA. No es un plan de despliegue automatico y PROHIBE ejecutar seeds de laboratorio en produccion. Requiere revision y aprobacion manual en 5BP.",
+  "migraciones_portables_orden_estricto": [
+    {
+      "archivo": "20261030000100_saas_core_portable.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Nucleo SaaS (empresa, plan_saas, suscripcion, usuario_empresa, empresa_configuracion)"
+    },
+    {
+      "archivo": "20261030000200_saas_empresa_id_portable.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "empresa_id en 31 tablas + 48 FK + 28 UNIQUE"
+    },
+    {
+      "archivo": "20261030000300_saas_integridad_tenant_portable.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Integridad compuesta por tenant"
+    },
+    {
+      "archivo": "20261030000400_saas_rls_principal_restringido_portable.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Asercion HMAC, saas.tenant_actual(), FORCE RLS, principal restringido"
+    },
+    {
+      "archivo": "20261030000500_saas_compatibilidad_5bl.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Compatibilidad con triggers/rutinas historicas + bitacora tenant"
+    },
+    {
+      "archivo": "20261030000600_saas_operativo_5bm.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Plano global saas_admin, reservas tenant, venta de contado"
+    },
+    {
+      "archivo": "20261030000700_saas_compras_devoluciones_5bn.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Compras/recepciones, devoluciones, reembolso declarado"
+    },
+    {
+      "archivo": "20261030000800_saas_personal_rbac_5bo.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Alta de personal con invitacion, RBAC nominal por tenant, excepcion auditada del trigger de bitacora"
+    },
+    {
+      "archivo": "20261030000900_saas_superadmin_hardening_5bo.sql",
+      "destino": "PRODUCCION_PERMITIDO_CON_REVISION",
+      "contenido": "Rate limit compartido y auditoria global del plano superadmin"
+    }
+  ],
+  "prohibido_en_produccion": [
+    {
+      "archivo": "20261023000400_cuatro_tenants_demo_local.sql",
+      "motivo": "Crea cuatro tenants ficticios con datos de demostracion"
+    },
+    {
+      "archivo": "20261023000100_saas_base_tables.sql",
+      "motivo": "Version local previa del nucleo; la secuencia portable es 20261030*"
+    },
+    {
+      "archivo": "20261023000200_vanter_tenancy_historica.sql",
+      "motivo": "Tenancy historica de laboratorio"
+    },
+    {
+      "archivo": "20261023000300_integridad_tenant_local.sql",
+      "motivo": "Integridad local previa"
+    },
+    {
+      "archivo": "database/saas/75_esquema_historico_reconstruido_5bl.sql",
+      "motivo": "Reconstruccion parcial (14/27 triggers) para laboratorio"
+    },
+    {
+      "archivo": "database/saas/74_laboratorio_rls_principal_5bk.py",
+      "motivo": "Aprovisiona laboratorio desechable"
+    },
+    {
+      "archivo": "database/saas/76_laboratorio_operativo_5bm.py",
+      "motivo": "Aprovisiona laboratorio desechable E1"
+    },
+    {
+      "archivo": "database/saas/77_laboratorio_operativo_5bn.py",
+      "motivo": "Aprovisiona laboratorio desechable E2"
+    },
+    {
+      "archivo": "database/saas/78_laboratorio_operativo_5bo.py",
+      "motivo": "Aprovisiona laboratorio desechable etapa F"
+    },
+    {
+      "archivo": "database/saas/79_evidencias_5bo.py",
+      "motivo": "Solo lectura de evidencias; no es migracion"
+    }
+  ],
+  "riesgo_herramienta_supabase": {
+    "estado": "BLOQUEADO",
+    "detalle": "`supabase db push` no permite excluir de forma verificable las migraciones demo de 20261023*. Mientras no exista una separacion garantizada, NO usar db push contra produccion.",
+    "estrategia_recomendada": [
+      "Mantener las migraciones demo fuera de la carpeta que consume el despliegue (o en un directorio lab/ excluido).",
+      "Aplicar la secuencia portable con un runner controlado y registro de version aplicada.",
+      "Verificar post-migracion con database/saas/72_verificacion_post_migracion_saas_solo_lectura.sql."
+    ]
+  },
+  "requisitos_previos_obligatorios": [
+    "Esquema historico completo obtenido con autorizacion (80/81) y comparado con 5BL",
+    "Backup completo y restauracion probada en destino aislado",
+    "Revision de propietarios/ACL/search_path en PostgreSQL 17",
+    "Secretos aprovisionados fuera del repositorio",
+    "Simulacro de rollback documentado"
+  ]
+}

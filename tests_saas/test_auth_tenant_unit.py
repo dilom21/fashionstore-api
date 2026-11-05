@@ -103,10 +103,34 @@ def test_token_empresa_no_reutilizable_en_dependencias_legacy(monkeypatch):
     assert exc.value.status_code == 401
 
 
-def test_modo_saas_bloquea_autorizacion_legacy(monkeypatch):
+def test_modo_saas_ya_no_bloquea_la_autorizacion_legacy(monkeypatch):
+    """5C1: la superficie legacy deja de depender de SAAS_AUTH_ENABLED.
+
+    La proteccion contra escalada se mantiene por otra via: un token con scope
+    tenant nunca se acepta en una ruta heredada (ver la prueba siguiente). En
+    coexistencia, el arranque exige ademas un destino de datos separado.
+    """
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    user = SimpleNamespace(id=42, estado=True)
+    monkeypatch.setattr(AuthService, "obtener_usuario_activo", lambda db, uid: user)
+    assert get_current_user(credentials=credenciales(token_legacy()), db=FakeDB()) is user
+
+
+def test_token_tenant_no_autoriza_una_ruta_legacy(monkeypatch):
+    monkeypatch.setattr(settings, "saas_auth_enabled", False)
+    token = jwt.encode(
+        {
+            "scope": "tenant",
+            "sub": "42",
+            "empresa_id": 15,
+            "contexto": "personal",
+            "exp": 9999999999,
+        },
+        settings.secret_key,
+        algorithm=settings.jwt_algorithm,
+    )
     with pytest.raises(HTTPException) as exc:
-        get_current_user(credentials=credenciales(token_legacy()), db=FakeDB())
+        get_current_user(credentials=credenciales(token), db=FakeDB())
     assert exc.value.status_code == 401
 
 
