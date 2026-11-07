@@ -143,10 +143,34 @@ def test_contexto_empresarial_efectivo_tomado_de_bd(monkeypatch):
         lambda db, **kw: membresia_demo(),
     )
     db = FakeDB()
-    tenant = get_current_tenant_context(credentials=credenciales(token_empresa()), db=db)
+    token = token_empresa()
+    tenant = get_current_tenant_context(credentials=credenciales(token), db=db)
     assert tenant.empresa_id == 15 and tenant.rol_nombre == "CAJERO"
     assert db.info["empresa_id"] == 15
+    # 5CA: el token se publica como primer statement, antes de la membresía.
+    assert "app.actor_token" in db.statements[0][0]
+    assert db.statements[0][1]["token"] == token
     assert db.statements[-1][1]["empresa_id"] == "15"
+
+
+def test_membresia_con_sqlstate_42501_es_403_y_no_503(monkeypatch):
+    """5CA: sin membresía, actor_claims() aborta con 42501 y eso es 403."""
+    from sqlalchemy.exc import SQLAlchemyError
+
+    class _Original(Exception):
+        sqlstate = "42501"
+
+    def falla(db, **kwargs):
+        error = SQLAlchemyError("permission denied ficticio")
+        error.orig = _Original()
+        raise error
+
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(TenantAuthRepository, "obtener_membresia_vigente", falla)
+    with pytest.raises(HTTPException) as exc:
+        get_current_tenant_context(credentials=credenciales(token_empresa()), db=FakeDB())
+    assert exc.value.status_code == 403
+    assert "permission denied" not in str(exc.value.detail)
 
 
 def test_membresia_revocada_impide_operacion(monkeypatch):

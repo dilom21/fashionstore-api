@@ -10,6 +10,7 @@ from datetime import datetime, timezone
 from sqlalchemy import insert, select, update
 from sqlalchemy.orm import Session
 
+from app.core.bitacora_trigger import bitacora_categoria_por_trigger
 from app.modules.autenticacion_seguridad.models.models import Bitacora
 from app.modules.catalogo.models.models import (
     Categoria, Color, Producto, Talla, VarianteProducto,
@@ -57,6 +58,15 @@ class TenantCatalogoWriteRepository:
     ) -> None:
         # El primer parcial no tiene trigger para categoria.
         # Se registra en la MISMA transacción que el INSERT/UPDATE comercial.
+        # 5CA: con RLS+ACL activos (050a-c) fashionstore_api NO tiene INSERT
+        # sobre bitacora; la auditoría la escribe fn_registrar_bitacora() con un
+        # owner NOLOGIN. El flag es explícito y apagado por defecto: mientras la
+        # migración no esté aplicada se conserva el insert de este método.
+        # 5CB: 040 instala trg_bitacora_categoria. Con el trigger presente el
+        # evento ya lo escribe PostgreSQL, así que insertarlo aquí lo duplicaría
+        # (y con 050c fallaría por ACL); la sonda decide en tiempo de ejecución.
+        if bitacora_categoria_por_trigger(db):
+            return
         db.execute(insert(Bitacora.__table__).values(
             empresa_id=empresa_id,
             usuario_id=usuario_id,

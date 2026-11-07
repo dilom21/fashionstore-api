@@ -1,0 +1,1075 @@
+[
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX accion_pkey ON public.accion USING btree (id)",
+        "index_name": "accion_pkey",
+        "is_primary": true,
+        "table_name": "accion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_accion_nombre ON public.accion USING btree (nombre)",
+        "index_name": "uq_accion_nombre",
+        "is_primary": false,
+        "table_name": "accion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX bitacora_pkey ON public.bitacora USING btree (id)",
+        "index_name": "bitacora_pkey",
+        "is_primary": true,
+        "table_name": "bitacora"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_bitacora_entidad_fecha ON public.bitacora USING btree (entidad_afectada, fecha_hora DESC)",
+        "index_name": "idx_bitacora_entidad_fecha",
+        "is_primary": false,
+        "table_name": "bitacora"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_bitacora_usuario_fecha ON public.bitacora USING btree (usuario_id, fecha_hora DESC)",
+        "index_name": "idx_bitacora_usuario_fecha",
+        "is_primary": false,
+        "table_name": "bitacora"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX carrito_pkey ON public.carrito USING btree (id)",
+        "index_name": "carrito_pkey",
+        "is_primary": true,
+        "table_name": "carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_carrito_cliente_fecha ON public.carrito USING btree (cliente_id, fecha_creacion DESC)",
+        "index_name": "idx_carrito_cliente_fecha",
+        "is_primary": false,
+        "table_name": "carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_carrito_sucursal ON public.carrito USING btree (sucursal_id)",
+        "index_name": "idx_carrito_sucursal",
+        "is_primary": false,
+        "table_name": "carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX ix_carrito_cliente_estado_actualizacion ON public.carrito USING btree (cliente_id, estado, fecha_actualizacion DESC)",
+        "index_name": "ix_carrito_cliente_estado_actualizacion",
+        "is_primary": false,
+        "table_name": "carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_carrito_activo_cliente_sucursal ON public.carrito USING btree (cliente_id, sucursal_id) WHERE ((estado)::text = 'ACTIVO'::text)",
+        "index_name": "uq_carrito_activo_cliente_sucursal",
+        "is_primary": false,
+        "table_name": "carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX categoria_pkey ON public.categoria USING btree (id)",
+        "index_name": "categoria_pkey",
+        "is_primary": true,
+        "table_name": "categoria"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_categoria_nombre ON public.categoria USING btree (nombre)",
+        "index_name": "uq_categoria_nombre",
+        "is_primary": false,
+        "table_name": "categoria"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX ciudad_pkey ON public.ciudad USING btree (id)",
+        "index_name": "ciudad_pkey",
+        "is_primary": true,
+        "table_name": "ciudad"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_ciudad_nombre ON public.ciudad USING btree (nombre)",
+        "index_name": "uq_ciudad_nombre",
+        "is_primary": false,
+        "table_name": "ciudad"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX cliente_pkey ON public.cliente USING btree (id)",
+        "index_name": "cliente_pkey",
+        "is_primary": true,
+        "table_name": "cliente"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_cliente_ci ON public.cliente USING btree (ci)",
+        "index_name": "uq_cliente_ci",
+        "is_primary": false,
+        "table_name": "cliente"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_cliente_usuario ON public.cliente USING btree (usuario_id)",
+        "index_name": "uq_cliente_usuario",
+        "is_primary": false,
+        "table_name": "cliente"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX coleccion_pkey ON public.coleccion USING btree (id)",
+        "index_name": "coleccion_pkey",
+        "is_primary": true,
+        "table_name": "coleccion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_coleccion_temporada_nombre ON public.coleccion USING btree (temporada_id, nombre)",
+        "index_name": "uq_coleccion_temporada_nombre",
+        "is_primary": false,
+        "table_name": "coleccion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX color_pkey ON public.color USING btree (id)",
+        "index_name": "color_pkey",
+        "is_primary": true,
+        "table_name": "color"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_color_nombre ON public.color USING btree (nombre)",
+        "index_name": "uq_color_nombre",
+        "is_primary": false,
+        "table_name": "color"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX configuracion_vestidor_ar_pkey ON public.configuracion_vestidor_ar USING btree (id)",
+        "index_name": "configuracion_vestidor_ar_pkey",
+        "is_primary": true,
+        "table_name": "configuracion_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_configuracion_vestidor_ar_recurso ON public.configuracion_vestidor_ar USING btree (recurso_producto_id)",
+        "index_name": "uq_configuracion_vestidor_ar_recurso",
+        "is_primary": false,
+        "table_name": "configuracion_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX detalle_carrito_pkey ON public.detalle_carrito USING btree (id)",
+        "index_name": "detalle_carrito_pkey",
+        "is_primary": true,
+        "table_name": "detalle_carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_detalle_carrito_inventario ON public.detalle_carrito USING btree (carrito_id, inventario_id)",
+        "index_name": "uq_detalle_carrito_inventario",
+        "is_primary": false,
+        "table_name": "detalle_carrito"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX detalle_devolucion_pkey ON public.detalle_devolucion USING btree (id)",
+        "index_name": "detalle_devolucion_pkey",
+        "is_primary": true,
+        "table_name": "detalle_devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_detalle_devolucion_detalle_venta ON public.detalle_devolucion USING btree (detalle_venta_id)",
+        "index_name": "idx_detalle_devolucion_detalle_venta",
+        "is_primary": false,
+        "table_name": "detalle_devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_detalle_devolucion ON public.detalle_devolucion USING btree (devolucion_id, detalle_venta_id)",
+        "index_name": "uq_detalle_devolucion",
+        "is_primary": false,
+        "table_name": "detalle_devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX detalle_orden_compra_pkey ON public.detalle_orden_compra USING btree (id)",
+        "index_name": "detalle_orden_compra_pkey",
+        "is_primary": true,
+        "table_name": "detalle_orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_detalle_orden_compra_temporada ON public.detalle_orden_compra USING btree (temporada_id)",
+        "index_name": "idx_detalle_orden_compra_temporada",
+        "is_primary": false,
+        "table_name": "detalle_orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_detalle_orden_compra_variante ON public.detalle_orden_compra USING btree (variante_producto_id, temporada_id)",
+        "index_name": "idx_detalle_orden_compra_variante",
+        "is_primary": false,
+        "table_name": "detalle_orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_detalle_orden_compra ON public.detalle_orden_compra USING btree (orden_compra_id, variante_producto_id, temporada_id)",
+        "index_name": "uq_detalle_orden_compra",
+        "is_primary": false,
+        "table_name": "detalle_orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX detalle_reserva_pkey ON public.detalle_reserva USING btree (id)",
+        "index_name": "detalle_reserva_pkey",
+        "is_primary": true,
+        "table_name": "detalle_reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_detalle_reserva_inventario ON public.detalle_reserva USING btree (inventario_id)",
+        "index_name": "idx_detalle_reserva_inventario",
+        "is_primary": false,
+        "table_name": "detalle_reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_detalle_reserva ON public.detalle_reserva USING btree (reserva_id, inventario_id)",
+        "index_name": "uq_detalle_reserva",
+        "is_primary": false,
+        "table_name": "detalle_reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX detalle_venta_pkey ON public.detalle_venta USING btree (id)",
+        "index_name": "detalle_venta_pkey",
+        "is_primary": true,
+        "table_name": "detalle_venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_detalle_venta_inventario ON public.detalle_venta USING btree (inventario_id)",
+        "index_name": "idx_detalle_venta_inventario",
+        "is_primary": false,
+        "table_name": "detalle_venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_detalle_venta ON public.detalle_venta USING btree (venta_id, inventario_id)",
+        "index_name": "uq_detalle_venta",
+        "is_primary": false,
+        "table_name": "detalle_venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX devolucion_pkey ON public.devolucion USING btree (id)",
+        "index_name": "devolucion_pkey",
+        "is_primary": true,
+        "table_name": "devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_devolucion_pendientes ON public.devolucion USING btree (fecha_hora DESC) WHERE ((estado)::text = ANY ((ARRAY['SOLICITADA'::character varying, 'APROBADA'::character varying])::text[]))",
+        "index_name": "idx_devolucion_pendientes",
+        "is_primary": false,
+        "table_name": "devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_devolucion_venta_fecha ON public.devolucion USING btree (venta_id, fecha_hora DESC)",
+        "index_name": "idx_devolucion_venta_fecha",
+        "is_primary": false,
+        "table_name": "devolucion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX empleado_pkey ON public.empleado USING btree (id)",
+        "index_name": "empleado_pkey",
+        "is_primary": true,
+        "table_name": "empleado"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_empleado_sucursal ON public.empleado USING btree (sucursal_id)",
+        "index_name": "idx_empleado_sucursal",
+        "is_primary": false,
+        "table_name": "empleado"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_empleado_ci ON public.empleado USING btree (ci)",
+        "index_name": "uq_empleado_ci",
+        "is_primary": false,
+        "table_name": "empleado"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_empleado_usuario ON public.empleado USING btree (usuario_id)",
+        "index_name": "uq_empleado_usuario",
+        "is_primary": false,
+        "table_name": "empleado"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX funcion_pkey ON public.funcion USING btree (id)",
+        "index_name": "funcion_pkey",
+        "is_primary": true,
+        "table_name": "funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_funcion_modulo ON public.funcion USING btree (modulo_id)",
+        "index_name": "idx_funcion_modulo",
+        "is_primary": false,
+        "table_name": "funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_funcion_modulo_nombre ON public.funcion USING btree (modulo_id, nombre)",
+        "index_name": "uq_funcion_modulo_nombre",
+        "is_primary": false,
+        "table_name": "funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_inventario_stock_positivo ON public.inventario USING btree (sucursal_id, variante_producto_id) WHERE (stock_actual > stock_reservado)",
+        "index_name": "idx_inventario_stock_positivo",
+        "is_primary": false,
+        "table_name": "inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_inventario_temporada ON public.inventario USING btree (temporada_id, sucursal_id)",
+        "index_name": "idx_inventario_temporada",
+        "is_primary": false,
+        "table_name": "inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_inventario_variante_sucursal ON public.inventario USING btree (variante_producto_id, sucursal_id, temporada_id)",
+        "index_name": "idx_inventario_variante_sucursal",
+        "is_primary": false,
+        "table_name": "inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX inventario_pkey ON public.inventario USING btree (id)",
+        "index_name": "inventario_pkey",
+        "is_primary": true,
+        "table_name": "inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_inventario ON public.inventario USING btree (sucursal_id, variante_producto_id, temporada_id)",
+        "index_name": "uq_inventario",
+        "is_primary": false,
+        "table_name": "inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX modulo_pkey ON public.modulo USING btree (id)",
+        "index_name": "modulo_pkey",
+        "is_primary": true,
+        "table_name": "modulo"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_modulo_nombre ON public.modulo USING btree (nombre)",
+        "index_name": "uq_modulo_nombre",
+        "is_primary": false,
+        "table_name": "modulo"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_movimiento_inventario_fecha ON public.movimiento_inventario USING btree (inventario_id, fecha_hora DESC)",
+        "index_name": "idx_movimiento_inventario_fecha",
+        "is_primary": false,
+        "table_name": "movimiento_inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_movimiento_referencia ON public.movimiento_inventario USING btree (referencia_tipo, referencia_id)",
+        "index_name": "idx_movimiento_referencia",
+        "is_primary": false,
+        "table_name": "movimiento_inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_movimiento_tipo_fecha ON public.movimiento_inventario USING btree (tipo, fecha_hora DESC)",
+        "index_name": "idx_movimiento_tipo_fecha",
+        "is_primary": false,
+        "table_name": "movimiento_inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_movimiento_usuario_fecha ON public.movimiento_inventario USING btree (usuario_id, fecha_hora DESC)",
+        "index_name": "idx_movimiento_usuario_fecha",
+        "is_primary": false,
+        "table_name": "movimiento_inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX movimiento_inventario_pkey ON public.movimiento_inventario USING btree (id)",
+        "index_name": "movimiento_inventario_pkey",
+        "is_primary": true,
+        "table_name": "movimiento_inventario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_orden_compra_empleado ON public.orden_compra USING btree (empleado_id)",
+        "index_name": "idx_orden_compra_empleado",
+        "is_primary": false,
+        "table_name": "orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_orden_compra_estado ON public.orden_compra USING btree (estado, fecha_orden DESC) WHERE ((estado)::text = ANY ((ARRAY['BORRADOR'::character varying, 'ENVIADA'::character varying, 'PARCIAL'::character varying])::text[]))",
+        "index_name": "idx_orden_compra_estado",
+        "is_primary": false,
+        "table_name": "orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_orden_compra_proveedor_fecha ON public.orden_compra USING btree (proveedor_id, fecha_orden DESC)",
+        "index_name": "idx_orden_compra_proveedor_fecha",
+        "is_primary": false,
+        "table_name": "orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_orden_compra_sucursal_fecha ON public.orden_compra USING btree (sucursal_id, fecha_orden DESC)",
+        "index_name": "idx_orden_compra_sucursal_fecha",
+        "is_primary": false,
+        "table_name": "orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX orden_compra_pkey ON public.orden_compra USING btree (id)",
+        "index_name": "orden_compra_pkey",
+        "is_primary": true,
+        "table_name": "orden_compra"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_pago_estado_fecha ON public.pago USING btree (estado, fecha_hora DESC)",
+        "index_name": "idx_pago_estado_fecha",
+        "is_primary": false,
+        "table_name": "pago"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_pago_metodo_fecha ON public.pago USING btree (metodo, fecha_hora DESC)",
+        "index_name": "idx_pago_metodo_fecha",
+        "is_primary": false,
+        "table_name": "pago"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX pago_pkey ON public.pago USING btree (id)",
+        "index_name": "pago_pkey",
+        "is_primary": true,
+        "table_name": "pago"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_pago_referencia ON public.pago USING btree (referencia_transaccion)",
+        "index_name": "uq_pago_referencia",
+        "is_primary": false,
+        "table_name": "pago"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_producto_categoria ON public.producto USING btree (categoria_id)",
+        "index_name": "idx_producto_categoria",
+        "is_primary": false,
+        "table_name": "producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_producto_categoria_activo ON public.producto USING btree (categoria_id, nombre) WHERE (estado = true)",
+        "index_name": "idx_producto_categoria_activo",
+        "is_primary": false,
+        "table_name": "producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_producto_nombre_lower ON public.producto USING btree (lower((nombre)::text))",
+        "index_name": "idx_producto_nombre_lower",
+        "is_primary": false,
+        "table_name": "producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX producto_pkey ON public.producto USING btree (id)",
+        "index_name": "producto_pkey",
+        "is_primary": true,
+        "table_name": "producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_producto_coleccion_coleccion ON public.producto_coleccion USING btree (coleccion_id)",
+        "index_name": "idx_producto_coleccion_coleccion",
+        "is_primary": false,
+        "table_name": "producto_coleccion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX pk_producto_coleccion ON public.producto_coleccion USING btree (producto_id, coleccion_id)",
+        "index_name": "pk_producto_coleccion",
+        "is_primary": true,
+        "table_name": "producto_coleccion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_promocion_fechas_activas ON public.promocion USING btree (fecha_inicio, fecha_fin) WHERE (estado = true)",
+        "index_name": "idx_promocion_fechas_activas",
+        "is_primary": false,
+        "table_name": "promocion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX promocion_pkey ON public.promocion USING btree (id)",
+        "index_name": "promocion_pkey",
+        "is_primary": true,
+        "table_name": "promocion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_promocion_producto_producto ON public.promocion_producto USING btree (producto_id)",
+        "index_name": "idx_promocion_producto_producto",
+        "is_primary": false,
+        "table_name": "promocion_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX pk_promocion_producto ON public.promocion_producto USING btree (promocion_id, producto_id)",
+        "index_name": "pk_promocion_producto",
+        "is_primary": true,
+        "table_name": "promocion_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX proveedor_pkey ON public.proveedor USING btree (id)",
+        "index_name": "proveedor_pkey",
+        "is_primary": true,
+        "table_name": "proveedor"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_proveedor_nit ON public.proveedor USING btree (nit)",
+        "index_name": "uq_proveedor_nit",
+        "is_primary": false,
+        "table_name": "proveedor"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_proveedor_producto_producto ON public.proveedor_producto USING btree (producto_id) WHERE (estado = true)",
+        "index_name": "idx_proveedor_producto_producto",
+        "is_primary": false,
+        "table_name": "proveedor_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX pk_proveedor_producto ON public.proveedor_producto USING btree (proveedor_id, producto_id)",
+        "index_name": "pk_proveedor_producto",
+        "is_primary": true,
+        "table_name": "proveedor_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_prueba_vestidor_ar_configuracion_fecha ON public.prueba_vestidor_ar USING btree (configuracion_vestidor_ar_id, fecha_inicio DESC)",
+        "index_name": "idx_prueba_vestidor_ar_configuracion_fecha",
+        "is_primary": false,
+        "table_name": "prueba_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_prueba_vestidor_ar_sesion_fecha ON public.prueba_vestidor_ar USING btree (sesion_vestidor_ar_id, fecha_inicio DESC)",
+        "index_name": "idx_prueba_vestidor_ar_sesion_fecha",
+        "is_primary": false,
+        "table_name": "prueba_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_prueba_vestidor_ar_variante ON public.prueba_vestidor_ar USING btree (variante_producto_id) WHERE (variante_producto_id IS NOT NULL)",
+        "index_name": "idx_prueba_vestidor_ar_variante",
+        "is_primary": false,
+        "table_name": "prueba_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX prueba_vestidor_ar_pkey ON public.prueba_vestidor_ar USING btree (id)",
+        "index_name": "prueba_vestidor_ar_pkey",
+        "is_primary": true,
+        "table_name": "prueba_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_recurso_producto_color ON public.recurso_producto USING btree (color_id)",
+        "index_name": "idx_recurso_producto_color",
+        "is_primary": false,
+        "table_name": "recurso_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_recurso_producto_producto ON public.recurso_producto USING btree (producto_id)",
+        "index_name": "idx_recurso_producto_producto",
+        "is_primary": false,
+        "table_name": "recurso_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_recurso_producto_producto_color ON public.recurso_producto USING btree (producto_id, color_id)",
+        "index_name": "idx_recurso_producto_producto_color",
+        "is_primary": false,
+        "table_name": "recurso_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX recurso_producto_pkey ON public.recurso_producto USING btree (id)",
+        "index_name": "recurso_producto_pkey",
+        "is_primary": true,
+        "table_name": "recurso_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_recurso_producto_principal ON public.recurso_producto USING btree (producto_id, COALESCE(color_id, (0)::bigint)) WHERE ((es_principal = true) AND (estado = true))",
+        "index_name": "uq_recurso_producto_principal",
+        "is_primary": false,
+        "table_name": "recurso_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_reserva_cliente_fecha ON public.reserva USING btree (cliente_id, fecha_reserva DESC)",
+        "index_name": "idx_reserva_cliente_fecha",
+        "is_primary": false,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_reserva_estado_fecha ON public.reserva USING btree (estado, fecha_atencion)",
+        "index_name": "idx_reserva_estado_fecha",
+        "is_primary": false,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_reserva_pendiente_sucursal ON public.reserva USING btree (sucursal_id, fecha_atencion) WHERE ((estado)::text = ANY ((ARRAY['PENDIENTE'::character varying, 'CONFIRMADA'::character varying])::text[]))",
+        "index_name": "idx_reserva_pendiente_sucursal",
+        "is_primary": false,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_reserva_sucursal_atencion ON public.reserva USING btree (sucursal_id, fecha_atencion)",
+        "index_name": "idx_reserva_sucursal_atencion",
+        "is_primary": false,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX reserva_pkey ON public.reserva USING btree (id)",
+        "index_name": "reserva_pkey",
+        "is_primary": true,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_reserva_carrito ON public.reserva USING btree (carrito_id)",
+        "index_name": "uq_reserva_carrito",
+        "is_primary": false,
+        "table_name": "reserva"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX rol_pkey ON public.rol USING btree (id)",
+        "index_name": "rol_pkey",
+        "is_primary": true,
+        "table_name": "rol"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_rol_nombre ON public.rol USING btree (nombre)",
+        "index_name": "uq_rol_nombre",
+        "is_primary": false,
+        "table_name": "rol"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_rol_funcion_accion ON public.rol_funcion USING btree (accion_id)",
+        "index_name": "idx_rol_funcion_accion",
+        "is_primary": false,
+        "table_name": "rol_funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_rol_funcion_funcion ON public.rol_funcion USING btree (funcion_id)",
+        "index_name": "idx_rol_funcion_funcion",
+        "is_primary": false,
+        "table_name": "rol_funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX pk_rol_funcion ON public.rol_funcion USING btree (rol_id, funcion_id, accion_id)",
+        "index_name": "pk_rol_funcion",
+        "is_primary": true,
+        "table_name": "rol_funcion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_sesion_vestidor_ar_activa ON public.sesion_vestidor_ar USING btree (cliente_id) WHERE ((estado)::text = 'ACTIVA'::text)",
+        "index_name": "idx_sesion_vestidor_ar_activa",
+        "is_primary": false,
+        "table_name": "sesion_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_sesion_vestidor_ar_cliente_fecha ON public.sesion_vestidor_ar USING btree (cliente_id, fecha_inicio DESC)",
+        "index_name": "idx_sesion_vestidor_ar_cliente_fecha",
+        "is_primary": false,
+        "table_name": "sesion_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX sesion_vestidor_ar_pkey ON public.sesion_vestidor_ar USING btree (id)",
+        "index_name": "sesion_vestidor_ar_pkey",
+        "is_primary": true,
+        "table_name": "sesion_vestidor_ar"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX sucursal_pkey ON public.sucursal USING btree (id)",
+        "index_name": "sucursal_pkey",
+        "is_primary": true,
+        "table_name": "sucursal"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_sucursal_ciudad_nombre ON public.sucursal USING btree (ciudad_id, nombre)",
+        "index_name": "uq_sucursal_ciudad_nombre",
+        "is_primary": false,
+        "table_name": "sucursal"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX talla_pkey ON public.talla USING btree (id)",
+        "index_name": "talla_pkey",
+        "is_primary": true,
+        "table_name": "talla"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_talla_nombre ON public.talla USING btree (nombre)",
+        "index_name": "uq_talla_nombre",
+        "is_primary": false,
+        "table_name": "talla"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_temporada_fechas ON public.temporada USING btree (fecha_inicio, fecha_fin) WHERE (estado = true)",
+        "index_name": "idx_temporada_fechas",
+        "is_primary": false,
+        "table_name": "temporada"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX temporada_pkey ON public.temporada USING btree (id)",
+        "index_name": "temporada_pkey",
+        "is_primary": true,
+        "table_name": "temporada"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_temporada_nombre ON public.temporada USING btree (nombre)",
+        "index_name": "uq_temporada_nombre",
+        "is_primary": false,
+        "table_name": "temporada"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_token_recuperacion_usuario_activo ON public.token_recuperacion USING btree (usuario_id, fecha_expiracion) WHERE (usado = false)",
+        "index_name": "idx_token_recuperacion_usuario_activo",
+        "is_primary": false,
+        "table_name": "token_recuperacion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX token_recuperacion_pkey ON public.token_recuperacion USING btree (id)",
+        "index_name": "token_recuperacion_pkey",
+        "is_primary": true,
+        "table_name": "token_recuperacion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_token_recuperacion_token ON public.token_recuperacion USING btree (token)",
+        "index_name": "uq_token_recuperacion_token",
+        "is_primary": false,
+        "table_name": "token_recuperacion"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_usuario_rol ON public.usuario USING btree (rol_id)",
+        "index_name": "idx_usuario_rol",
+        "is_primary": false,
+        "table_name": "usuario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_usuario_correo ON public.usuario USING btree (correo)",
+        "index_name": "uq_usuario_correo",
+        "is_primary": false,
+        "table_name": "usuario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_usuario_correo_lower ON public.usuario USING btree (lower((correo)::text))",
+        "index_name": "uq_usuario_correo_lower",
+        "is_primary": false,
+        "table_name": "usuario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX usuario_pkey ON public.usuario USING btree (id)",
+        "index_name": "usuario_pkey",
+        "is_primary": true,
+        "table_name": "usuario"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_variante_producto_color ON public.variante_producto USING btree (color_id)",
+        "index_name": "idx_variante_producto_color",
+        "is_primary": false,
+        "table_name": "variante_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_variante_producto_talla ON public.variante_producto USING btree (talla_id)",
+        "index_name": "idx_variante_producto_talla",
+        "is_primary": false,
+        "table_name": "variante_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_variante_producto ON public.variante_producto USING btree (producto_id, talla_id, color_id)",
+        "index_name": "uq_variante_producto",
+        "is_primary": false,
+        "table_name": "variante_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_variante_producto_sku ON public.variante_producto USING btree (sku)",
+        "index_name": "uq_variante_producto_sku",
+        "is_primary": false,
+        "table_name": "variante_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX variante_producto_pkey ON public.variante_producto USING btree (id)",
+        "index_name": "variante_producto_pkey",
+        "is_primary": true,
+        "table_name": "variante_producto"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_canal_fecha ON public.venta USING btree (canal, fecha_hora DESC)",
+        "index_name": "idx_venta_canal_fecha",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_cliente_fecha ON public.venta USING btree (cliente_id, fecha_hora DESC)",
+        "index_name": "idx_venta_cliente_fecha",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_empleado_fecha ON public.venta USING btree (empleado_id, fecha_hora DESC)",
+        "index_name": "idx_venta_empleado_fecha",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_estado_fecha ON public.venta USING btree (estado, fecha_hora DESC)",
+        "index_name": "idx_venta_estado_fecha",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_pendiente ON public.venta USING btree (fecha_hora DESC) WHERE ((estado)::text = 'PENDIENTE'::text)",
+        "index_name": "idx_venta_pendiente",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": false,
+        "definition": "CREATE INDEX idx_venta_sucursal_fecha ON public.venta USING btree (sucursal_id, fecha_hora DESC)",
+        "index_name": "idx_venta_sucursal_fecha",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_venta_carrito ON public.venta USING btree (carrito_id)",
+        "index_name": "uq_venta_carrito",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX uq_venta_reserva ON public.venta USING btree (reserva_id)",
+        "index_name": "uq_venta_reserva",
+        "is_primary": false,
+        "table_name": "venta"
+    },
+    {
+        "is_valid": true,
+        "is_unique": true,
+        "definition": "CREATE UNIQUE INDEX venta_pkey ON public.venta USING btree (id)",
+        "index_name": "venta_pkey",
+        "is_primary": true,
+        "table_name": "venta"
+    }
+]
+

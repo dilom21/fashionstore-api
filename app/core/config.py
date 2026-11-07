@@ -9,6 +9,12 @@ class Settings(BaseSettings):
     app_debug: bool = True
 
     database_url: str
+    # 5CA: pools separados por función (api / bootstrap / platform_admin).
+    # Si no se configuran, se reutiliza `database_url` para no romper entornos
+    # donde la migración 050a-c todavía no está aplicada. Las credenciales
+    # siempre llegan por entorno; nunca se escriben aquí ni en SQL.
+    database_bootstrap_url: str | None = None
+    database_platform_url: str | None = None
 
     secret_key: str
     jwt_algorithm: str = "HS256"
@@ -23,6 +29,11 @@ class Settings(BaseSettings):
     saas_superadmin_key_sha256: str | None = None
     # CU16: habilitar solo tras validar SP definitivo, principal SQL y RLS.
     saas_reservas_enabled: bool = False
+    # 5CA: con RLS+ACL aplicados (050a-c) la auditoría la escribe el trigger
+    # fn_registrar_bitacora() con owner NOLOGIN y fashionstore_api NO tiene
+    # INSERT sobre bitacora. Activar sólo cuando la migración esté aplicada:
+    # apagado (defecto) se conserva el insert explícito del modo previo.
+    saas_bitacora_por_trigger: bool = False
     # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueño
     # NOLOGIN dedicado; sin valor, la escritura SaaS falla cerrada.
     saas_actor_sql_owner: str | None = None

@@ -1,0 +1,12 @@
+[
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "vw_inventario_stock",
+        "owner": "postgres",
+        "definition": " SELECT i.id AS inventario_id,\n    i.sucursal_id,\n    s.nombre AS sucursal,\n    i.variante_producto_id,\n    vp.sku,\n    p.id AS producto_id,\n    p.nombre AS producto,\n    t.id AS talla_id,\n    t.nombre AS talla,\n    c.id AS color_id,\n    c.nombre AS color,\n    i.temporada_id,\n    te.nombre AS temporada,\n    i.stock_actual,\n    i.stock_reservado,\n    i.stock_actual - i.stock_reservado AS stock_disponible,\n    i.fecha_actualizacion\n   FROM inventario i\n     JOIN sucursal s ON s.id = i.sucursal_id\n     JOIN variante_producto vp ON vp.id = i.variante_producto_id\n     JOIN producto p ON p.id = vp.producto_id\n     JOIN talla t ON t.id = vp.talla_id\n     JOIN color c ON c.id = vp.color_id\n     JOIN temporada te ON te.id = i.temporada_id;",
+        "reloptions": [
+            "security_invoker=true"
+        ]
+    }
+]
+

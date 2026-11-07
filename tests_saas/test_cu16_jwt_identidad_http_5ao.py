@@ -188,14 +188,19 @@ def test_5ao_token_expirado_401(sesion):
 
 def test_5ao_cliente_firmado_recibe_su_empresa_y_usuario(sesion):
     http,db,_,calls,_=sesion
-    r=http.post("/tenant/reservas",json=datos(),headers=headers())
+    cabeceras=headers()
+    r=http.post("/tenant/reservas",json=datos(),headers=cabeceras)
     assert r.status_code==201,r.text
     assert r.json()=={"reserva_id":111,"carrito_id":11,"estado":"PENDIENTE"}
     assert calls==[("crear",101,3,11)]
-    assert db.info=={"usuario_id":101,"empresa_id":3}
-    assert len(db.statements)==2
-    assert db.statements[0][1]["usuario_id"]=="101"
-    assert db.statements[1][1]["empresa_id"]=="3"
+    # 5CA: primero el token firmado (lo exige actor_claims() en RLS) y después
+    # usuario/empresa, que son sólo datos de auditoría.
+    assert db.info["usuario_id"]==101 and db.info["empresa_id"]==3
+    assert db.info["actor_token"]==cabeceras["Authorization"].split(" ",1)[1]
+    assert len(db.statements)==3
+    assert db.statements[0][1]["token"]==db.info["actor_token"]
+    assert db.statements[1][1]["usuario_id"]=="101"
+    assert db.statements[2][1]["empresa_id"]=="3"
 
 
 def test_5ao_segundo_usuario_misma_empresa_actor_inmutable(sesion):

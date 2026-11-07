@@ -1,0 +1,103 @@
+... initdb en C:\Users\Harold\AppData\Local\Temp\fashionstore-5ca-lab-jxtqj1pu\data (puerto 50618)
+... initdb terminado; arrancando servidor
+... servidor PostgreSQL 17.9 escuchando en 127.0.0.1:50618
+... servidor arriba; creando base de laboratorio
+... base fashionstore_lab_5ca creada
+... instalando esquema y propuestas 050a-c
+sentencias: 368 | objetos: {'tablas': 41, 'restricciones': 174, 'indices': 134, 'vistas': 1, 'rutinas': 24, 'triggers': 27}
+archivo: C:\Users\Harold\Desktop\Commerce-server\fashionstore-api\database\saas\laboratorio_seguridad_5ca\sql\010_baseline_desde_catalogo.sql
+... aplicando 010_baseline_desde_catalogo.sql
+... aplicando 010_saas_core_vanter.sql
+... aplicando 020_tenant_expand_backfill.sql
+... aplicando 030_tenant_integrity.sql
+... aplicando 040_routines_views_hardening.sql
+... aplicando 030_lab_fixtures.sql
+... aplicando 000_lab_vault_substituto.sql
+... cargando secreto JWT en el sustituto local de Vault
+... aplicando 050a_lab.sql
+... aplicando 050b_lab.sql
+... aplicando 050c_lab.sql
+... aplicando 060_lab_correcciones.sql
+... aplicando 070_lab_sp_tenant.sql
+... instalación SQL completa
+... hashes Argon2 de laboratorio actualizados: 5
+... logins de servicio creados: fashionstore_5ca_api, fashionstore_5ca_bootstrap, fashionstore_5ca_platform
+[PASS] EST-01 46 tablas y 145 FK validadas, igual que la etapa 2 :: 46 tablas, 145 FK válidas, 0 sin validar
+[PASS] EST-02 FORCE RLS en las 46 tablas y políticas instaladas :: force=46 políticas=110
+[PASS] EST-03 Ningún rol fashionstore es SUPERUSER ni tiene BYPASSRLS :: 10 roles examinados, 0 con bypass ni superusuario
+[PASS] EST-04 Conexión API autentica con login propio y sin BYPASSRLS :: session_user=fashionstore_5ca_api current_user=fashionstore_5ca_api bypassrls=False
+[PASS] EST-05 La API ve exactamente una empresa (la de su token) :: 1 empresa visible para A1
+[PASS] ACL-01 API no puede leer el Vault local :: rechazado con sqlstate=42501
+[PASS] ACL-02 API no puede leer vault.secrets :: rechazado con sqlstate=42501
+[PASS] ACL-03 API no puede insertar bitácora directamente :: rechazado con sqlstate=42501
+[PASS] ACL-04 API no puede crear objetos en public :: rechazado con sqlstate=42501
+[PASS] ACL-05 API no puede ejecutar los procedimientos legacy :: rechazado con sqlstate=42501
+[PASS] ACL-06 API no puede asumir el rol platform_admin :: rechazado con sqlstate=42501
+[PASS] ACL-07 Bootstrap no puede leer la tabla usuario :: rechazado con sqlstate=42501
+[PASS] ACL-08 Bootstrap no puede ejecutar actor_claims() :: rechazado con sqlstate=42501
+[PASS] ACL-09 Platform_admin no puede leer tablas comerciales :: rechazado con sqlstate=42501
+[PASS] ACL-10 API no ve usuarios de otra empresa por id directo :: 0 filas del usuario 201 de la empresa B
+[PASS] ACL-11 Bootstrap obtiene id+hash sólo por su función estrecha :: 1 credencial devuelta
+[PASS] ACL-12 Bootstrap no puede abrir la vista jwt_keys :: rechazado con sqlstate=42501
+[PASS] ID-01 Sin token, toda consulta empresarial falla cerrada :: rechazado con sqlstate=42501
+[PASS] ID-02 Token válido A1 deriva empresa/usuario del JWT firmado :: actor=(1,101)
+[PASS] ID-03 Manipular app.empresa_id/app.usuario_id NO cambia la identidad :: actor sigue (1,101) y 1 producto visible
+[PASS] ID-04 Token con firma alterada :: rechazado con sqlstate=42501
+[PASS] ID-05 Token expirado :: rechazado con sqlstate=42501
+[PASS] ID-06 Token con alg=none :: rechazado con sqlstate=42501
+[PASS] ID-07 Token sin jti :: rechazado con sqlstate=42501
+[PASS] ID-08 Token con scope distinto de tenant :: rechazado con sqlstate=42501
+[PASS] ID-09 Token de A1 apuntando a empresa sin membresía :: rechazado con sqlstate=42501
+[PASS] ID-10 Token de usuario inexistente :: rechazado con sqlstate=42501
+[PASS] ID-11 Token con iat en el futuro :: rechazado con sqlstate=42501
+[PASS] ID-12 Token desmesurado (>8192 caracteres) :: rechazado con sqlstate=42501
+[PASS] ID-13 Token personal de cliente (contexto incoherente) :: rechazado con sqlstate=42501
+[PASS] ID-14 Revocar la membresía invalida el token vigente en la siguiente sentencia :: 42501 en la sentencia siguiente a la revocación
+[PASS] ID-15 Suspender la suscripción invalida el token vigente :: 42501 con la suscripción de la empresa B suspendida
+[PASS] ID-16 Rotación de clave: token viejo sigue válido con 'previous' :: rotación: clave previa válida y revocada al eliminarla
+[PASS] AIS-01 A1 sólo ve el producto de su empresa :: 1 producto
+[PASS] AIS-02 B1 sólo ve el producto de su empresa :: 1 producto
+[PASS] AIS-03 A1 no ve el cliente de la empresa B :: 0 filas de B
+[PASS] AIS-04 Administrador A1 ve los 2 clientes de su empresa :: 2 clientes
+[PASS] AIS-05 A1 sólo ve sus 2 filas de inventario :: 2 filas
+[PASS] AIS-06 A1 sólo ve su reserva y su venta :: 1 reserva + 1 venta
+[PASS] AIS-07 B1 no ve pagos de la empresa A :: 0 pagos ajenos
+[PASS] AIS-08 A1 no puede insertar producto con empresa_id ajeno :: rechazado con sqlstate=42501
+[PASS] AIS-09 A1 no puede modificar el producto de la empresa B :: 0 filas afectadas sobre el producto de B
+[PASS] AIS-10 A1 no puede mover empresa_id de su propio producto :: rechazado con sqlstate=42501
+[PASS] AIS-11 A1 administrador sí puede crear producto en su empresa :: 1 producto insertado y revertido al cerrar la transacción
+[PASS] AIS-12 El cliente A2 sólo ve su propia ficha de cliente :: 1 cliente propio
+[PASS] AIS-13 El cliente A2 sólo ve su carrito, no el de otro cliente :: 1 carrito propio
+[PASS] AIS-14 El cliente A2 no ve la reserva de otro cliente :: 0 reservas ajenas
+[PASS] AIS-15 El cliente A2 no ve bitácora, empleados ni proveedores :: 0 filas de personal
+[PASS] AIS-16 El administrador A1 no ve bitácora de otras empresas :: sin filas ajenas
+[PASS] AIS-17 El cliente A2 no puede insertar en el carrito de otro cliente :: insert rechazado con sqlstate=P0001; actor_posee_carrito(4)=false
+[PASS] AIS-18 El cliente A2 no puede crear un carrito para otro cliente :: rechazado con sqlstate=42501
+[PASS] AIS-19 El cliente A2 no puede escribir catálogo (sólo administrador) :: rechazado con sqlstate=42501
+[PASS] AIS-20 B1 no puede actualizar la sucursal de A :: 0 filas afectadas sobre la sucursal de A
+[PASS] POOL-01 Conexión reutilizada A1->B1->A3 sin fugas de identidad :: 3 identidades + 40 reutilizaciones, 1 conexión física ({29652})
+[PASS] POOL-02 Conexiones concurrentes no comparten identidad :: 3 hilos simultáneos sin intercambiar identidad: [(1, 101), (2, 201), (1, 103)]
+[PASS] POOL-03 GUC no local persiste: la aplicación debe usar is_local=true :: RIESGO CONFIRMADO: set_config con is_local=false deja el token en la sesión; FastAPI DEBE usar siempre el tercer argumento true
+[PASS] SP-01 SP tenant con actor correcto crea reserva y reserva stock :: reserva 3, carrito CONVERTIDO, stock_reservado=1, 1 movimiento de inventario, 1 detalle
+[PASS] SP-02 SP tenant rechaza suplantar a otro usuario del mismo tenant :: rechazado con sqlstate=42501
+[PASS] SP-03 SP tenant rechaza una empresa distinta a la del token :: rechazado con sqlstate=42501
+[PASS] SP-04 La API no puede ajustar inventario por UPDATE directo :: rechazado con sqlstate=42501
+[PASS] SP-05 La API no puede insertar ventas directamente :: rechazado con sqlstate=42501
+[PASS] SP-06 El login platform_admin no puede ejecutar el SP tenant :: rechazado con sqlstate=42501
+[PASS] SP-07 Carrera por la última unidad: exactamente una reserva gana :: 1 éxito / 1 rechazo 23514; stock_actual=1 reservado=1 disponible=0
+[PASS] SP-08 Tras el SP no queda identidad residual en conexiones nuevas :: sin token la siguiente conexión falla con 42501
+... pruebas SQL/pool/SP terminadas; iniciando pruebas HTTP de FastAPI
+C:\Users\Harold\anaconda3\envs\fashionstore-api\Lib\site-packages\fastapi\testclient.py:1: StarletteDeprecationWarning: Using `httpx` with `starlette.testclient` is deprecated; install `httpx2` instead.
+  from starlette.testclient import TestClient as TestClient  # noqa
+[PASS] FAPI-01 Login real (bootstrap+Argon2) y /lab/me con JWT :: login OK, /lab/me={'usuario_id': 101, 'empresa_id': 1, 'rol': 'ADMINISTRADOR', 'contexto': 'personal', 'plan': 'PROFESIONAL'}
+[PASS] FAPI-02 Login con contraseña incorrecta devuelve 401 :: 401 con clave incorrecta
+[PASS] FAPI-03 Login pidiendo empresa ajena devuelve 403 :: 403 al pedir una empresa sin membresía
+[PASS] FAPI-04 La API HTTP respeta RLS sobre el pool compartido :: el cliente A2 ve 1 producto (RLS por empresa)
+[PASS] FAPI-05 Sin token, el endpoint empresarial no responde :: 401 sin token
+[PASS] FAPI-06 Token con firma de otra clave devuelve 401 :: 401 con token firmado por otra clave
+[PASS] FAPI-07 Autorización por rol de empresa en HTTP :: admin ve 2 clientes; el cliente recibe 403
+[PASS] FAPI-08 El SP tenant se ejecuta por HTTP con identidad firmada :: reserva creada por HTTP: {'reserva_id': 6}
+[PASS] FAPI-09 El bootstrap no filtra existencia de correos ni empresas :: empresa ajena 403 y correo inexistente 401
+5CA RESULTADO: 73 PASS / 0 FAIL de 73
+clúster destruido: True
+FIN  

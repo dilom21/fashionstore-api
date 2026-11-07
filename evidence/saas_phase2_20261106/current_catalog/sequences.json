@@ -1,0 +1,225 @@
+[
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "accion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.accion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "bitacora_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.bitacora"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "carrito_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.carrito"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "categoria_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.categoria"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "ciudad_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.ciudad"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "cliente_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.cliente"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "coleccion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.coleccion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "color_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.color"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "configuracion_vestidor_ar_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.configuracion_vestidor_ar"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "detalle_carrito_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.detalle_carrito"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "detalle_devolucion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.detalle_devolucion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "detalle_orden_compra_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.detalle_orden_compra"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "detalle_reserva_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.detalle_reserva"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "detalle_venta_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.detalle_venta"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "devolucion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.devolucion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "empleado_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.empleado"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "funcion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.funcion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "inventario_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.inventario"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "modulo_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.modulo"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "movimiento_inventario_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.movimiento_inventario"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "orden_compra_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.orden_compra"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "pago_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.pago"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "producto_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.producto"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "promocion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.promocion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "proveedor_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.proveedor"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "prueba_vestidor_ar_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.prueba_vestidor_ar"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "recurso_producto_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.recurso_producto"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "reserva_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.reserva"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "rol_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.rol"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "sesion_vestidor_ar_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.sesion_vestidor_ar"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "sucursal_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.sucursal"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "talla_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.talla"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "temporada_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.temporada"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "token_recuperacion_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.token_recuperacion"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "usuario_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.usuario"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "variante_producto_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.variante_producto"
+    },
+    {
+        "acl": "{postgres=rwU/postgres,anon=rwU/postgres,authenticated=rwU/postgres,service_role=rwU/postgres}",
+        "name": "venta_id_seq",
+        "owner": "postgres",
+        "owned_by_table": "public.venta"
+    }
+]
+

@@ -1,0 +1,492 @@
+{
+ "fecha": "2026-11-06T19:31:39+00:00",
+ "version": "17.9",
+ "datadir": "C:\\Users\\Harold\\AppData\\Local\\Temp\\fashionstore-5ca-lab-jxtqj1pu",
+ "base": "fashionstore_lab_5ca",
+ "instalacion": {
+  "copias_050": [
+   {
+    "propuesta": "050a",
+    "origen": "050a_identidad_jwt_roles_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050a_lab.sql",
+    "sha256_original": "95e88d5c5d8581ca6ce146c0fdb4c8ac9e84b0aaf1280efcc9900f02066143a0"
+   },
+   {
+    "propuesta": "050b",
+    "origen": "050b_rls_policies_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050b_lab.sql",
+    "sha256_original": "cc42cecc741bdcd630521950b6d7de2bc77ffb27a1e18ad35e5e00fdf405cc5a"
+   },
+   {
+    "propuesta": "050c",
+    "origen": "050c_acl_procedimientos_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050c_lab.sql",
+    "sha256_original": "2cb36497c5136a036e2130c0fcfc97b5e947eccf9bce608fa5f5d529ed7296ff"
+   }
+  ],
+  "secretos_en_vault_local": 1
+ },
+ "resumen": {
+  "tablas": 46,
+  "vistas": 1,
+  "fk": 145,
+  "fk_no_validadas": 0,
+  "indices": 251,
+  "triggers": 58,
+  "tablas_rls": 46,
+  "tablas_force_rls": 46,
+  "politicas": 110,
+  "funciones_privadas": 14,
+  "empresas": 2,
+  "planes": 2,
+  "membresias": 5
+ },
+ "logins": [
+  "fashionstore_5ca_api",
+  "fashionstore_5ca_bootstrap",
+  "fashionstore_5ca_platform"
+ ],
+ "total": 73,
+ "pass": 73,
+ "fail": 0,
+ "pruebas": [
+  {
+   "codigo": "EST-01",
+   "titulo": "46 tablas y 145 FK validadas, igual que la etapa 2",
+   "resultado": "PASS",
+   "detalle": "46 tablas, 145 FK válidas, 0 sin validar"
+  },
+  {
+   "codigo": "EST-02",
+   "titulo": "FORCE RLS en las 46 tablas y políticas instaladas",
+   "resultado": "PASS",
+   "detalle": "force=46 políticas=110"
+  },
+  {
+   "codigo": "EST-03",
+   "titulo": "Ningún rol fashionstore es SUPERUSER ni tiene BYPASSRLS",
+   "resultado": "PASS",
+   "detalle": "10 roles examinados, 0 con bypass ni superusuario"
+  },
+  {
+   "codigo": "EST-04",
+   "titulo": "Conexión API autentica con login propio y sin BYPASSRLS",
+   "resultado": "PASS",
+   "detalle": "session_user=fashionstore_5ca_api current_user=fashionstore_5ca_api bypassrls=False"
+  },
+  {
+   "codigo": "EST-05",
+   "titulo": "La API ve exactamente una empresa (la de su token)",
+   "resultado": "PASS",
+   "detalle": "1 empresa visible para A1"
+  },
+  {
+   "codigo": "ACL-01",
+   "titulo": "API no puede leer el Vault local",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-02",
+   "titulo": "API no puede leer vault.secrets",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-03",
+   "titulo": "API no puede insertar bitácora directamente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-04",
+   "titulo": "API no puede crear objetos en public",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-05",
+   "titulo": "API no puede ejecutar los procedimientos legacy",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-06",
+   "titulo": "API no puede asumir el rol platform_admin",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-07",
+   "titulo": "Bootstrap no puede leer la tabla usuario",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-08",
+   "titulo": "Bootstrap no puede ejecutar actor_claims()",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-09",
+   "titulo": "Platform_admin no puede leer tablas comerciales",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-10",
+   "titulo": "API no ve usuarios de otra empresa por id directo",
+   "resultado": "PASS",
+   "detalle": "0 filas del usuario 201 de la empresa B"
+  },
+  {
+   "codigo": "ACL-11",
+   "titulo": "Bootstrap obtiene id+hash sólo por su función estrecha",
+   "resultado": "PASS",
+   "detalle": "1 credencial devuelta"
+  },
+  {
+   "codigo": "ACL-12",
+   "titulo": "Bootstrap no puede abrir la vista jwt_keys",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-01",
+   "titulo": "Sin token, toda consulta empresarial falla cerrada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-02",
+   "titulo": "Token válido A1 deriva empresa/usuario del JWT firmado",
+   "resultado": "PASS",
+   "detalle": "actor=(1,101)"
+  },
+  {
+   "codigo": "ID-03",
+   "titulo": "Manipular app.empresa_id/app.usuario_id NO cambia la identidad",
+   "resultado": "PASS",
+   "detalle": "actor sigue (1,101) y 1 producto visible"
+  },
+  {
+   "codigo": "ID-04",
+   "titulo": "Token con firma alterada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-05",
+   "titulo": "Token expirado",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-06",
+   "titulo": "Token con alg=none",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-07",
+   "titulo": "Token sin jti",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-08",
+   "titulo": "Token con scope distinto de tenant",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-09",
+   "titulo": "Token de A1 apuntando a empresa sin membresía",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-10",
+   "titulo": "Token de usuario inexistente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-11",
+   "titulo": "Token con iat en el futuro",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-12",
+   "titulo": "Token desmesurado (>8192 caracteres)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-13",
+   "titulo": "Token personal de cliente (contexto incoherente)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-14",
+   "titulo": "Revocar la membresía invalida el token vigente en la siguiente sentencia",
+   "resultado": "PASS",
+   "detalle": "42501 en la sentencia siguiente a la revocación"
+  },
+  {
+   "codigo": "ID-15",
+   "titulo": "Suspender la suscripción invalida el token vigente",
+   "resultado": "PASS",
+   "detalle": "42501 con la suscripción de la empresa B suspendida"
+  },
+  {
+   "codigo": "ID-16",
+   "titulo": "Rotación de clave: token viejo sigue válido con 'previous'",
+   "resultado": "PASS",
+   "detalle": "rotación: clave previa válida y revocada al eliminarla"
+  },
+  {
+   "codigo": "AIS-01",
+   "titulo": "A1 sólo ve el producto de su empresa",
+   "resultado": "PASS",
+   "detalle": "1 producto"
+  },
+  {
+   "codigo": "AIS-02",
+   "titulo": "B1 sólo ve el producto de su empresa",
+   "resultado": "PASS",
+   "detalle": "1 producto"
+  },
+  {
+   "codigo": "AIS-03",
+   "titulo": "A1 no ve el cliente de la empresa B",
+   "resultado": "PASS",
+   "detalle": "0 filas de B"
+  },
+  {
+   "codigo": "AIS-04",
+   "titulo": "Administrador A1 ve los 2 clientes de su empresa",
+   "resultado": "PASS",
+   "detalle": "2 clientes"
+  },
+  {
+   "codigo": "AIS-05",
+   "titulo": "A1 sólo ve sus 2 filas de inventario",
+   "resultado": "PASS",
+   "detalle": "2 filas"
+  },
+  {
+   "codigo": "AIS-06",
+   "titulo": "A1 sólo ve su reserva y su venta",
+   "resultado": "PASS",
+   "detalle": "1 reserva + 1 venta"
+  },
+  {
+   "codigo": "AIS-07",
+   "titulo": "B1 no ve pagos de la empresa A",
+   "resultado": "PASS",
+   "detalle": "0 pagos ajenos"
+  },
+  {
+   "codigo": "AIS-08",
+   "titulo": "A1 no puede insertar producto con empresa_id ajeno",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-09",
+   "titulo": "A1 no puede modificar el producto de la empresa B",
+   "resultado": "PASS",
+   "detalle": "0 filas afectadas sobre el producto de B"
+  },
+  {
+   "codigo": "AIS-10",
+   "titulo": "A1 no puede mover empresa_id de su propio producto",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-11",
+   "titulo": "A1 administrador sí puede crear producto en su empresa",
+   "resultado": "PASS",
+   "detalle": "1 producto insertado y revertido al cerrar la transacción"
+  },
+  {
+   "codigo": "AIS-12",
+   "titulo": "El cliente A2 sólo ve su propia ficha de cliente",
+   "resultado": "PASS",
+   "detalle": "1 cliente propio"
+  },
+  {
+   "codigo": "AIS-13",
+   "titulo": "El cliente A2 sólo ve su carrito, no el de otro cliente",
+   "resultado": "PASS",
+   "detalle": "1 carrito propio"
+  },
+  {
+   "codigo": "AIS-14",
+   "titulo": "El cliente A2 no ve la reserva de otro cliente",
+   "resultado": "PASS",
+   "detalle": "0 reservas ajenas"
+  },
+  {
+   "codigo": "AIS-15",
+   "titulo": "El cliente A2 no ve bitácora, empleados ni proveedores",
+   "resultado": "PASS",
+   "detalle": "0 filas de personal"
+  },
+  {
+   "codigo": "AIS-16",
+   "titulo": "El administrador A1 no ve bitácora de otras empresas",
+   "resultado": "PASS",
+   "detalle": "sin filas ajenas"
+  },
+  {
+   "codigo": "AIS-17",
+   "titulo": "El cliente A2 no puede insertar en el carrito de otro cliente",
+   "resultado": "PASS",
+   "detalle": "insert rechazado con sqlstate=P0001; actor_posee_carrito(4)=false"
+  },
+  {
+   "codigo": "AIS-18",
+   "titulo": "El cliente A2 no puede crear un carrito para otro cliente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-19",
+   "titulo": "El cliente A2 no puede escribir catálogo (sólo administrador)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-20",
+   "titulo": "B1 no puede actualizar la sucursal de A",
+   "resultado": "PASS",
+   "detalle": "0 filas afectadas sobre la sucursal de A"
+  },
+  {
+   "codigo": "POOL-01",
+   "titulo": "Conexión reutilizada A1->B1->A3 sin fugas de identidad",
+   "resultado": "PASS",
+   "detalle": "3 identidades + 40 reutilizaciones, 1 conexión física ({29652})"
+  },
+  {
+   "codigo": "POOL-02",
+   "titulo": "Conexiones concurrentes no comparten identidad",
+   "resultado": "PASS",
+   "detalle": "3 hilos simultáneos sin intercambiar identidad: [(1, 101), (2, 201), (1, 103)]"
+  },
+  {
+   "codigo": "POOL-03",
+   "titulo": "GUC no local persiste: la aplicación debe usar is_local=true",
+   "resultado": "PASS",
+   "detalle": "RIESGO CONFIRMADO: set_config con is_local=false deja el token en la sesión; FastAPI DEBE usar siempre el tercer argumento true"
+  },
+  {
+   "codigo": "SP-01",
+   "titulo": "SP tenant con actor correcto crea reserva y reserva stock",
+   "resultado": "PASS",
+   "detalle": "reserva 3, carrito CONVERTIDO, stock_reservado=1, 1 movimiento de inventario, 1 detalle"
+  },
+  {
+   "codigo": "SP-02",
+   "titulo": "SP tenant rechaza suplantar a otro usuario del mismo tenant",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-03",
+   "titulo": "SP tenant rechaza una empresa distinta a la del token",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-04",
+   "titulo": "La API no puede ajustar inventario por UPDATE directo",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-05",
+   "titulo": "La API no puede insertar ventas directamente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-06",
+   "titulo": "El login platform_admin no puede ejecutar el SP tenant",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-07",
+   "titulo": "Carrera por la última unidad: exactamente una reserva gana",
+   "resultado": "PASS",
+   "detalle": "1 éxito / 1 rechazo 23514; stock_actual=1 reservado=1 disponible=0"
+  },
+  {
+   "codigo": "SP-08",
+   "titulo": "Tras el SP no queda identidad residual en conexiones nuevas",
+   "resultado": "PASS",
+   "detalle": "sin token la siguiente conexión falla con 42501"
+  },
+  {
+   "codigo": "FAPI-01",
+   "titulo": "Login real (bootstrap+Argon2) y /lab/me con JWT",
+   "resultado": "PASS",
+   "detalle": "login OK, /lab/me={'usuario_id': 101, 'empresa_id': 1, 'rol': 'ADMINISTRADOR', 'contexto': 'personal', 'plan': 'PROFESIONAL'}"
+  },
+  {
+   "codigo": "FAPI-02",
+   "titulo": "Login con contraseña incorrecta devuelve 401",
+   "resultado": "PASS",
+   "detalle": "401 con clave incorrecta"
+  },
+  {
+   "codigo": "FAPI-03",
+   "titulo": "Login pidiendo empresa ajena devuelve 403",
+   "resultado": "PASS",
+   "detalle": "403 al pedir una empresa sin membresía"
+  },
+  {
+   "codigo": "FAPI-04",
+   "titulo": "La API HTTP respeta RLS sobre el pool compartido",
+   "resultado": "PASS",
+   "detalle": "el cliente A2 ve 1 producto (RLS por empresa)"
+  },
+  {
+   "codigo": "FAPI-05",
+   "titulo": "Sin token, el endpoint empresarial no responde",
+   "resultado": "PASS",
+   "detalle": "401 sin token"
+  },
+  {
+   "codigo": "FAPI-06",
+   "titulo": "Token con firma de otra clave devuelve 401",
+   "resultado": "PASS",
+   "detalle": "401 con token firmado por otra clave"
+  },
+  {
+   "codigo": "FAPI-07",
+   "titulo": "Autorización por rol de empresa en HTTP",
+   "resultado": "PASS",
+   "detalle": "admin ve 2 clientes; el cliente recibe 403"
+  },
+  {
+   "codigo": "FAPI-08",
+   "titulo": "El SP tenant se ejecuta por HTTP con identidad firmada",
+   "resultado": "PASS",
+   "detalle": "reserva creada por HTTP: {'reserva_id': 6}"
+  },
+  {
+   "codigo": "FAPI-09",
+   "titulo": "El bootstrap no filtra existencia de correos ni empresas",
+   "resultado": "PASS",
+   "detalle": "empresa ajena 403 y correo inexistente 401"
+  }
+ ]
+}

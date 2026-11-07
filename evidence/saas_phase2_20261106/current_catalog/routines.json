@@ -1,0 +1,383 @@
+[
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_actualizar_actividad_carrito",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": null,
+        "signature": "fn_actualizar_actividad_carrito()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_actualizar_actividad_carrito()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    v_carrito_id bigint;\r\nBEGIN\r\n    v_carrito_id := COALESCE(NEW.carrito_id, OLD.carrito_id);\r\n\r\n    UPDATE public.carrito\r\n    SET fecha_actualizacion = NOW()\r\n    WHERE id = v_carrito_id;\r\n\r\n    RETURN COALESCE(NEW, OLD);\r\nEND;\r\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_completar_ip_bitacora",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_completar_ip_bitacora()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_completar_ip_bitacora()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_ip TEXT;\nBEGIN\n    IF NEW.ip IS NULL OR btrim(NEW.ip) = '' THEN\n        v_ip := NULLIF(current_setting('app.ip', TRUE), '');\n        IF v_ip IS NOT NULL THEN\n            NEW.ip := v_ip;\n        END IF;\n    END IF;\n\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_controlar_actualizacion_inventario",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_controlar_actualizacion_inventario()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_controlar_actualizacion_inventario()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nBEGIN\n    IF NEW.sucursal_id IS DISTINCT FROM OLD.sucursal_id\n       OR NEW.variante_producto_id IS DISTINCT FROM OLD.variante_producto_id\n       OR NEW.temporada_id IS DISTINCT FROM OLD.temporada_id THEN\n        RAISE EXCEPTION 'No se puede cambiar la sucursal, variante o temporada de un inventario existente';\n    END IF;\n    IF NEW.stock_actual IS DISTINCT FROM OLD.stock_actual\n       OR NEW.stock_reservado IS DISTINCT FROM OLD.stock_reservado THEN\n        NEW.fecha_actualizacion := CURRENT_TIMESTAMP;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_normalizar_correo_usuario",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_normalizar_correo_usuario()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_normalizar_correo_usuario()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nBEGIN\n    IF NEW.correo IS NULL OR BTRIM(NEW.correo) = '' THEN\n        RAISE EXCEPTION 'El correo del usuario no puede estar vacío';\n    END IF;\n    NEW.correo := LOWER(BTRIM(NEW.correo));\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_normalizar_sku",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_normalizar_sku()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_normalizar_sku()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nBEGIN\n    IF NEW.sku IS NULL OR BTRIM(NEW.sku) = '' THEN\n        RAISE EXCEPTION 'El SKU de una variante no puede estar vacío';\n    END IF;\n    NEW.sku := UPPER(BTRIM(NEW.sku));\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_proteger_detalle_orden_compra",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_proteger_detalle_orden_compra()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_proteger_detalle_orden_compra()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_orden_id BIGINT;\n    v_estado VARCHAR(30);\nBEGIN\n    IF TG_OP = 'DELETE' THEN v_orden_id := OLD.orden_compra_id; ELSE v_orden_id := NEW.orden_compra_id; END IF;\n    SELECT estado INTO v_estado FROM orden_compra WHERE id = v_orden_id;\n    IF FOUND AND v_estado IN ('RECIBIDA','CANCELADA') THEN\n        RAISE EXCEPTION 'No se pueden modificar los detalles de la orden % porque está en estado %', v_orden_id, v_estado;\n    END IF;\n    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_proteger_detalle_venta",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_proteger_detalle_venta()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_proteger_detalle_venta()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_venta_id BIGINT;\n    v_estado VARCHAR(30);\nBEGIN\n    IF TG_OP = 'DELETE' THEN\n        v_venta_id := OLD.venta_id;\n    ELSE\n        v_venta_id := NEW.venta_id;\n    END IF;\n    SELECT estado INTO v_estado FROM venta WHERE id = v_venta_id;\n    IF FOUND AND v_estado IN ('COMPLETADA','CANCELADA','REEMBOLSADA') THEN\n        RAISE EXCEPTION 'No se pueden modificar los detalles de la venta % porque está en estado %', v_venta_id, v_estado;\n    END IF;\n    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_proteger_eliminacion_venta",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_proteger_eliminacion_venta()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_proteger_eliminacion_venta()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nBEGIN\n    IF OLD.estado IN ('PAGADA','COMPLETADA','REEMBOLSADA') THEN\n        RAISE EXCEPTION 'No se puede eliminar la venta % porque está en estado %', OLD.id, OLD.estado;\n    END IF;\n    RETURN OLD;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_recalcular_total_venta_trigger",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_recalcular_total_venta_trigger()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_recalcular_total_venta_trigger()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_venta_id BIGINT;\nBEGIN\n    IF TG_OP = 'DELETE' THEN\n        v_venta_id := OLD.venta_id;\n        UPDATE venta SET total = (SELECT COALESCE(SUM(cantidad * precio_unitario),0) FROM detalle_venta WHERE venta_id = v_venta_id) WHERE id = v_venta_id;\n        RETURN OLD;\n    ELSIF TG_OP = 'UPDATE' THEN\n        IF OLD.venta_id IS DISTINCT FROM NEW.venta_id THEN\n            UPDATE venta SET total = (SELECT COALESCE(SUM(cantidad * precio_unitario),0) FROM detalle_venta WHERE venta_id = OLD.venta_id) WHERE id = OLD.venta_id;\n        END IF;\n        v_venta_id := NEW.venta_id;\n    ELSE\n        v_venta_id := NEW.venta_id;\n    END IF;\n    UPDATE venta SET total = (SELECT COALESCE(SUM(cantidad * precio_unitario),0) FROM detalle_venta WHERE venta_id = v_venta_id) WHERE id = v_venta_id;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_registrar_bitacora",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_registrar_bitacora()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_registrar_bitacora()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_usuario_text TEXT;\n    v_usuario_id BIGINT;\n    v_registro_id TEXT;\n    v_accion TEXT;\nBEGIN\n    v_usuario_text := current_setting('app.usuario_id', TRUE);\n    IF v_usuario_text IS NOT NULL AND v_usuario_text ~ '^[0-9]+$' THEN\n        v_usuario_id := v_usuario_text::BIGINT;\n    ELSE\n        v_usuario_id := NULL;\n    END IF;\n    CASE TG_OP\n        WHEN 'INSERT' THEN v_accion := 'CREAR'; v_registro_id := NEW.id::TEXT;\n        WHEN 'UPDATE' THEN v_accion := 'MODIFICAR'; v_registro_id := NEW.id::TEXT;\n        WHEN 'DELETE' THEN v_accion := 'ELIMINAR'; v_registro_id := OLD.id::TEXT;\n        ELSE v_accion := TG_OP;\n    END CASE;\n    INSERT INTO bitacora (usuario_id, fecha_hora, accion, entidad_afectada, descripcion)\n    VALUES (v_usuario_id, CURRENT_TIMESTAMP, v_accion, TG_TABLE_NAME,\n            FORMAT('Operación %s sobre registro ID %s', v_accion, v_registro_id));\n    IF TG_OP = 'DELETE' THEN RETURN OLD; END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_validar_detalle_devolucion",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_validar_detalle_devolucion()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_validar_detalle_devolucion()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_venta_devolucion BIGINT;\n    v_venta_detalle BIGINT;\n    v_cantidad_vendida INTEGER;\nBEGIN\n    SELECT venta_id INTO v_venta_devolucion FROM devolucion WHERE id = NEW.devolucion_id;\n    IF NOT FOUND THEN RAISE EXCEPTION 'La devolución % no existe', NEW.devolucion_id; END IF;\n    SELECT venta_id, cantidad INTO v_venta_detalle, v_cantidad_vendida FROM detalle_venta WHERE id = NEW.detalle_venta_id;\n    IF NOT FOUND THEN RAISE EXCEPTION 'El detalle de venta % no existe', NEW.detalle_venta_id; END IF;\n    IF v_venta_devolucion <> v_venta_detalle THEN\n        RAISE EXCEPTION 'El detalle de venta % no pertenece a la venta asociada a la devolución %', NEW.detalle_venta_id, NEW.devolucion_id;\n    END IF;\n    IF NEW.cantidad > v_cantidad_vendida THEN\n        RAISE EXCEPTION 'No se pueden devolver % unidades. Solo se vendieron %.', NEW.cantidad, v_cantidad_vendida;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_validar_detalle_reserva_sucursal",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_validar_detalle_reserva_sucursal()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_validar_detalle_reserva_sucursal()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_sucursal_reserva BIGINT;\n    v_sucursal_inventario BIGINT;\nBEGIN\n    SELECT sucursal_id INTO v_sucursal_reserva FROM reserva WHERE id = NEW.reserva_id;\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La reserva % no existe', NEW.reserva_id;\n    END IF;\n    SELECT sucursal_id INTO v_sucursal_inventario FROM inventario WHERE id = NEW.inventario_id;\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'El inventario % no existe', NEW.inventario_id;\n    END IF;\n    IF v_sucursal_reserva <> v_sucursal_inventario THEN\n        RAISE EXCEPTION 'El inventario % no pertenece a la sucursal de la reserva %', NEW.inventario_id, NEW.reserva_id;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_validar_detalle_venta_sucursal",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_validar_detalle_venta_sucursal()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_validar_detalle_venta_sucursal()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_sucursal_venta BIGINT;\n    v_sucursal_inventario BIGINT;\nBEGIN\n    SELECT sucursal_id INTO v_sucursal_venta FROM venta WHERE id = NEW.venta_id;\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La venta % no existe', NEW.venta_id;\n    END IF;\n    SELECT sucursal_id INTO v_sucursal_inventario FROM inventario WHERE id = NEW.inventario_id;\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'El inventario % no existe', NEW.inventario_id;\n    END IF;\n    IF v_sucursal_venta <> v_sucursal_inventario THEN\n        RAISE EXCEPTION 'El inventario % pertenece a una sucursal diferente a la venta %', NEW.inventario_id, NEW.venta_id;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_validar_producto_proveedor_orden",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "fn_validar_producto_proveedor_orden()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_validar_producto_proveedor_orden()\n RETURNS trigger\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $function$\nDECLARE\n    v_proveedor_id BIGINT;\n    v_producto_id BIGINT;\nBEGIN\n    SELECT proveedor_id INTO v_proveedor_id FROM orden_compra WHERE id = NEW.orden_compra_id;\n    IF NOT FOUND THEN RAISE EXCEPTION 'La orden de compra % no existe', NEW.orden_compra_id; END IF;\n    SELECT producto_id INTO v_producto_id FROM variante_producto WHERE id = NEW.variante_producto_id;\n    IF NOT FOUND THEN RAISE EXCEPTION 'La variante % no existe', NEW.variante_producto_id; END IF;\n    IF NOT EXISTS (SELECT 1 FROM proveedor_producto WHERE proveedor_id = v_proveedor_id AND producto_id = v_producto_id AND estado = TRUE) THEN\n        RAISE EXCEPTION 'El producto % no está asociado al proveedor %', v_producto_id, v_proveedor_id;\n    END IF;\n    RETURN NEW;\nEND;\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "function",
+        "name": "fn_validar_sucursal_detalle_carrito",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": null,
+        "signature": "fn_validar_sucursal_detalle_carrito()",
+        "definition": "CREATE OR REPLACE FUNCTION public.fn_validar_sucursal_detalle_carrito()\n RETURNS trigger\n LANGUAGE plpgsql\nAS $function$\r\nDECLARE\r\n    v_sucursal_carrito bigint;\r\n    v_sucursal_inventario bigint;\r\nBEGIN\r\n    SELECT sucursal_id\r\n    INTO v_sucursal_carrito\r\n    FROM public.carrito\r\n    WHERE id = NEW.carrito_id;\r\n\r\n    SELECT sucursal_id\r\n    INTO v_sucursal_inventario\r\n    FROM public.inventario\r\n    WHERE id = NEW.inventario_id;\r\n\r\n    IF v_sucursal_carrito IS NULL THEN\r\n        RAISE EXCEPTION 'Carrito inexistente';\r\n    END IF;\r\n\r\n    IF v_sucursal_inventario IS NULL THEN\r\n        RAISE EXCEPTION 'Inventario inexistente';\r\n    END IF;\r\n\r\n    IF v_sucursal_carrito <> v_sucursal_inventario THEN\r\n        RAISE EXCEPTION\r\n            'El inventario seleccionado no pertenece a la sucursal del carrito';\r\n    END IF;\r\n\r\n    RETURN NEW;\r\nEND;\r\n$function$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_ajustar_inventario",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_ajustar_inventario(bigint,character varying,integer,bigint,text)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_ajustar_inventario(IN p_inventario_id bigint, IN p_tipo character varying, IN p_cantidad integer, IN p_usuario_id bigint, IN p_observacion text)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_inventario RECORD;\n    v_disponible INTEGER;\nBEGIN\n    IF p_tipo NOT IN ('AJUSTE_ENTRADA', 'AJUSTE_SALIDA') THEN\n        RAISE EXCEPTION 'Tipo de ajuste no válido: %', p_tipo;\n    END IF;\n\n    IF p_cantidad <= 0 THEN\n        RAISE EXCEPTION 'La cantidad debe ser mayor que cero';\n    END IF;\n\n    IF p_observacion IS NULL OR LENGTH(TRIM(p_observacion)) = 0 THEN\n        RAISE EXCEPTION 'Todo ajuste de inventario debe incluir una observación';\n    END IF;\n\n    SELECT * INTO v_inventario\n    FROM inventario\n    WHERE id = p_inventario_id\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'Inventario % no encontrado', p_inventario_id;\n    END IF;\n\n    IF p_tipo = 'AJUSTE_ENTRADA' THEN\n        UPDATE inventario\n        SET stock_actual = stock_actual + p_cantidad,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = p_inventario_id;\n    ELSE\n        v_disponible := v_inventario.stock_actual - v_inventario.stock_reservado;\n\n        IF v_disponible < p_cantidad THEN\n            RAISE EXCEPTION 'No se puede retirar %. Stock disponible: %. Existen % unidades reservadas.',\n                p_cantidad, v_disponible, v_inventario.stock_reservado;\n        END IF;\n\n        UPDATE inventario\n        SET stock_actual = stock_actual - p_cantidad,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = p_inventario_id;\n    END IF;\n\n    INSERT INTO movimiento_inventario (\n        inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n        observaciones, referencia_tipo, referencia_id\n    ) VALUES (\n        p_inventario_id, p_usuario_id, p_tipo, p_cantidad,\n        CURRENT_TIMESTAMP, p_observacion, 'AJUSTE', NULL\n    );\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_cancelar_reserva",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_cancelar_reserva(bigint,bigint,text)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_cancelar_reserva(IN p_reserva_id bigint, IN p_usuario_id bigint, IN p_observacion text)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_reserva RECORD;\n    v_detalle RECORD;\nBEGIN\n    SELECT * INTO v_reserva\n    FROM reserva\n    WHERE id = p_reserva_id\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La reserva % no existe', p_reserva_id;\n    END IF;\n\n    IF v_reserva.estado NOT IN ('PENDIENTE', 'CONFIRMADA') THEN\n        RAISE EXCEPTION 'La reserva % no puede cancelarse porque se encuentra en estado %', p_reserva_id, v_reserva.estado;\n    END IF;\n\n    FOR v_detalle IN\n        SELECT dr.inventario_id, dr.cantidad\n        FROM detalle_reserva dr\n        WHERE dr.reserva_id = p_reserva_id\n        ORDER BY dr.inventario_id\n    LOOP\n        PERFORM 1 FROM inventario WHERE id = v_detalle.inventario_id FOR UPDATE;\n\n        IF NOT FOUND THEN\n            RAISE EXCEPTION 'Inventario % de la reserva no encontrado', v_detalle.inventario_id;\n        END IF;\n\n        IF (SELECT stock_reservado FROM inventario WHERE id = v_detalle.inventario_id) < v_detalle.cantidad THEN\n            RAISE EXCEPTION 'Inconsistencia en stock reservado del inventario %', v_detalle.inventario_id;\n        END IF;\n\n        UPDATE inventario\n        SET stock_reservado = stock_reservado - v_detalle.cantidad,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = v_detalle.inventario_id;\n\n        INSERT INTO movimiento_inventario (\n            inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n            observaciones, referencia_tipo, referencia_id\n        ) VALUES (\n            v_detalle.inventario_id, p_usuario_id, 'LIBERACION_RESERVA',\n            v_detalle.cantidad, CURRENT_TIMESTAMP,\n            COALESCE(p_observacion, 'Reserva cancelada'), 'RESERVA', p_reserva_id\n        );\n    END LOOP;\n\n    UPDATE reserva\n    SET estado = 'CANCELADA',\n        observacion = CASE\n            WHEN p_observacion IS NULL THEN observacion\n            WHEN observacion IS NULL THEN p_observacion\n            ELSE observacion || ' | ' || p_observacion\n        END\n    WHERE id = p_reserva_id;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_confirmar_venta",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_confirmar_venta(bigint,bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_confirmar_venta(IN p_venta_id bigint, IN p_usuario_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_venta RECORD;\n    v_detalle RECORD;\n    v_inventario RECORD;\n    v_cantidad_reservada INTEGER;\n    v_consumo_reserva INTEGER;\n    v_cantidad_directa INTEGER;\n    v_reserva_detalle RECORD;\n    v_vendido INTEGER;\n    v_consumido INTEGER;\n    v_liberar INTEGER;\n    v_total NUMERIC(12,2);\nBEGIN\n    SELECT * INTO v_venta\n    FROM venta\n    WHERE id = p_venta_id\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La venta % no existe', p_venta_id;\n    END IF;\n\n    IF v_venta.estado NOT IN ('PENDIENTE', 'PAGADA') THEN\n        RAISE EXCEPTION 'La venta % no puede confirmarse porque está en estado %', p_venta_id, v_venta.estado;\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM detalle_venta WHERE venta_id = p_venta_id) THEN\n        RAISE EXCEPTION 'La venta % no contiene productos', p_venta_id;\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM pago WHERE venta_id = p_venta_id AND estado = 'APROBADO') THEN\n        RAISE EXCEPTION 'La venta % no posee un pago aprobado', p_venta_id;\n    END IF;\n\n    IF v_venta.reserva_id IS NOT NULL THEN\n        IF NOT EXISTS (\n            SELECT 1 FROM reserva\n            WHERE id = v_venta.reserva_id\n              AND estado IN ('PENDIENTE', 'CONFIRMADA')\n              AND sucursal_id = v_venta.sucursal_id\n        ) THEN\n            RAISE EXCEPTION 'La reserva asociada a la venta no es válida';\n        END IF;\n    END IF;\n\n    FOR v_detalle IN\n        SELECT * FROM detalle_venta\n        WHERE venta_id = p_venta_id\n        ORDER BY inventario_id\n    LOOP\n        SELECT * INTO v_inventario\n        FROM inventario\n        WHERE id = v_detalle.inventario_id\n        FOR UPDATE;\n\n        IF NOT FOUND THEN\n            RAISE EXCEPTION 'Inventario % no encontrado', v_detalle.inventario_id;\n        END IF;\n\n        IF v_inventario.sucursal_id <> v_venta.sucursal_id THEN\n            RAISE EXCEPTION 'El producto del inventario % pertenece a otra sucursal', v_detalle.inventario_id;\n        END IF;\n\n        v_cantidad_reservada := 0;\n\n        IF v_venta.reserva_id IS NOT NULL THEN\n            SELECT COALESCE((\n                SELECT cantidad\n                FROM detalle_reserva\n                WHERE reserva_id = v_venta.reserva_id\n                  AND inventario_id = v_detalle.inventario_id\n            ), 0)\n            INTO v_cantidad_reservada;\n        END IF;\n\n        v_consumo_reserva := LEAST(v_cantidad_reservada, v_detalle.cantidad);\n        v_cantidad_directa := v_detalle.cantidad - v_consumo_reserva;\n\n        IF v_inventario.stock_actual < v_detalle.cantidad THEN\n            RAISE EXCEPTION 'Stock físico insuficiente en inventario %. Disponible físico: %, solicitado: %',\n                v_detalle.inventario_id, v_inventario.stock_actual, v_detalle.cantidad;\n        END IF;\n\n        IF (v_inventario.stock_actual - v_inventario.stock_reservado) < v_cantidad_directa THEN\n            RAISE EXCEPTION 'Stock disponible insuficiente para inventario %. Cantidad adicional requerida: %',\n                v_detalle.inventario_id, v_cantidad_directa;\n        END IF;\n\n        IF v_inventario.stock_reservado < v_consumo_reserva THEN\n            RAISE EXCEPTION 'Existe inconsistencia en el stock reservado del inventario %', v_detalle.inventario_id;\n        END IF;\n\n        UPDATE inventario\n        SET stock_actual = stock_actual - v_detalle.cantidad,\n            stock_reservado = stock_reservado - v_consumo_reserva,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = v_detalle.inventario_id;\n\n        INSERT INTO movimiento_inventario (\n            inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n            observaciones, referencia_tipo, referencia_id\n        ) VALUES (\n            v_detalle.inventario_id, p_usuario_id, 'SALIDA_VENTA',\n            v_detalle.cantidad, CURRENT_TIMESTAMP,\n            'Salida de inventario por venta', 'VENTA', p_venta_id\n        );\n    END LOOP;\n\n    IF v_venta.reserva_id IS NOT NULL THEN\n        FOR v_reserva_detalle IN\n            SELECT * FROM detalle_reserva\n            WHERE reserva_id = v_venta.reserva_id\n            ORDER BY inventario_id\n        LOOP\n            SELECT COALESCE(SUM(cantidad), 0)\n            INTO v_vendido\n            FROM detalle_venta\n            WHERE venta_id = p_venta_id\n              AND inventario_id = v_reserva_detalle.inventario_id;\n\n            v_consumido := LEAST(v_reserva_detalle.cantidad, v_vendido);\n            v_liberar := v_reserva_detalle.cantidad - v_consumido;\n\n            IF v_liberar > 0 THEN\n                PERFORM 1\n                FROM inventario\n                WHERE id = v_reserva_detalle.inventario_id\n                FOR UPDATE;\n\n                IF (SELECT stock_reservado FROM inventario WHERE id = v_reserva_detalle.inventario_id) < v_liberar THEN\n                    RAISE EXCEPTION 'Inconsistencia al liberar inventario reservado %', v_reserva_detalle.inventario_id;\n                END IF;\n\n                UPDATE inventario\n                SET stock_reservado = stock_reservado - v_liberar,\n                    fecha_actualizacion = CURRENT_TIMESTAMP\n                WHERE id = v_reserva_detalle.inventario_id;\n\n                INSERT INTO movimiento_inventario (\n                    inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n                    observaciones, referencia_tipo, referencia_id\n                ) VALUES (\n                    v_reserva_detalle.inventario_id, p_usuario_id,\n                    'LIBERACION_RESERVA', v_liberar, CURRENT_TIMESTAMP,\n                    'Prenda reservada no adquirida durante la venta',\n                    'RESERVA', v_venta.reserva_id\n                );\n            END IF;\n        END LOOP;\n\n        UPDATE reserva SET estado = 'ATENDIDA' WHERE id = v_venta.reserva_id;\n    END IF;\n\n    SELECT COALESCE(SUM(cantidad * precio_unitario), 0)\n    INTO v_total\n    FROM detalle_venta\n    WHERE venta_id = p_venta_id;\n\n    UPDATE venta\n    SET total = v_total,\n        estado = 'COMPLETADA'\n    WHERE id = p_venta_id;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_crear_reserva_desde_carrito",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_crear_reserva_desde_carrito(bigint,timestamp with time zone,text,bigint,bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_crear_reserva_desde_carrito(IN p_carrito_id bigint, IN p_fecha_atencion timestamp with time zone, IN p_observacion text, IN p_usuario_id bigint, INOUT p_reserva_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\r\nDECLARE\r\n    v_carrito RECORD;\r\n    v_detalle RECORD;\r\n    v_inventario RECORD;\r\n    v_stock_disponible INTEGER;\r\nBEGIN\r\n    ------------------------------------------------------------------\r\n    -- 1. Validaciones básicas\r\n    ------------------------------------------------------------------\r\n\r\n    IF p_fecha_atencion <= CURRENT_TIMESTAMP THEN\r\n        RAISE EXCEPTION\r\n            'La fecha de atención debe ser posterior a la fecha actual';\r\n    END IF;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 2. Bloquear carrito para impedir doble conversión concurrente\r\n    ------------------------------------------------------------------\r\n\r\n    SELECT\r\n        c.id,\r\n        c.cliente_id,\r\n        c.sucursal_id,\r\n        c.estado,\r\n        c.fecha_actualizacion\r\n    INTO v_carrito\r\n    FROM carrito c\r\n    WHERE c.id = p_carrito_id\r\n    FOR UPDATE;\r\n\r\n    IF NOT FOUND THEN\r\n        RAISE EXCEPTION 'El carrito % no existe', p_carrito_id;\r\n    END IF;\r\n\r\n    IF v_carrito.estado <> 'ACTIVO' THEN\r\n        RAISE EXCEPTION\r\n            'El carrito % no se encuentra activo', p_carrito_id;\r\n    END IF;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 3. Validar cliente y sucursal\r\n    ------------------------------------------------------------------\r\n\r\n    IF NOT EXISTS (\r\n        SELECT 1\r\n        FROM cliente\r\n        WHERE id = v_carrito.cliente_id\r\n          AND estado = TRUE\r\n    ) THEN\r\n        RAISE EXCEPTION\r\n            'El cliente asociado al carrito no existe o está inactivo';\r\n    END IF;\r\n\r\n    IF NOT EXISTS (\r\n        SELECT 1\r\n        FROM sucursal\r\n        WHERE id = v_carrito.sucursal_id\r\n          AND estado = TRUE\r\n    ) THEN\r\n        RAISE EXCEPTION\r\n            'La sucursal asociada al carrito no existe o está inactiva';\r\n    END IF;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 4. Validar que tenga prendas\r\n    ------------------------------------------------------------------\r\n\r\n    IF NOT EXISTS (\r\n        SELECT 1\r\n        FROM detalle_carrito\r\n        WHERE carrito_id = p_carrito_id\r\n    ) THEN\r\n        RAISE EXCEPTION\r\n            'El carrito no contiene prendas para reservar';\r\n    END IF;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 5. Crear reserva vinculada al carrito\r\n    ------------------------------------------------------------------\r\n\r\n    INSERT INTO reserva (\r\n        cliente_id,\r\n        sucursal_id,\r\n        carrito_id,\r\n        fecha_reserva,\r\n        fecha_atencion,\r\n        estado,\r\n        observacion\r\n    )\r\n    VALUES (\r\n        v_carrito.cliente_id,\r\n        v_carrito.sucursal_id,\r\n        p_carrito_id,\r\n        CURRENT_TIMESTAMP,\r\n        p_fecha_atencion,\r\n        'PENDIENTE',\r\n        p_observacion\r\n    )\r\n    RETURNING id INTO p_reserva_id;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 6. Procesar las prendas reales del carrito\r\n    ------------------------------------------------------------------\r\n\r\n    FOR v_detalle IN\r\n        SELECT\r\n            dc.inventario_id,\r\n            dc.cantidad\r\n        FROM detalle_carrito dc\r\n        WHERE dc.carrito_id = p_carrito_id\r\n        ORDER BY dc.inventario_id\r\n    LOOP\r\n\r\n        IF v_detalle.cantidad IS NULL OR v_detalle.cantidad <= 0 THEN\r\n            RAISE EXCEPTION\r\n                'Existe una cantidad inválida en el carrito';\r\n        END IF;\r\n\r\n        --------------------------------------------------------------\r\n        -- Bloqueo de inventario para concurrencia\r\n        --------------------------------------------------------------\r\n\r\n        SELECT\r\n            i.id,\r\n            i.sucursal_id,\r\n            i.stock_actual,\r\n            i.stock_reservado\r\n        INTO v_inventario\r\n        FROM inventario i\r\n        WHERE i.id = v_detalle.inventario_id\r\n        FOR UPDATE;\r\n\r\n        IF NOT FOUND THEN\r\n            RAISE EXCEPTION\r\n                'No existe el inventario %',\r\n                v_detalle.inventario_id;\r\n        END IF;\r\n\r\n        IF v_inventario.sucursal_id <> v_carrito.sucursal_id THEN\r\n            RAISE EXCEPTION\r\n                'El inventario % no pertenece a la sucursal del carrito',\r\n                v_detalle.inventario_id;\r\n        END IF;\r\n\r\n        v_stock_disponible :=\r\n            v_inventario.stock_actual\r\n            - v_inventario.stock_reservado;\r\n\r\n        IF v_stock_disponible < v_detalle.cantidad THEN\r\n            RAISE EXCEPTION\r\n                'Stock insuficiente para inventario %. Disponible: %, solicitado: %',\r\n                v_detalle.inventario_id,\r\n                v_stock_disponible,\r\n                v_detalle.cantidad;\r\n        END IF;\r\n\r\n        --------------------------------------------------------------\r\n        -- Reservar stock\r\n        --------------------------------------------------------------\r\n\r\n        UPDATE inventario\r\n        SET\r\n            stock_reservado =\r\n                stock_reservado + v_detalle.cantidad,\r\n            fecha_actualizacion = CURRENT_TIMESTAMP\r\n        WHERE id = v_detalle.inventario_id;\r\n\r\n        --------------------------------------------------------------\r\n        -- Detalle de reserva\r\n        --------------------------------------------------------------\r\n\r\n        INSERT INTO detalle_reserva (\r\n            reserva_id,\r\n            inventario_id,\r\n            cantidad\r\n        )\r\n        VALUES (\r\n            p_reserva_id,\r\n            v_detalle.inventario_id,\r\n            v_detalle.cantidad\r\n        );\r\n\r\n        --------------------------------------------------------------\r\n        -- Kardex\r\n        --------------------------------------------------------------\r\n\r\n        INSERT INTO movimiento_inventario (\r\n            inventario_id,\r\n            usuario_id,\r\n            tipo,\r\n            cantidad,\r\n            fecha_hora,\r\n            observaciones,\r\n            referencia_tipo,\r\n            referencia_id\r\n        )\r\n        VALUES (\r\n            v_detalle.inventario_id,\r\n            p_usuario_id,\r\n            'RESERVA',\r\n            v_detalle.cantidad,\r\n            CURRENT_TIMESTAMP,\r\n            'Stock reservado para cliente',\r\n            'RESERVA',\r\n            p_reserva_id\r\n        );\r\n\r\n    END LOOP;\r\n\r\n    ------------------------------------------------------------------\r\n    -- 7. Carrito consumido por la reserva\r\n    ------------------------------------------------------------------\r\n\r\n    UPDATE carrito\r\n    SET\r\n        estado = 'CONVERTIDO',\r\n        fecha_actualizacion = CURRENT_TIMESTAMP\r\n    WHERE id = p_carrito_id;\r\n\r\nEND;\r\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_crear_reserva",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_crear_reserva(bigint,bigint,timestamp with time zone,text,jsonb,bigint,bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_crear_reserva(IN p_cliente_id bigint, IN p_sucursal_id bigint, IN p_fecha_atencion timestamp with time zone, IN p_observacion text, IN p_items jsonb, IN p_usuario_id bigint, INOUT p_reserva_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_item RECORD;\n    v_inventario RECORD;\n    v_stock_disponible INTEGER;\nBEGIN\n    IF p_fecha_atencion <= CURRENT_TIMESTAMP THEN\n        RAISE EXCEPTION 'La fecha de atención debe ser posterior a la fecha actual';\n    END IF;\n\n    IF p_items IS NULL OR jsonb_typeof(p_items) <> 'array' OR jsonb_array_length(p_items) = 0 THEN\n        RAISE EXCEPTION 'La reserva debe contener al menos una prenda';\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM cliente WHERE id = p_cliente_id AND estado = TRUE) THEN\n        RAISE EXCEPTION 'El cliente % no existe o está inactivo', p_cliente_id;\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM sucursal WHERE id = p_sucursal_id AND estado = TRUE) THEN\n        RAISE EXCEPTION 'La sucursal % no existe o está inactiva', p_sucursal_id;\n    END IF;\n\n    INSERT INTO reserva (cliente_id, sucursal_id, fecha_reserva, fecha_atencion, estado, observacion)\n    VALUES (p_cliente_id, p_sucursal_id, CURRENT_TIMESTAMP, p_fecha_atencion, 'PENDIENTE', p_observacion)\n    RETURNING id INTO p_reserva_id;\n\n    FOR v_item IN\n        SELECT inventario_id, SUM(cantidad)::INTEGER AS cantidad\n        FROM jsonb_to_recordset(p_items) AS x(inventario_id BIGINT, cantidad INTEGER)\n        GROUP BY inventario_id\n        ORDER BY inventario_id\n    LOOP\n        IF v_item.cantidad IS NULL OR v_item.cantidad <= 0 THEN\n            RAISE EXCEPTION 'La cantidad de una reserva debe ser mayor que cero';\n        END IF;\n\n        SELECT i.id, i.sucursal_id, i.stock_actual, i.stock_reservado, i.variante_producto_id, i.temporada_id\n        INTO v_inventario\n        FROM inventario i\n        WHERE i.id = v_item.inventario_id\n        FOR UPDATE;\n\n        IF NOT FOUND THEN\n            RAISE EXCEPTION 'No existe el inventario %', v_item.inventario_id;\n        END IF;\n\n        IF v_inventario.sucursal_id <> p_sucursal_id THEN\n            RAISE EXCEPTION 'El inventario % no pertenece a la sucursal de la reserva', v_item.inventario_id;\n        END IF;\n\n        v_stock_disponible := v_inventario.stock_actual - v_inventario.stock_reservado;\n\n        IF v_stock_disponible < v_item.cantidad THEN\n            RAISE EXCEPTION 'Stock insuficiente para inventario %. Disponible: %, solicitado: %',\n                v_item.inventario_id, v_stock_disponible, v_item.cantidad;\n        END IF;\n\n        UPDATE inventario\n        SET stock_reservado = stock_reservado + v_item.cantidad,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = v_item.inventario_id;\n\n        INSERT INTO detalle_reserva (reserva_id, inventario_id, cantidad)\n        VALUES (p_reserva_id, v_item.inventario_id, v_item.cantidad);\n\n        INSERT INTO movimiento_inventario (\n            inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n            observaciones, referencia_tipo, referencia_id\n        ) VALUES (\n            v_item.inventario_id, p_usuario_id, 'RESERVA', v_item.cantidad,\n            CURRENT_TIMESTAMP, 'Stock reservado para cliente', 'RESERVA', p_reserva_id\n        );\n    END LOOP;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_finalizar_reserva_sin_compra",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_finalizar_reserva_sin_compra(bigint,bigint,text)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_finalizar_reserva_sin_compra(IN p_reserva_id bigint, IN p_usuario_id bigint, IN p_observacion text)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\r\nDECLARE\r\n    v_reserva RECORD;\r\n    v_detalle RECORD;\r\n    v_stock_reservado INTEGER;\r\nBEGIN\r\n    -- 1. Bloquear la reserva para evitar que otro proceso\r\n    --    la modifique al mismo tiempo.\r\n    SELECT *\r\n    INTO v_reserva\r\n    FROM reserva\r\n    WHERE id = p_reserva_id\r\n    FOR UPDATE;\r\n\r\n    IF NOT FOUND THEN\r\n        RAISE EXCEPTION 'La reserva % no existe', p_reserva_id;\r\n    END IF;\r\n\r\n    -- 2. CU18 solo puede finalizar sin compra\r\n    --    una reserva previamente CONFIRMADA.\r\n    IF v_reserva.estado <> 'CONFIRMADA' THEN\r\n        RAISE EXCEPTION\r\n            'La reserva % no puede finalizarse sin compra porque se encuentra en estado %',\r\n            p_reserva_id,\r\n            v_reserva.estado;\r\n    END IF;\r\n\r\n    -- 3. La reserva debe tener prendas asociadas.\r\n    IF NOT EXISTS (\r\n        SELECT 1\r\n        FROM detalle_reserva\r\n        WHERE reserva_id = p_reserva_id\r\n    ) THEN\r\n        RAISE EXCEPTION\r\n            'La reserva % no contiene prendas reservadas',\r\n            p_reserva_id;\r\n    END IF;\r\n\r\n    -- 4. Recorrer todas las prendas reservadas.\r\n    --    El ORDER BY mantiene siempre el mismo orden de bloqueo.\r\n    FOR v_detalle IN\r\n        SELECT\r\n            dr.inventario_id,\r\n            dr.cantidad\r\n        FROM detalle_reserva dr\r\n        WHERE dr.reserva_id = p_reserva_id\r\n        ORDER BY dr.inventario_id\r\n    LOOP\r\n        -- Bloquear inventario.\r\n        SELECT stock_reservado\r\n        INTO v_stock_reservado\r\n        FROM inventario\r\n        WHERE id = v_detalle.inventario_id\r\n        FOR UPDATE;\r\n\r\n        IF NOT FOUND THEN\r\n            RAISE EXCEPTION\r\n                'Inventario % de la reserva no encontrado',\r\n                v_detalle.inventario_id;\r\n        END IF;\r\n\r\n        -- Validar consistencia antes de liberar.\r\n        IF v_stock_reservado < v_detalle.cantidad THEN\r\n            RAISE EXCEPTION\r\n                'Inconsistencia en stock reservado del inventario %. Reservado: %, requerido para liberar: %',\r\n                v_detalle.inventario_id,\r\n                v_stock_reservado,\r\n                v_detalle.cantidad;\r\n        END IF;\r\n\r\n        -- 5. Liberar únicamente stock_reservado.\r\n        --    stock_actual NO se modifica.\r\n        UPDATE inventario\r\n        SET\r\n            stock_reservado = stock_reservado - v_detalle.cantidad,\r\n            fecha_actualizacion = CURRENT_TIMESTAMP\r\n        WHERE id = v_detalle.inventario_id;\r\n\r\n        -- 6. Registrar trazabilidad.\r\n        INSERT INTO movimiento_inventario (\r\n            inventario_id,\r\n            usuario_id,\r\n            tipo,\r\n            cantidad,\r\n            fecha_hora,\r\n            observaciones,\r\n            referencia_tipo,\r\n            referencia_id\r\n        )\r\n        VALUES (\r\n            v_detalle.inventario_id,\r\n            p_usuario_id,\r\n            'LIBERACION_RESERVA',\r\n            v_detalle.cantidad,\r\n            CURRENT_TIMESTAMP,\r\n            COALESCE(\r\n                NULLIF(TRIM(p_observacion), ''),\r\n                'Atención finalizada sin compra'\r\n            ),\r\n            'RESERVA',\r\n            p_reserva_id\r\n        );\r\n    END LOOP;\r\n\r\n    -- 7. La reserva sí fue atendida, aunque el cliente no compró.\r\n    UPDATE reserva\r\n    SET\r\n        estado = 'ATENDIDA',\r\n\r\n        -- No sobrescribimos la observación original del cliente.\r\n        -- Solo agregamos la nueva si realmente se recibió una.\r\n        observacion = CASE\r\n            WHEN p_observacion IS NULL\r\n                 OR TRIM(p_observacion) = ''\r\n                THEN observacion\r\n\r\n            WHEN observacion IS NULL\r\n                 OR TRIM(observacion) = ''\r\n                THEN p_observacion\r\n\r\n            ELSE observacion || ' | ' || p_observacion\r\n        END\r\n    WHERE id = p_reserva_id;\r\nEND;\r\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_recalcular_total_venta",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_recalcular_total_venta(bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_recalcular_total_venta(IN p_venta_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_total NUMERIC(12,2);\nBEGIN\n    IF NOT EXISTS (SELECT 1 FROM venta WHERE id = p_venta_id) THEN\n        RAISE EXCEPTION 'La venta % no existe', p_venta_id;\n    END IF;\n\n    SELECT COALESCE(SUM(cantidad * precio_unitario), 0)\n    INTO v_total\n    FROM detalle_venta\n    WHERE venta_id = p_venta_id;\n\n    UPDATE venta SET total = v_total WHERE id = p_venta_id;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_recibir_orden_compra",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_recibir_orden_compra(bigint,bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_recibir_orden_compra(IN p_orden_compra_id bigint, IN p_usuario_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_orden RECORD;\n    v_detalle RECORD;\n    v_inventario_id BIGINT;\nBEGIN\n    SELECT * INTO v_orden\n    FROM orden_compra\n    WHERE id = p_orden_compra_id\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La orden de compra % no existe', p_orden_compra_id;\n    END IF;\n\n    IF v_orden.estado NOT IN ('ENVIADA', 'PARCIAL') THEN\n        RAISE EXCEPTION 'La orden de compra % no puede recibirse porque está en estado %', p_orden_compra_id, v_orden.estado;\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM detalle_orden_compra WHERE orden_compra_id = p_orden_compra_id) THEN\n        RAISE EXCEPTION 'La orden de compra % no contiene productos', p_orden_compra_id;\n    END IF;\n\n    FOR v_detalle IN\n        SELECT * FROM detalle_orden_compra\n        WHERE orden_compra_id = p_orden_compra_id\n        ORDER BY variante_producto_id, temporada_id\n    LOOP\n        INSERT INTO inventario (\n            sucursal_id, variante_producto_id, temporada_id,\n            stock_actual, stock_reservado, fecha_actualizacion\n        ) VALUES (\n            v_orden.sucursal_id, v_detalle.variante_producto_id,\n            v_detalle.temporada_id, v_detalle.cantidad, 0,\n            CURRENT_TIMESTAMP\n        )\n        ON CONFLICT (sucursal_id, variante_producto_id, temporada_id)\n        DO UPDATE SET\n            stock_actual = inventario.stock_actual + EXCLUDED.stock_actual,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        RETURNING id INTO v_inventario_id;\n\n        INSERT INTO movimiento_inventario (\n            inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n            observaciones, referencia_tipo, referencia_id\n        ) VALUES (\n            v_inventario_id, p_usuario_id, 'ENTRADA_COMPRA',\n            v_detalle.cantidad, CURRENT_TIMESTAMP,\n            'Recepción de orden de compra', 'ORDEN_COMPRA', p_orden_compra_id\n        );\n    END LOOP;\n\n    UPDATE orden_compra\n    SET estado = 'RECIBIDA',\n        fecha_recepcion = CURRENT_TIMESTAMP\n    WHERE id = p_orden_compra_id;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    },
+    {
+        "acl": "{=X/postgres,postgres=X/postgres,anon=X/postgres,authenticated=X/postgres,service_role=X/postgres}",
+        "kind": "procedure",
+        "name": "sp_registrar_devolucion",
+        "owner": "postgres",
+        "language": "plpgsql",
+        "parallel": "u",
+        "leakproof": false,
+        "proconfig": [
+            "search_path=public, pg_temp"
+        ],
+        "signature": "sp_registrar_devolucion(bigint,bigint)",
+        "definition": "CREATE OR REPLACE PROCEDURE public.sp_registrar_devolucion(IN p_devolucion_id bigint, IN p_usuario_id bigint)\n LANGUAGE plpgsql\n SET search_path TO 'public', 'pg_temp'\nAS $procedure$\nDECLARE\n    v_devolucion RECORD;\n    v_detalle RECORD;\n    v_cantidad_vendida INTEGER;\n    v_devuelto_previamente INTEGER;\n    v_inventario_id BIGINT;\nBEGIN\n    SELECT * INTO v_devolucion\n    FROM devolucion\n    WHERE id = p_devolucion_id\n    FOR UPDATE;\n\n    IF NOT FOUND THEN\n        RAISE EXCEPTION 'La devolución % no existe', p_devolucion_id;\n    END IF;\n\n    IF v_devolucion.estado <> 'APROBADA' THEN\n        RAISE EXCEPTION 'La devolución % debe estar APROBADA antes de procesarse. Estado actual: %',\n            p_devolucion_id, v_devolucion.estado;\n    END IF;\n\n    IF NOT EXISTS (SELECT 1 FROM detalle_devolucion WHERE devolucion_id = p_devolucion_id) THEN\n        RAISE EXCEPTION 'La devolución % no contiene productos', p_devolucion_id;\n    END IF;\n\n    FOR v_detalle IN\n        SELECT * FROM detalle_devolucion\n        WHERE devolucion_id = p_devolucion_id\n        ORDER BY detalle_venta_id\n    LOOP\n        SELECT dv.cantidad, dv.inventario_id\n        INTO v_cantidad_vendida, v_inventario_id\n        FROM detalle_venta dv\n        WHERE dv.id = v_detalle.detalle_venta_id\n          AND dv.venta_id = v_devolucion.venta_id;\n\n        IF NOT FOUND THEN\n            RAISE EXCEPTION 'El detalle de venta % no pertenece a la venta de esta devolución',\n                v_detalle.detalle_venta_id;\n        END IF;\n\n        SELECT COALESCE(SUM(dd.cantidad), 0)\n        INTO v_devuelto_previamente\n        FROM detalle_devolucion dd\n        INNER JOIN devolucion d ON d.id = dd.devolucion_id\n        WHERE dd.detalle_venta_id = v_detalle.detalle_venta_id\n          AND d.id <> p_devolucion_id\n          AND d.estado IN ('APROBADA', 'COMPLETADA');\n\n        IF (v_devuelto_previamente + v_detalle.cantidad) > v_cantidad_vendida THEN\n            RAISE EXCEPTION 'No se pueden devolver % unidades. Vendidas: %, ya devueltas: %',\n                v_detalle.cantidad, v_cantidad_vendida, v_devuelto_previamente;\n        END IF;\n\n        PERFORM 1 FROM inventario WHERE id = v_inventario_id FOR UPDATE;\n\n        IF NOT FOUND THEN\n            RAISE EXCEPTION 'Inventario % no encontrado', v_inventario_id;\n        END IF;\n\n        UPDATE inventario\n        SET stock_actual = stock_actual + v_detalle.cantidad,\n            fecha_actualizacion = CURRENT_TIMESTAMP\n        WHERE id = v_inventario_id;\n\n        INSERT INTO movimiento_inventario (\n            inventario_id, usuario_id, tipo, cantidad, fecha_hora,\n            observaciones, referencia_tipo, referencia_id\n        ) VALUES (\n            v_inventario_id, p_usuario_id, 'DEVOLUCION',\n            v_detalle.cantidad, CURRENT_TIMESTAMP,\n            COALESCE(v_detalle.motivo, 'Devolución de producto'),\n            'DEVOLUCION', p_devolucion_id\n        );\n    END LOOP;\n\n    UPDATE devolucion SET estado = 'COMPLETADA' WHERE id = p_devolucion_id;\nEND;\n$procedure$\n",
+        "volatility": "v",
+        "security_definer": false
+    }
+]
+

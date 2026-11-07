@@ -1,0 +1,192 @@
+[
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_completar_ip BEFORE INSERT ON bitacora FOR EACH ROW EXECUTE FUNCTION fn_completar_ip_bitacora()",
+        "table_name": "bitacora",
+        "trigger_name": "trg_bitacora_completar_ip",
+        "function_signature": "fn_completar_ip_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_cliente AFTER INSERT OR DELETE OR UPDATE ON cliente FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "cliente",
+        "trigger_name": "trg_bitacora_cliente",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_actualizar_actividad_carrito AFTER INSERT OR DELETE OR UPDATE ON detalle_carrito FOR EACH ROW EXECUTE FUNCTION fn_actualizar_actividad_carrito()",
+        "table_name": "detalle_carrito",
+        "trigger_name": "trg_actualizar_actividad_carrito",
+        "function_signature": "fn_actualizar_actividad_carrito()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_validar_sucursal_detalle_carrito BEFORE INSERT OR UPDATE OF carrito_id, inventario_id ON detalle_carrito FOR EACH ROW EXECUTE FUNCTION fn_validar_sucursal_detalle_carrito()",
+        "table_name": "detalle_carrito",
+        "trigger_name": "trg_validar_sucursal_detalle_carrito",
+        "function_signature": "fn_validar_sucursal_detalle_carrito()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_validar_detalle_devolucion BEFORE INSERT OR UPDATE ON detalle_devolucion FOR EACH ROW EXECUTE FUNCTION fn_validar_detalle_devolucion()",
+        "table_name": "detalle_devolucion",
+        "trigger_name": "trg_validar_detalle_devolucion",
+        "function_signature": "fn_validar_detalle_devolucion()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_proteger_detalle_orden_compra BEFORE INSERT OR DELETE OR UPDATE ON detalle_orden_compra FOR EACH ROW EXECUTE FUNCTION fn_proteger_detalle_orden_compra()",
+        "table_name": "detalle_orden_compra",
+        "trigger_name": "trg_proteger_detalle_orden_compra",
+        "function_signature": "fn_proteger_detalle_orden_compra()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_validar_producto_proveedor_orden BEFORE INSERT OR UPDATE ON detalle_orden_compra FOR EACH ROW EXECUTE FUNCTION fn_validar_producto_proveedor_orden()",
+        "table_name": "detalle_orden_compra",
+        "trigger_name": "trg_validar_producto_proveedor_orden",
+        "function_signature": "fn_validar_producto_proveedor_orden()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_validar_detalle_reserva_sucursal BEFORE INSERT OR UPDATE ON detalle_reserva FOR EACH ROW EXECUTE FUNCTION fn_validar_detalle_reserva_sucursal()",
+        "table_name": "detalle_reserva",
+        "trigger_name": "trg_validar_detalle_reserva_sucursal",
+        "function_signature": "fn_validar_detalle_reserva_sucursal()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_proteger_detalle_venta BEFORE INSERT OR DELETE OR UPDATE ON detalle_venta FOR EACH ROW EXECUTE FUNCTION fn_proteger_detalle_venta()",
+        "table_name": "detalle_venta",
+        "trigger_name": "trg_proteger_detalle_venta",
+        "function_signature": "fn_proteger_detalle_venta()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_recalcular_total_venta AFTER INSERT OR DELETE OR UPDATE ON detalle_venta FOR EACH ROW EXECUTE FUNCTION fn_recalcular_total_venta_trigger()",
+        "table_name": "detalle_venta",
+        "trigger_name": "trg_recalcular_total_venta",
+        "function_signature": "fn_recalcular_total_venta_trigger()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_validar_detalle_venta_sucursal BEFORE INSERT OR UPDATE ON detalle_venta FOR EACH ROW EXECUTE FUNCTION fn_validar_detalle_venta_sucursal()",
+        "table_name": "detalle_venta",
+        "trigger_name": "trg_validar_detalle_venta_sucursal",
+        "function_signature": "fn_validar_detalle_venta_sucursal()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_devolucion AFTER INSERT OR DELETE OR UPDATE ON devolucion FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "devolucion",
+        "trigger_name": "trg_bitacora_devolucion",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_empleado AFTER INSERT OR DELETE OR UPDATE ON empleado FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "empleado",
+        "trigger_name": "trg_bitacora_empleado",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_inventario AFTER INSERT OR DELETE OR UPDATE ON inventario FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "inventario",
+        "trigger_name": "trg_bitacora_inventario",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_controlar_actualizacion_inventario BEFORE UPDATE ON inventario FOR EACH ROW EXECUTE FUNCTION fn_controlar_actualizacion_inventario()",
+        "table_name": "inventario",
+        "trigger_name": "trg_controlar_actualizacion_inventario",
+        "function_signature": "fn_controlar_actualizacion_inventario()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_orden_compra AFTER INSERT OR DELETE OR UPDATE ON orden_compra FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "orden_compra",
+        "trigger_name": "trg_bitacora_orden_compra",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_pago AFTER INSERT OR DELETE OR UPDATE ON pago FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "pago",
+        "trigger_name": "trg_bitacora_pago",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_producto AFTER INSERT OR DELETE OR UPDATE ON producto FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "producto",
+        "trigger_name": "trg_bitacora_producto",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_reserva AFTER INSERT OR DELETE OR UPDATE ON reserva FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "reserva",
+        "trigger_name": "trg_bitacora_reserva",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_rol AFTER INSERT OR DELETE OR UPDATE ON rol FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "rol",
+        "trigger_name": "trg_bitacora_rol",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_sucursal AFTER INSERT OR DELETE OR UPDATE ON sucursal FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "sucursal",
+        "trigger_name": "trg_bitacora_sucursal",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_usuario AFTER INSERT OR DELETE OR UPDATE ON usuario FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "usuario",
+        "trigger_name": "trg_bitacora_usuario",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_normalizar_correo_usuario BEFORE INSERT OR UPDATE ON usuario FOR EACH ROW EXECUTE FUNCTION fn_normalizar_correo_usuario()",
+        "table_name": "usuario",
+        "trigger_name": "trg_normalizar_correo_usuario",
+        "function_signature": "fn_normalizar_correo_usuario()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_variante_producto AFTER INSERT OR DELETE OR UPDATE ON variante_producto FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "variante_producto",
+        "trigger_name": "trg_bitacora_variante_producto",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_normalizar_sku BEFORE INSERT OR UPDATE ON variante_producto FOR EACH ROW EXECUTE FUNCTION fn_normalizar_sku()",
+        "table_name": "variante_producto",
+        "trigger_name": "trg_normalizar_sku",
+        "function_signature": "fn_normalizar_sku()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_bitacora_venta AFTER INSERT OR DELETE OR UPDATE ON venta FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()",
+        "table_name": "venta",
+        "trigger_name": "trg_bitacora_venta",
+        "function_signature": "fn_registrar_bitacora()"
+    },
+    {
+        "enabled": "O",
+        "definition": "CREATE TRIGGER trg_proteger_eliminacion_venta BEFORE DELETE ON venta FOR EACH ROW EXECUTE FUNCTION fn_proteger_eliminacion_venta()",
+        "table_name": "venta",
+        "trigger_name": "trg_proteger_eliminacion_venta",
+        "function_signature": "fn_proteger_eliminacion_venta()"
+    }
+]
+

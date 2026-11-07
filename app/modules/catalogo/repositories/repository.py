@@ -4,6 +4,7 @@ from decimal import Decimal
 from sqlalchemy import and_, func, or_, select, update
 from sqlalchemy.orm import Session, joinedload, selectinload, with_loader_criteria
 
+from app.core.bitacora_trigger import bitacora_categoria_por_trigger
 from app.modules.autenticacion_seguridad.models.models import Bitacora
 from app.modules.catalogo.models.models import (
     Categoria,
@@ -33,8 +34,12 @@ def registrar_evento_bitacora(
 
     producto y variante_producto poseen trigger propio (fn_registrar_bitacora),
     por lo que NO deben auditarse manualmente para no duplicar eventos.
-    categoria, talla, color y recurso_producto no tienen trigger.
+    talla, color y recurso_producto siguen sin trigger. categoria dejo de estar
+    en esa lista: 040 instala trg_bitacora_categoria y, cuando la base ya lo
+    tiene, el evento lo escribe PostgreSQL en la misma transaccion (5CB).
     """
+    if entidad_afectada == "categoria" and bitacora_categoria_por_trigger(db):
+        return
     db.add(
         Bitacora(
             usuario_id=usuario_id,

@@ -1,0 +1,46 @@
+{
+  "project_ref": "zyitwlxfkphthlvlmuej",
+  "project_name": "fashionstore",
+  "postgres_server_version": "17.6",
+  "captured_via": "Supabase read-only catalog SELECT queries",
+  "public_schema": {
+    "tables": 41,
+    "views": 1,
+    "materialized_views": 0,
+    "sequences": 37,
+    "functions": 15,
+    "procedures": 9,
+    "triggers": 27,
+    "foreign_keys": 60,
+    "indexes": 134,
+    "rls_enabled_tables": 38,
+    "rls_forced_tables": 0,
+    "policies": 0,
+    "empresa_id_columns": 0
+  },
+  "historical_data_counts_used_only_as_migration_preconditions": {
+    "usuario": 9,
+    "sucursal": 4,
+    "cliente": 5,
+    "empleado": 4,
+    "producto": 14,
+    "variante_producto": 120,
+    "inventario": 265,
+    "reserva": 11,
+    "venta": 40,
+    "pago": 30,
+    "bitacora": 806,
+    "saas_base_tables_present": 0
+  },
+  "saas_structural_assumptions": {
+    "company_tables_expected": 31,
+    "company_tables_found": 31,
+    "simple_id_primary_keys": 28,
+    "company_to_company_simple_foreign_keys": 46,
+    "required_legacy_unique_constraint_names_present": 9,
+    "usuario_id_type": "bigint",
+    "rol_id_type": "bigint",
+    "legacy_empresa_id_columns": 0,
+    "ar_tables_with_rls_enabled": 0
+  }
+}

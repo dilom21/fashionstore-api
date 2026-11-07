@@ -6,11 +6,12 @@ from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_bootstrap_db, get_db
 from app.core.tenant_context import TenantContext, emitir_token_empresa
 from app.core.tenant_dependencies import (
     comprobar_saas_habilitado,
     get_current_tenant_context,
+    publicar_token,
 )
 from app.modules.autenticacion_seguridad.schemas.schemas import LoginRequest
 from app.modules.autenticacion_seguridad.services.service import AuthService
@@ -55,28 +56,57 @@ class TenantMeResponse(BaseModel):
 def login_tenant(
     datos: TenantLoginRequest,
     db: Session = Depends(get_db),
+    db_bootstrap: Session = Depends(get_bootstrap_db),
 ):
-    """Autenticacion con empresa explicita; no acepta empresa_id/rol externos."""
+    """Autenticacion con empresa explicita; no acepta empresa_id/rol externos.
+
+    Orden 5CA (pool bootstrap -> token -> membresía con RLS):
+      1. credenciales por la proyección estrecha del pool bootstrap;
+      2. slug -> empresa_id (sólo identificador, no autoriza);
+      3. JWT firmado y publicado como GUC local;
+      4. membresía vigente en el pool api, ya con RLS y actor_claims() activos.
+    """
     comprobar_saas_habilitado()
-    # Bootstrap 5R: consulta SOLO usuario_id y password_hash y verifica
-    # Argon2 en backend; evita cargar Usuario/Rol ORM del primer parcial.
-    # NO equivale a contar con un rol PostgreSQL restringido ni RLS aplicado.
     try:
         usuario_id = AuthService.autenticar_credenciales_tenant(
-            db, datos.correo, datos.password
+            db_bootstrap, datos.correo, datos.password
         )
         if usuario_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciales invalidas o empresa no autorizada",
             )
+        empresa_id = TenantAuthRepository.obtener_empresa_id_por_slug(
+            db_bootstrap, datos.empresa_slug
+        )
+        if empresa_id is None:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas o empresa no autorizada",
+            )
+        token = emitir_token_empresa(
+            usuario_id=usuario_id,
+            empresa_id=empresa_id,
+            contexto=datos.contexto,
+        )
+        # Sin token, RLS no puede evaluar la membresía: se publica antes.
+        publicar_token(db, token)
         registro = TenantAuthRepository.obtener_membresia_vigente(
             db,
             usuario_id=usuario_id,
-            empresa_slug=datos.empresa_slug,
+            empresa_id=empresa_id,
             contexto=datos.contexto,
         )
+    except HTTPException:
+        raise
     except SQLAlchemyError as exc:
+        # 42501 = actor_claims() rechazó el token (membresía no vigente):
+        # es "no autorizado", no "servicio no disponible".
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "42501":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas o empresa no autorizada",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El esquema de autenticacion SaaS no esta disponible",
@@ -88,11 +118,6 @@ def login_tenant(
             detail="Credenciales invalidas o empresa no autorizada",
         )
 
-    token = emitir_token_empresa(
-        usuario_id=usuario_id,
-        empresa_id=int(registro["empresa_id"]),
-        contexto=datos.contexto,
-    )
     return TenantLoginResponse(
         access_token=token,
         empresa_id=int(registro["empresa_id"]),

@@ -1,0 +1,2614 @@
+[
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "accion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(50)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "bitacora",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "usuario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "fecha_hora",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "ip",
+                "type": "character varying(45)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "accion",
+                "type": "character varying(150)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "entidad_afectada",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "carrito",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "cliente_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "fecha_creacion",
+                "type": "timestamp with time zone",
+                "default": "now()",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'ACTIVO'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_actualizacion",
+                "type": "timestamp with time zone",
+                "default": "now()",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "categoria",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "ciudad",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "cliente",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "usuario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "apellido",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "telefono",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "sexo",
+                "type": "character varying(20)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "ci",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "fecha_nacimiento",
+                "type": "date",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 9,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "coleccion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "temporada_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(120)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "color",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(60)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "configuracion_vestidor_ar",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "recurso_producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "zona_cuerpo",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "tipo_asset",
+                "type": "character varying(20)",
+                "default": "'PNG_2D'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "factor_ancho",
+                "type": "numeric(8,4)",
+                "default": "1.0000",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "factor_alto",
+                "type": "numeric(8,4)",
+                "default": "1.0000",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "offset_x",
+                "type": "numeric(8,4)",
+                "default": "0.0000",
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "offset_y",
+                "type": "numeric(8,4)",
+                "default": "0.0000",
+                "identity": "",
+                "not_null": true,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "rotacion_offset",
+                "type": "numeric(8,2)",
+                "default": "0.00",
+                "identity": "",
+                "not_null": true,
+                "position": 9,
+                "generated": ""
+            },
+            {
+                "name": "orden_capa",
+                "type": "smallint",
+                "default": "1",
+                "identity": "",
+                "not_null": true,
+                "position": 10,
+                "generated": ""
+            },
+            {
+                "name": "opacidad",
+                "type": "numeric(5,4)",
+                "default": "1.0000",
+                "identity": "",
+                "not_null": true,
+                "position": 11,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 12,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": false
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "detalle_carrito",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "carrito_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "inventario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "detalle_devolucion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "devolucion_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "detalle_venta_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "motivo",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "detalle_orden_compra",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "orden_compra_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "variante_producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "temporada_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "costo_unitario",
+                "type": "numeric(12,2)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "detalle_reserva",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "reserva_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "inventario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "detalle_venta",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "venta_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "inventario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "precio_unitario",
+                "type": "numeric(12,2)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "devolucion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "venta_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "fecha_hora",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "motivo",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'SOLICITADA'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "observacion",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "empleado",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "usuario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "nombres",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "apellidos",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "ci",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "telefono",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "fecha_contratacion",
+                "type": "date",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 9,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "funcion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "modulo_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "inventario",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "variante_producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "temporada_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "stock_actual",
+                "type": "integer",
+                "default": "0",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "stock_reservado",
+                "type": "integer",
+                "default": "0",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "fecha_actualizacion",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "modulo",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "movimiento_inventario",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "inventario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "usuario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "tipo",
+                "type": "character varying(40)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "cantidad",
+                "type": "integer",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_hora",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "observaciones",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "referencia_tipo",
+                "type": "character varying(50)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "referencia_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 9,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "orden_compra",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "proveedor_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "empleado_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "fecha_orden",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_estimada",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "fecha_recepcion",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'BORRADOR'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "observacion",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 9,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "pago",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "venta_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "fecha_hora",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "monto",
+                "type": "numeric(12,2)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "metodo",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'PENDIENTE'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "referencia_transaccion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "pasarela",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 8,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "producto",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "categoria_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(150)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "precio",
+                "type": "numeric(12,2)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "producto_coleccion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "coleccion_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "promocion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(120)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "tipo_descuento",
+                "type": "character varying(20)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "valor_descuento",
+                "type": "numeric(12,2)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_inicio",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "fecha_fin",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 8,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "promocion_producto",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "promocion_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "proveedor",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "razon_social",
+                "type": "character varying(150)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nit",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "correo",
+                "type": "character varying(150)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "telefono",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "direccion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "proveedor_producto",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "proveedor_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "costo_referencia",
+                "type": "numeric(12,2)",
+                "default": "0",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "prueba_vestidor_ar",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "sesion_vestidor_ar_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "configuracion_vestidor_ar_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "variante_producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "fecha_inicio",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_fin",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(20)",
+                "default": "'INICIADA'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": false
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "recurso_producto",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "color_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "tipo",
+                "type": "character varying(50)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "url",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "es_principal",
+                "type": "boolean",
+                "default": "false",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "reserva",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "cliente_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "fecha_reserva",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "fecha_atencion",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'PENDIENTE'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "observacion",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "carrito_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 8,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "rol",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(80)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "rol_funcion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "rol_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "funcion_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "accion_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "descripcion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "sesion_vestidor_ar",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "cliente_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "fecha_inicio",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "fecha_fin",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(20)",
+                "default": "'ACTIVA'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": false
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "sucursal",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "ciudad_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(120)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "direccion",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "telefono",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "talla",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(30)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "temporada",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "nombre",
+                "type": "character varying(100)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "fecha_inicio",
+                "type": "date",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "fecha_fin",
+                "type": "date",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "token_recuperacion",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "usuario_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "token",
+                "type": "text",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "fecha_creacion",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "fecha_expiracion",
+                "type": "timestamp with time zone",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "usado",
+                "type": "boolean",
+                "default": "false",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "usuario",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "rol_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "correo",
+                "type": "character varying(150)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "password_hash",
+                "type": "character varying(255)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "fecha_creacion",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "variante_producto",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "producto_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "talla_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "color_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "sku",
+                "type": "character varying(80)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "boolean",
+                "default": "true",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    },
+    {
+        "acl": "{postgres=arwdDxtm/postgres,anon=arwdDxtm/postgres,authenticated=arwdDxtm/postgres,service_role=arwdDxtm/postgres}",
+        "name": "venta",
+        "owner": "postgres",
+        "columns": [
+            {
+                "name": "id",
+                "type": "bigint",
+                "default": null,
+                "identity": "d",
+                "not_null": true,
+                "position": 1,
+                "generated": ""
+            },
+            {
+                "name": "cliente_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 2,
+                "generated": ""
+            },
+            {
+                "name": "empleado_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 3,
+                "generated": ""
+            },
+            {
+                "name": "sucursal_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 4,
+                "generated": ""
+            },
+            {
+                "name": "reserva_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 5,
+                "generated": ""
+            },
+            {
+                "name": "fecha_hora",
+                "type": "timestamp with time zone",
+                "default": "CURRENT_TIMESTAMP",
+                "identity": "",
+                "not_null": true,
+                "position": 6,
+                "generated": ""
+            },
+            {
+                "name": "canal",
+                "type": "character varying(20)",
+                "default": null,
+                "identity": "",
+                "not_null": true,
+                "position": 7,
+                "generated": ""
+            },
+            {
+                "name": "estado",
+                "type": "character varying(30)",
+                "default": "'PENDIENTE'::character varying",
+                "identity": "",
+                "not_null": true,
+                "position": 8,
+                "generated": ""
+            },
+            {
+                "name": "total",
+                "type": "numeric(12,2)",
+                "default": "0",
+                "identity": "",
+                "not_null": true,
+                "position": 9,
+                "generated": ""
+            },
+            {
+                "name": "carrito_id",
+                "type": "bigint",
+                "default": null,
+                "identity": "",
+                "not_null": false,
+                "position": 10,
+                "generated": ""
+            }
+        ],
+        "relkind": "r",
+        "reloptions": null,
+        "rls_forced": false,
+        "rls_enabled": true
+    }
+]
+

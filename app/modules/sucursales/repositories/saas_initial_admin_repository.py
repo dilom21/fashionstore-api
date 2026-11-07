@@ -147,16 +147,19 @@ def registrar_primer_administrador(
         password_hash=_hasher.hash(password),
         fecha_creacion=datetime.now(timezone.utc),estado=True
     ).returning(usuario.c.id)).scalar_one()
+    # Orden obligatorio: la FK compuesta fk_tenant_empleado_usuario exige que
+    # (empresa_id,usuario_id) exista ya en usuario_empresa antes de crear el
+    # empleado; si se invierte, PostgreSQL devuelve 23503.
+    membership=db.execute(insert(usuario_empresa).values(
+        empresa_id=empresa_id,usuario_id=account,rol_id=admin_role_id,
+        estado=True
+    ).returning(usuario_empresa.c.id)).scalar_one()
     employee=db.execute(insert(empleado).values(
         empresa_id=empresa_id,usuario_id=account,sucursal_id=branch,
         nombres=nombres.strip(),apellidos=apellidos.strip(),
         ci=documento,telefono=telefono,
         fecha_contratacion=date.today(),estado=True
     ).returning(empleado.c.id)).scalar_one()
-    membership=db.execute(insert(usuario_empresa).values(
-        empresa_id=empresa_id,usuario_id=account,rol_id=admin_role_id,
-        estado=True
-    ).returning(usuario_empresa.c.id)).scalar_one()
     # Solo IDs e información no sensible: NUNCA password/password_hash.
     return {"empresa_id":empresa_id,"usuario_id":account,
             "empleado_id":employee,"membresia_id":membership,

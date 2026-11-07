@@ -1,0 +1,70 @@
+{
+  "generated_on": "2026-11-06",
+  "project_ref": "zyitwlxfkphthlvlmuej",
+  "historical_statement_integrity": [
+    {
+      "file": "historical_migrations/20260903183227_create_fashionstore_schema.sql",
+      "stored_statement_count": 1,
+      "statement_characters": 22167,
+      "statement_utf8_bytes": 22167,
+      "normalized_md5_local": "eead75ca625a9b91995cb8aedb9afb3e",
+      "normalized_md5_remote": "eead75ca625a9b91995cb8aedb9afb3e",
+      "match": true
+    },
+    {
+      "file": "historical_migrations/20260903183244_add_fashionstore_indexes.sql",
+      "stored_statement_count": 1,
+      "statement_characters": 4546,
+      "statement_utf8_bytes": 4546,
+      "normalized_md5_local": "8b7e1b1ae00e63fb6414808ce6c79eef",
+      "normalized_md5_remote": "8b7e1b1ae00e63fb6414808ce6c79eef",
+      "match": true
+    },
+    {
+      "file": "historical_migrations/20260903183642_add_fashionstore_procedures.sql",
+      "stored_statement_count": 1,
+      "statement_characters": 19091,
+      "statement_utf8_bytes": 19107,
+      "normalized_md5_local": "8db5db73a1945c17338c122b440cb3fe",
+      "normalized_md5_remote": "8db5db73a1945c17338c122b440cb3fe",
+      "match": true
+    },
+    {
+      "file": "historical_migrations/20260903183744_add_fashionstore_triggers.sql",
+      "stored_statement_count": 1,
+      "statement_characters": 13290,
+      "statement_utf8_bytes": 13299,
+      "normalized_md5_local": "818646008e58c35306fc5f6c8751ac08",
+      "normalized_md5_remote": "818646008e58c35306fc5f6c8751ac08",
+      "match": true
+    },
+    {
+      "file": "historical_migrations/20260903183938_harden_fashionstore_security_and_fk_indexes.sql",
+      "stored_statement_count": 1,
+      "statement_characters": 5338,
+      "statement_utf8_bytes": 5343,
+      "normalized_md5_local": "edc3cb7088199a8a0475482a8b0d813d",
+      "normalized_md5_remote": "edc3cb7088199a8a0475482a8b0d813d",
+      "match": true
+    }
+  ],
+  "files": [
+    {"path":"comparison_report.md","bytes":4337,"sha256":"99b230fd903b24ac692b55767b2df8d4214a9557db3ef83d89640cecb00de32f"},
+    {"path":"current_catalog/constraints.json","bytes":52575,"sha256":"80b6d8193a8260a7ad1e6d5707d925f08c79e7613ec2e5bc86dd3126616b2dd7"},
+    {"path":"current_catalog/indexes.json","bytes":40450,"sha256":"d3d477eada075d941eabaf7382f5953e627ad1cc17492e34ece547b72db05ef1"},
+    {"path":"current_catalog/policies.json","bytes":5,"sha256":"813c50b98edc5dc80ba8d1c0f5d08b63be662b37a8e19c57b61c067c82ab9dbd"},
+    {"path":"current_catalog/relations.json","bytes":79013,"sha256":"fdd70f5db8174307bb971f31bfc5c4ef9ad045bfcc0d657d49ca2e2405049016"},
+    {"path":"current_catalog/routines.json","bytes":55558,"sha256":"f70e9bb80e1da8382a7ced56823a086e41c0b32e971ed257883efcd14052a78a"},
+    {"path":"current_catalog/sequences.json","bytes":8866,"sha256":"788355b9989ef08d90add0bfbde7d7c557c67b2f8bfdc679ed0cdfdca1d449fe"},
+    {"path":"current_catalog/triggers.json","bytes":9704,"sha256":"c5baea78fe3235aef4595271c1c8b9de798aaf4196ebc04a66482d2524d5803a"},
+    {"path":"current_catalog/views.json","bytes":1077,"sha256":"2339d27697f944d358fda7ecfe41545894c5be55fa2856c34dd595301f3faa3f"},
+    {"path":"current_inventory.json","bytes":1208,"sha256":"2307692db1d5892dc27ab02f5980cad0835115e36b561910ab687fe8b63f3529"},
+    {"path":"historical_migrations/20260903183227_create_fashionstore_schema.sql","bytes":22389,"sha256":"aa8ac7061c2f2d3f08c736480c4effe352f9d2d62ea2da7bd58345966256898c"},
+    {"path":"historical_migrations/20260903183244_add_fashionstore_indexes.sql","bytes":4766,"sha256":"0521d2cdeac0e75c791923546876ad3494881b60a1ce7dbefef08d053d2caf2b"},
+    {"path":"historical_migrations/20260903183642_add_fashionstore_procedures.sql","bytes":19330,"sha256":"063984d3cf678ec25fab3a29ca5f9293997850e489cd8e7f811325e3d80b9f49"},
+    {"path":"historical_migrations/20260903183744_add_fashionstore_triggers.sql","bytes":13520,"sha256":"6f42f87700c8f7eefcc2ce8bc67427796076f2535b1128a5bc031fb0b02d399f"},
+    {"path":"historical_migrations/20260903183938_harden_fashionstore_security_and_fk_indexes.sql","bytes":5582,"sha256":"dd8a8d1a113d9f31fd88d339071dc551e3e5c6f001a44ada6333051ae0cf51c9"},
+    {"path":"README.md","bytes":1017,"sha256":"bf5d3b15393105b452f70458cf343db6b86115943df06f61254c573c7d3a693d"},
+    {"path":"schema_only_status.md","bytes":1173,"sha256":"fc0f0682519d527a699b0dedfc3a3a4f040c8983fa6c2b014941706de5f97be5"}
+  ]
+}

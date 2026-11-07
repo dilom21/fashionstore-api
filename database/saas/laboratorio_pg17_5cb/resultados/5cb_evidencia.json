@@ -1,0 +1,580 @@
+{
+ "fecha": "2026-11-06T20:42:10+00:00",
+ "version": "17.9",
+ "base": "fashionstore_lab_5cb",
+ "instalacion": {
+  "copias_050": [
+   {
+    "propuesta": "050a",
+    "origen": "050a_identidad_jwt_roles_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050a_lab.sql",
+    "sha256_original": "b312f539eaa17f856dc9ba93ffd19af06fff28a6b895dc515d88beeffee2d09a",
+    "correcciones_5cb": 1
+   },
+   {
+    "propuesta": "050b",
+    "origen": "050b_rls_policies_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050b_lab.sql",
+    "sha256_original": "aefa9791ea4d1558db9472311f6550b7a3d17f04097aebafde93135fcb8e3c79",
+    "correcciones_5cb": 0
+   },
+   {
+    "propuesta": "050c",
+    "origen": "050c_acl_procedimientos_PROPUESTA_NO_EJECUTAR.sql",
+    "copia": "050c_lab.sql",
+    "sha256_original": "bd4e4659c7e31c03fc038b50a67c952caa0681312de99f275fc62bd21fea7453",
+    "correcciones_5cb": 0
+   }
+  ],
+  "trigger_categoria_antes": 0,
+  "trigger_categoria_despues": 1,
+  "trigger_categoria_idempotente": true,
+  "secretos_en_vault_local": 1
+ },
+ "resumen": {
+  "tablas": 46,
+  "vistas": 1,
+  "fk": 145,
+  "fk_no_validadas": 0,
+  "indices": 251,
+  "triggers": 59,
+  "tablas_rls": 46,
+  "tablas_force_rls": 46,
+  "politicas": 111,
+  "funciones_privadas": 15,
+  "empresas": 2,
+  "planes": 2,
+  "membresias": 5
+ },
+ "logins": [
+  "fashionstore_5cb_api",
+  "fashionstore_5cb_bootstrap",
+  "fashionstore_5cb_platform"
+ ],
+ "total": 86,
+ "pass": 86,
+ "fail": 0,
+ "pruebas": [
+  {
+   "codigo": "EST-01",
+   "titulo": "46 tablas y 145 FK validadas, igual que la etapa 2",
+   "resultado": "PASS",
+   "detalle": "46 tablas, 145 FK válidas, 0 sin validar"
+  },
+  {
+   "codigo": "EST-02",
+   "titulo": "FORCE RLS en las 46 tablas y políticas instaladas",
+   "resultado": "PASS",
+   "detalle": "force=46 políticas=111"
+  },
+  {
+   "codigo": "EST-03",
+   "titulo": "categoria NO tenía trigger de auditoría antes de 040 y tiene 1 después",
+   "resultado": "PASS",
+   "detalle": "antes=0 después=1"
+  },
+  {
+   "codigo": "EST-04",
+   "titulo": "Re-ejecutar el bloque DO de 040 no duplica el trigger",
+   "resultado": "PASS",
+   "detalle": "2 ejecuciones del bloque literal -> 1 trigger"
+  },
+  {
+   "codigo": "EST-05",
+   "titulo": "El trigger es AFTER INSERT/UPDATE/DELETE con fn_registrar_bitacora()",
+   "resultado": "PASS",
+   "detalle": "CREATE TRIGGER trg_bitacora_categoria AFTER INSERT OR DELETE OR UPDATE ON public.categoria FOR EACH ROW EXECUTE FUNCTION fn_registrar_bitacora()"
+  },
+  {
+   "codigo": "EST-06",
+   "titulo": "La auditoría la escribe un owner NOLOGIN con search_path fijo",
+   "resultado": "PASS",
+   "detalle": "definer=True owner=fashionstore_audit_owner login=False search_path=public, pg_temp"
+  },
+  {
+   "codigo": "EST-07",
+   "titulo": "Ningún rol fashionstore es SUPERUSER ni tiene BYPASSRLS",
+   "resultado": "PASS",
+   "detalle": "10 roles fashionstore sin SUPERUSER ni BYPASSRLS"
+  },
+  {
+   "codigo": "EST-08",
+   "titulo": "Conexión API autentica con login propio y sin BYPASSRLS",
+   "resultado": "PASS",
+   "detalle": "session_user=fashionstore_5cb_api current_user=fashionstore_5cb_api bypassrls=False"
+  },
+  {
+   "codigo": "EST-09",
+   "titulo": "La API ve exactamente una empresa (la de su token)",
+   "resultado": "PASS",
+   "detalle": "1 empresa visible para A1"
+  },
+  {
+   "codigo": "ID-01",
+   "titulo": "Sin token, toda consulta empresarial falla cerrada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-02",
+   "titulo": "Token válido A1 deriva empresa y usuario del JWT firmado",
+   "resultado": "PASS",
+   "detalle": "actor=(empresa 1, usuario 101)"
+  },
+  {
+   "codigo": "ID-03",
+   "titulo": "Manipular app.empresa_id/app.usuario_id NO cambia la identidad",
+   "resultado": "PASS",
+   "detalle": "actor sigue (1,101) y 1 producto visible"
+  },
+  {
+   "codigo": "ID-04",
+   "titulo": "Token con firma alterada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-05",
+   "titulo": "Token expirado",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-06",
+   "titulo": "Token con cabecera alg=none",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-07",
+   "titulo": "Token sin jti",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-08",
+   "titulo": "Token con scope distinto de tenant",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-09",
+   "titulo": "Token de A1 declarando una empresa donde no es miembro",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-10",
+   "titulo": "Token de usuario inexistente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-11",
+   "titulo": "Token con iat en el futuro",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-12",
+   "titulo": "Token desmesurado (>8192 caracteres)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-13",
+   "titulo": "Contexto 'personal' con un usuario que sólo es cliente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ID-14",
+   "titulo": "Revocar la membresía invalida el token vigente en la siguiente sentencia",
+   "resultado": "PASS",
+   "detalle": "42501 en la sentencia siguiente a la revocación"
+  },
+  {
+   "codigo": "ID-15",
+   "titulo": "Suspender la suscripción invalida el token vigente",
+   "resultado": "PASS",
+   "detalle": "42501 con la suscripción de la empresa B suspendida"
+  },
+  {
+   "codigo": "ID-16",
+   "titulo": "Rotación de clave: el token previo sigue válido con 'previous'",
+   "resultado": "PASS",
+   "detalle": "clave previa aceptada mientras existe y revocada al eliminarla"
+  },
+  {
+   "codigo": "ACL-01",
+   "titulo": "El GRANT SELECT sobre bitácora no basta: sin token falla cerrada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-02",
+   "titulo": "El login API no puede INSERTAR en bitácora (por eso audita el trigger)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-03",
+   "titulo": "El login API no puede BORRAR eventos de bitácora",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-04",
+   "titulo": "El administrador del tenant sí puede crear y actualizar categorías",
+   "resultado": "PASS",
+   "detalle": "1 INSERT y 1 UPDATE aplicados"
+  },
+  {
+   "codigo": "ACL-05",
+   "titulo": "Un cliente no puede crear categorías",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-06",
+   "titulo": "Nadie puede borrar categorías (falta DELETE)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-07",
+   "titulo": "El login de bootstrap no lee tablas de negocio directamente",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-08",
+   "titulo": "El login de bootstrap no ve credenciales completas de usuario",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-09",
+   "titulo": "El login API no puede ejecutar bootstrap_empresa_id()",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "ACL-10",
+   "titulo": "El login API no tiene CREATE en el esquema public",
+   "resultado": "PASS",
+   "detalle": "CREATE TABLE rechazado con 42501"
+  },
+  {
+   "codigo": "BST-01",
+   "titulo": "bootstrap_empresa_id('vanter-men') resuelve la empresa 1",
+   "resultado": "PASS",
+   "detalle": "devolvió la empresa 1"
+  },
+  {
+   "codigo": "BST-02",
+   "titulo": "Un slug inexistente devuelve 0 filas, no error",
+   "resultado": "PASS",
+   "detalle": "0 filas"
+  },
+  {
+   "codigo": "BST-03",
+   "titulo": "El slug se normaliza (mayúsculas y espacios)",
+   "resultado": "PASS",
+   "detalle": "normalización lower(btrim()) aplicada"
+  },
+  {
+   "codigo": "BST-04",
+   "titulo": "Inyección SQL en el slug no devuelve ninguna empresa",
+   "resultado": "PASS",
+   "detalle": "0 filas con x' OR true--"
+  },
+  {
+   "codigo": "BST-05",
+   "titulo": "Un slug válido no devuelve más de una empresa",
+   "resultado": "PASS",
+   "detalle": "como máximo una fila"
+  },
+  {
+   "codigo": "BST-06",
+   "titulo": "Una empresa inactiva no se resuelve por slug",
+   "resultado": "PASS",
+   "detalle": "empresa inactiva -> 0 filas"
+  },
+  {
+   "codigo": "BST-07",
+   "titulo": "bootstrap_credencial devuelve sólo id y hash del correo exacto",
+   "resultado": "PASS",
+   "detalle": "correo normalizado, sólo id+hash, 0 filas si no existe"
+  },
+  {
+   "codigo": "BST-08",
+   "titulo": "Corrección propuesta para 050a: SELECT(id, slug, estado) en empresa",
+   "resultado": "PASS",
+   "detalle": "GRANT SELECT(id, slug, estado) repara bootstrap_empresa_id()"
+  },
+  {
+   "codigo": "AIS-01",
+   "titulo": "A1 sólo ve el catálogo de su empresa",
+   "resultado": "PASS",
+   "detalle": "producto=1 cliente=2 categoria=1"
+  },
+  {
+   "codigo": "AIS-02",
+   "titulo": "B1 sólo ve el catálogo de su empresa",
+   "resultado": "PASS",
+   "detalle": "producto=1 cliente=1 categoria=1"
+  },
+  {
+   "codigo": "AIS-03",
+   "titulo": "A1 no puede leer por id una fila de B",
+   "resultado": "PASS",
+   "detalle": "producto 2 de B invisible"
+  },
+  {
+   "codigo": "AIS-04",
+   "titulo": "A1 no puede ACTUALIZAR la fila de otra empresa",
+   "resultado": "PASS",
+   "detalle": "0 filas afectadas sobre producto 2"
+  },
+  {
+   "codigo": "AIS-05",
+   "titulo": "A1 sólo ve su propio inventario",
+   "resultado": "PASS",
+   "detalle": "2 inventarios en A, ninguno de B"
+  },
+  {
+   "codigo": "AIS-06",
+   "titulo": "A1 no puede INSERTAR filas con empresa_id ajeno",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-07",
+   "titulo": "B2 tampoco puede INSERTAR en la empresa 1",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-08",
+   "titulo": "Cambiar empresa_id de una fila se bloquea (inmutable)",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "AIS-09",
+   "titulo": "B2 sólo ve las ventas de su empresa",
+   "resultado": "PASS",
+   "detalle": "1 venta en B"
+  },
+  {
+   "codigo": "AIS-10",
+   "titulo": "La bitácora ve sólo la empresa del token y el cliente no ve nada",
+   "resultado": "PASS",
+   "detalle": "A1: 16 propios y 0 ajenos; cliente A2: 0; B2: 13 propios y 0 ajenos"
+  },
+  {
+   "codigo": "BIT-01",
+   "titulo": "Las fixtures dejan 2 eventos de categoría, uno por empresa y sin usuario",
+   "resultado": "PASS",
+   "detalle": "una fila por empresa sembrada en las fixtures"
+  },
+  {
+   "codigo": "BIT-02",
+   "titulo": "El administrador crea una categoría y confirma la transacción",
+   "resultado": "PASS",
+   "detalle": "categoría 7 creada y confirmada"
+  },
+  {
+   "codigo": "BIT-03",
+   "titulo": "El INSERT de categoría deja EXACTAMENTE un evento CREAR",
+   "resultado": "PASS",
+   "detalle": "eventos=[(1, 101, 'CREAR')]"
+  },
+  {
+   "codigo": "BIT-04",
+   "titulo": "El UPDATE de categoría añade UN evento MODIFICAR (no duplica el CREAR)",
+   "resultado": "PASS",
+   "detalle": "CREAR + MODIFICAR: un evento por escritura, dos en total"
+  },
+  {
+   "codigo": "BIT-05",
+   "titulo": "El evento se atribuye a la empresa de la FILA, no a la sesión",
+   "resultado": "PASS",
+   "detalle": "el evento de B2 lleva empresa 2 y usuario 202"
+  },
+  {
+   "codigo": "BIT-06",
+   "titulo": "Una escritura bloqueada por RLS no genera evento",
+   "resultado": "PASS",
+   "detalle": "0 filas afectadas y ningún evento nuevo"
+  },
+  {
+   "codigo": "BIT-07",
+   "titulo": "Manipular app.empresa_id no falsifica la empresa del evento",
+   "resultado": "PASS",
+   "detalle": "app.empresa_id=2 no altera el empresa_id=1 del evento"
+  },
+  {
+   "codigo": "BIT-08",
+   "titulo": "El DELETE también se audita y conserva la empresa de la fila",
+   "resultado": "PASS",
+   "detalle": "ELIMINAR auditado con empresa 1 y usuario NULL (sin sesión de API)"
+  },
+  {
+   "codigo": "BIT-09",
+   "titulo": "Las pruebas no dejan residuo en la bitácora",
+   "resultado": "PASS",
+   "detalle": "quedan 2 eventos de categoría"
+  },
+  {
+   "codigo": "SP-01",
+   "titulo": "El SP crea la reserva y descuenta disponibilidad de forma atómica",
+   "resultado": "PASS",
+   "detalle": "reserva 3: stock reservado, carrito convertido, 1 detalle"
+  },
+  {
+   "codigo": "SP-02",
+   "titulo": "El SP exige una sola reserva por carrito (SP-02 usado)",
+   "resultado": "PASS",
+   "detalle": "segundo intento rechazado con 23514"
+  },
+  {
+   "codigo": "SP-03",
+   "titulo": "El SP exige que la empresa coincida con el token",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-04",
+   "titulo": "El SP exige que el usuario coincida con el token",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=42501"
+  },
+  {
+   "codigo": "SP-05",
+   "titulo": "El SP rechaza una fecha de atención pasada",
+   "resultado": "PASS",
+   "detalle": "rechazado con sqlstate=22007"
+  },
+  {
+   "codigo": "POOL-01",
+   "titulo": "El token no sobrevive al fin de la transacción",
+   "resultado": "PASS",
+   "detalle": "la conexión física queda sin actor tras el rollback"
+  },
+  {
+   "codigo": "POOL-02",
+   "titulo": "El pool de SQLAlchemy reutiliza la conexión sin fugar el actor",
+   "resultado": "PASS",
+   "detalle": "la conexión devuelta al pool no hereda el actor anterior"
+  },
+  {
+   "codigo": "SONDA-01",
+   "titulo": "app/core/bitacora_trigger.py ve trg_bitacora_categoria",
+   "resultado": "PASS",
+   "detalle": "pg_trigger detectado en la primera consulta y memorizado"
+  },
+  {
+   "codigo": "SONDA-02",
+   "titulo": "El repositorio real delega la auditoría al trigger y no la duplica",
+   "resultado": "PASS",
+   "detalle": "categoría 10 con un único evento CREAR (sin duplicado del repo)"
+  },
+  {
+   "codigo": "SONDA-03",
+   "titulo": "El repositorio real tampoco duplica el evento del UPDATE",
+   "resultado": "PASS",
+   "detalle": "CREAR + MODIFICAR desde el repositorio, un evento cada uno"
+  },
+  {
+   "codigo": "SONDA-04",
+   "titulo": "La sonda deja la base como la encontró",
+   "resultado": "PASS",
+   "detalle": "quedan 2 eventos"
+  },
+  {
+   "codigo": "FAPI-01",
+   "titulo": "Login real (bootstrap + Argon2) y /lab/me con JWT",
+   "resultado": "PASS",
+   "detalle": "login bootstrap+Argon2 OK, /lab/me={'usuario_id': 101, 'empresa_id': 1, 'rol': 'ADMINISTRADOR', 'contexto': 'personal', 'plan': 'PROFESIONAL'}"
+  },
+  {
+   "codigo": "FAPI-02",
+   "titulo": "Login con contraseña incorrecta devuelve 401",
+   "resultado": "PASS",
+   "detalle": "401 con contraseña incorrecta"
+  },
+  {
+   "codigo": "FAPI-03",
+   "titulo": "El bootstrap no filtra existencia de correos ni empresas",
+   "resultado": "PASS",
+   "detalle": "empresa ajena 403 y correo inexistente 401"
+  },
+  {
+   "codigo": "FAPI-04",
+   "titulo": "La API HTTP respeta RLS sobre el pool compartido",
+   "resultado": "PASS",
+   "detalle": "el cliente A2 ve 1 producto (RLS por empresa sobre el pool api)"
+  },
+  {
+   "codigo": "FAPI-05",
+   "titulo": "Sin token, el endpoint empresarial no responde",
+   "resultado": "PASS",
+   "detalle": "401 sin cabecera Authorization"
+  },
+  {
+   "codigo": "FAPI-06",
+   "titulo": "Token con firma de otra clave devuelve 401",
+   "resultado": "PASS",
+   "detalle": "401 con token firmado por otra clave"
+  },
+  {
+   "codigo": "FAPI-07",
+   "titulo": "Autorización por rol de empresa en HTTP",
+   "resultado": "PASS",
+   "detalle": "el administrador ve 2 clientes; el cliente recibe 403"
+  },
+  {
+   "codigo": "FAPI-08",
+   "titulo": "Crear por HTTP deja EXACTAMENTE un evento (el trigger, no el repositorio)",
+   "resultado": "PASS",
+   "detalle": "categoría 11 creada por HTTP con un único evento CREAR"
+  },
+  {
+   "codigo": "FAPI-09",
+   "titulo": "Actualizar por HTTP añade un MODIFICAR sin duplicar",
+   "resultado": "PASS",
+   "detalle": "CREAR + MODIFICAR por HTTP: un evento por escritura"
+  },
+  {
+   "codigo": "FAPI-10",
+   "titulo": "La bitácora es sólo para el administrador del tenant",
+   "resultado": "PASS",
+   "detalle": "admin ve 18 eventos; el cliente recibe 403"
+  },
+  {
+   "codigo": "FAPI-11",
+   "titulo": "Aislamiento entre empresas sobre HTTP",
+   "resultado": "PASS",
+   "detalle": "B1 ve su catálogo (1 categoría) y nunca el de la empresa A"
+  },
+  {
+   "codigo": "FAPI-12",
+   "titulo": "El pool HTTP no filtra la identidad entre peticiones",
+   "resultado": "PASS",
+   "detalle": "A2 y B1 no comparten identidad ni filas entre peticiones"
+  },
+  {
+   "codigo": "FAPI-13",
+   "titulo": "Las pruebas HTTP no dejan residuo en la base",
+   "resultado": "PASS",
+   "detalle": "bitácora restaurada a 2 eventos de categoría"
+  }
+ ],
+ "fallos": [],
+ "propuestas": [
+  "050a (bloqueante para el login por slug): `GRANT SELECT(id) ON public.empresa` no habilita las columnas que usa el predicado de bootstrap_empresa_id() (slug, estado) y la función SECURITY DEFINER aborta con 42501. Corrección mínima probada en BST-08: `GRANT SELECT(id, slug, estado) ON public.empresa TO fashionstore_bootstrap_owner`.",
+  "Bitácora: 050c concede SELECT a fashionstore_api a propósito; la lectura queda limitada por las policies de 050b a personal del propio tenant (verificado en AIS-10). No es una fuga, pero conviene documentarlo en el contrato del endpoint."
+ ]
+}

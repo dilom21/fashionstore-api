@@ -35,6 +35,24 @@ def _error_token() -> HTTPException:
     )
 
 
+def publicar_token(db: Session, token: str) -> None:
+    """Publica el JWT crudo como GUC LOCAL antes de cualquier consulta.
+
+    Es el paso probado en 5CA: la firma, la vigencia y la membresía las vuelve
+    a verificar PostgreSQL en cada policy. El valor viaja como LOCAL
+    (``set_config(..., true)``) para que ninguna conexión del pool lo herede.
+    Guardarlo en ``Session.info`` permite que ``after_begin`` lo reaplique si la
+    misma Session abre otra transacción durante el request.
+    """
+    db.execute(
+        text("SELECT set_config('app.actor_token', :token, true)"),
+        {"token": token},
+    )
+    # Se guarda SÓLO si el set_config anterior funcionó: así una sesión que
+    # falla no conserva contexto parcial para una transacción posterior.
+    db.info["actor_token"] = token
+
+
 def get_current_tenant_context(
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(_tenant_bearer)
@@ -50,6 +68,11 @@ def get_current_tenant_context(
     usuario_id, empresa_id, contexto = claims
 
     try:
+        # 5CA: el token se publica ANTES de consultar membresía. Con el pool
+        # restringido, actor_claims() es la única fuente de identidad: sin este
+        # paso toda policy aborta y la consulta no puede distinguir "sin
+        # membresía" de "esquema no disponible".
+        publicar_token(db, credentials.credentials)
         registro = TenantAuthRepository.obtener_membresia_vigente(
             db, usuario_id=usuario_id, empresa_id=empresa_id, contexto=contexto
         )
@@ -88,6 +111,14 @@ def get_current_tenant_context(
         db.info["empresa_id"] = tenant.empresa_id
         return tenant
     except SQLAlchemyError as exc:
+        # 5CA: sin membresía vigente, actor_claims() aborta la consulta con
+        # SQLSTATE 42501 en vez de devolver 0 filas. Eso es "no autorizado",
+        # no "servicio no disponible": se mantiene el 403.
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "42501":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No autorizado para la empresa solicitada",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El esquema de autenticacion SaaS no esta disponible",

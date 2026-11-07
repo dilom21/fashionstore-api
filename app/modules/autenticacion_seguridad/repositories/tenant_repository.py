@@ -80,6 +80,26 @@ _SQL_CONTEXTO_TENANT = text(
 )
 
 
+# 5CA: proyecciones estrechas del pool bootstrap. La primera sustituye el
+# SELECT directo sobre public.usuario, que el login bootstrap restringido NO
+# puede ejecutar; la segunda resuelve slug -> empresa_id, el único dato que
+# falta antes de firmar el token. Ninguna de las dos autoriza nada: la
+# membresía vigente se sigue comprobando con el token ya publicado.
+_SQL_CREDENCIALES_BOOTSTRAP_PRIVADAS = text(
+    """
+    SELECT usuario_id, password_hash
+    FROM fashionstore_private.bootstrap_credencial(:correo)
+    """
+)
+
+_SQL_EMPRESA_ID_POR_SLUG = text(
+    """
+    SELECT empresa_id
+    FROM fashionstore_private.bootstrap_empresa_id(:slug)
+    """
+)
+
+
 class TenantAuthRepository:
     @staticmethod
     def obtener_credenciales_bootstrap(
@@ -106,6 +126,48 @@ class TenantAuthRepository:
             usuario_id=int(row["usuario_id"]),
             password_hash=str(row["password_hash"]),
         )
+
+    @staticmethod
+    def obtener_credenciales_bootstrap_privadas(
+        db: Session, correo: str
+    ) -> CredencialesBootstrapTenant | None:
+        """Login con el pool bootstrap restringido (5CA).
+
+        Ejecuta sólo ``fashionstore_private.bootstrap_credencial``: el login
+        bootstrap no tiene SELECT sobre public.usuario ni sobre ninguna tabla
+        comercial. Devuelve el hash únicamente para verificar Argon2.
+        """
+        correo_normalizado = correo.strip().lower()
+        if not correo_normalizado:
+            return None
+        rows = db.execute(
+            _SQL_CREDENCIALES_BOOTSTRAP_PRIVADAS,
+            {"correo": correo_normalizado},
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        return CredencialesBootstrapTenant(
+            usuario_id=int(row["usuario_id"]),
+            password_hash=str(row["password_hash"]),
+        )
+
+    @staticmethod
+    def obtener_empresa_id_por_slug(db: Session, empresa_slug: str) -> int | None:
+        """Resuelve el slug a empresa_id activa para poder firmar el JWT.
+
+        No concede acceso: la consulta de membresía que sigue se ejecuta con el
+        token publicado y RLS/ACL la validan por completo.
+        """
+        slug = empresa_slug.strip().lower()
+        if not slug:
+            return None
+        rows = db.execute(
+            _SQL_EMPRESA_ID_POR_SLUG, {"slug": slug}
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        return int(rows[0]["empresa_id"])
 
     @staticmethod
     def obtener_membresia_vigente(

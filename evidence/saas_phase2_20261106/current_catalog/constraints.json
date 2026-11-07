@@ -1,0 +1,1569 @@
+[
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "accion",
+        "constraint_name": "accion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "accion",
+        "constraint_name": "uq_accion_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "bitacora",
+        "constraint_name": "bitacora_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "bitacora",
+        "constraint_name": "fk_bitacora_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "carrito",
+        "constraint_name": "carrito_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['ACTIVO'::character varying, 'EXPIRADO'::character varying, 'ELIMINADO'::character varying, 'CONVERTIDO'::character varying]::text[]))",
+        "table_name": "carrito",
+        "constraint_name": "ck_carrito_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "carrito",
+        "constraint_name": "fk_carrito_cliente",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "carrito",
+        "constraint_name": "fk_carrito_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "categoria",
+        "constraint_name": "categoria_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "categoria",
+        "constraint_name": "uq_categoria_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "ciudad",
+        "constraint_name": "ciudad_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "ciudad",
+        "constraint_name": "uq_ciudad_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (sexo IS NULL OR (sexo::text = ANY (ARRAY['MASCULINO'::character varying, 'FEMENINO'::character varying, 'OTRO'::character varying, 'NO_ESPECIFICA'::character varying]::text[])))",
+        "table_name": "cliente",
+        "constraint_name": "ck_cliente_sexo",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "cliente",
+        "constraint_name": "cliente_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "cliente",
+        "constraint_name": "fk_cliente_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (ci)",
+        "table_name": "cliente",
+        "constraint_name": "uq_cliente_ci",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (usuario_id)",
+        "table_name": "cliente",
+        "constraint_name": "uq_cliente_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "coleccion",
+        "constraint_name": "coleccion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (temporada_id) REFERENCES temporada(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "coleccion",
+        "constraint_name": "fk_coleccion_temporada",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (temporada_id, nombre)",
+        "table_name": "coleccion",
+        "constraint_name": "uq_coleccion_temporada_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "color",
+        "constraint_name": "color_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "color",
+        "constraint_name": "uq_color_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (factor_alto > 0::numeric)",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "ck_vestidor_ar_factor_alto",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (factor_ancho > 0::numeric)",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "ck_vestidor_ar_factor_ancho",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (opacidad >= 0::numeric AND opacidad <= 1::numeric)",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "ck_vestidor_ar_opacidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (tipo_asset::text = ANY (ARRAY['PNG_2D'::character varying, 'GLB_3D'::character varying]::text[]))",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "ck_vestidor_ar_tipo_asset",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (zona_cuerpo::text = ANY (ARRAY['TORSO'::character varying, 'PIERNAS'::character varying, 'CUERPO_COMPLETO'::character varying]::text[]))",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "ck_vestidor_ar_zona_cuerpo",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "configuracion_vestidor_ar_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (recurso_producto_id) REFERENCES recurso_producto(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "fk_configuracion_vestidor_ar_recurso",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (recurso_producto_id)",
+        "table_name": "configuracion_vestidor_ar",
+        "constraint_name": "uq_configuracion_vestidor_ar_recurso",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "detalle_carrito",
+        "constraint_name": "ck_detalle_carrito_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "detalle_carrito",
+        "constraint_name": "detalle_carrito_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (carrito_id) REFERENCES carrito(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "detalle_carrito",
+        "constraint_name": "fk_detalle_carrito_carrito",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (inventario_id) REFERENCES inventario(id) ON DELETE RESTRICT",
+        "table_name": "detalle_carrito",
+        "constraint_name": "fk_detalle_carrito_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (carrito_id, inventario_id)",
+        "table_name": "detalle_carrito",
+        "constraint_name": "uq_detalle_carrito_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "detalle_devolucion",
+        "constraint_name": "ck_detalle_devolucion_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "detalle_devolucion",
+        "constraint_name": "detalle_devolucion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (detalle_venta_id) REFERENCES detalle_venta(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "detalle_devolucion",
+        "constraint_name": "fk_detalle_devolucion_detalle_venta",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (devolucion_id) REFERENCES devolucion(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "detalle_devolucion",
+        "constraint_name": "fk_detalle_devolucion_devolucion",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (devolucion_id, detalle_venta_id)",
+        "table_name": "detalle_devolucion",
+        "constraint_name": "uq_detalle_devolucion",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "ck_detalle_orden_compra_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (costo_unitario >= 0::numeric)",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "ck_detalle_orden_compra_costo",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "detalle_orden_compra_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (orden_compra_id) REFERENCES orden_compra(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "fk_detalle_orden_compra_orden",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (temporada_id) REFERENCES temporada(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "fk_detalle_orden_compra_temporada",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (variante_producto_id) REFERENCES variante_producto(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "fk_detalle_orden_compra_variante",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (orden_compra_id, variante_producto_id, temporada_id)",
+        "table_name": "detalle_orden_compra",
+        "constraint_name": "uq_detalle_orden_compra",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "detalle_reserva",
+        "constraint_name": "ck_detalle_reserva_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "detalle_reserva",
+        "constraint_name": "detalle_reserva_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (inventario_id) REFERENCES inventario(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "detalle_reserva",
+        "constraint_name": "fk_detalle_reserva_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (reserva_id) REFERENCES reserva(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "detalle_reserva",
+        "constraint_name": "fk_detalle_reserva_reserva",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (reserva_id, inventario_id)",
+        "table_name": "detalle_reserva",
+        "constraint_name": "uq_detalle_reserva",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "detalle_venta",
+        "constraint_name": "ck_detalle_venta_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (precio_unitario >= 0::numeric)",
+        "table_name": "detalle_venta",
+        "constraint_name": "ck_detalle_venta_precio",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "detalle_venta",
+        "constraint_name": "detalle_venta_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (inventario_id) REFERENCES inventario(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "detalle_venta",
+        "constraint_name": "fk_detalle_venta_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (venta_id) REFERENCES venta(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "detalle_venta",
+        "constraint_name": "fk_detalle_venta_venta",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (venta_id, inventario_id)",
+        "table_name": "detalle_venta",
+        "constraint_name": "uq_detalle_venta",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['SOLICITADA'::character varying, 'APROBADA'::character varying, 'RECHAZADA'::character varying, 'COMPLETADA'::character varying]::text[]))",
+        "table_name": "devolucion",
+        "constraint_name": "ck_devolucion_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "devolucion",
+        "constraint_name": "devolucion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (venta_id) REFERENCES venta(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "devolucion",
+        "constraint_name": "fk_devolucion_venta",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "empleado",
+        "constraint_name": "empleado_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "empleado",
+        "constraint_name": "fk_empleado_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "empleado",
+        "constraint_name": "fk_empleado_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (ci)",
+        "table_name": "empleado",
+        "constraint_name": "uq_empleado_ci",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (usuario_id)",
+        "table_name": "empleado",
+        "constraint_name": "uq_empleado_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (modulo_id) REFERENCES modulo(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "funcion",
+        "constraint_name": "fk_funcion_modulo",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "funcion",
+        "constraint_name": "funcion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (modulo_id, nombre)",
+        "table_name": "funcion",
+        "constraint_name": "uq_funcion_modulo_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (stock_actual >= 0)",
+        "table_name": "inventario",
+        "constraint_name": "ck_inventario_stock_actual",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (stock_reservado <= stock_actual)",
+        "table_name": "inventario",
+        "constraint_name": "ck_inventario_stock_consistente",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (stock_reservado >= 0)",
+        "table_name": "inventario",
+        "constraint_name": "ck_inventario_stock_reservado",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "inventario",
+        "constraint_name": "fk_inventario_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (temporada_id) REFERENCES temporada(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "inventario",
+        "constraint_name": "fk_inventario_temporada",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (variante_producto_id) REFERENCES variante_producto(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "inventario",
+        "constraint_name": "fk_inventario_variante",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "inventario",
+        "constraint_name": "inventario_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (sucursal_id, variante_producto_id, temporada_id)",
+        "table_name": "inventario",
+        "constraint_name": "uq_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "modulo",
+        "constraint_name": "modulo_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "modulo",
+        "constraint_name": "uq_modulo_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (cantidad > 0)",
+        "table_name": "movimiento_inventario",
+        "constraint_name": "ck_movimiento_inventario_cantidad",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (tipo::text = ANY (ARRAY['ENTRADA_COMPRA'::character varying, 'SALIDA_VENTA'::character varying, 'RESERVA'::character varying, 'LIBERACION_RESERVA'::character varying, 'DEVOLUCION'::character varying, 'AJUSTE_ENTRADA'::character varying, 'AJUSTE_SALIDA'::character varying, 'TRANSFERENCIA_ENTRADA'::character varying, 'TRANSFERENCIA_SALIDA'::character varying]::text[]))",
+        "table_name": "movimiento_inventario",
+        "constraint_name": "ck_movimiento_inventario_tipo",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (inventario_id) REFERENCES inventario(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "movimiento_inventario",
+        "constraint_name": "fk_movimiento_inventario_inventario",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "movimiento_inventario",
+        "constraint_name": "fk_movimiento_inventario_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "movimiento_inventario",
+        "constraint_name": "movimiento_inventario_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['BORRADOR'::character varying, 'ENVIADA'::character varying, 'PARCIAL'::character varying, 'RECIBIDA'::character varying, 'CANCELADA'::character varying]::text[]))",
+        "table_name": "orden_compra",
+        "constraint_name": "ck_orden_compra_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_estimada IS NULL OR fecha_estimada >= fecha_orden)",
+        "table_name": "orden_compra",
+        "constraint_name": "ck_orden_compra_fecha_estimada",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_recepcion IS NULL OR fecha_recepcion >= fecha_orden)",
+        "table_name": "orden_compra",
+        "constraint_name": "ck_orden_compra_fecha_recepcion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (empleado_id) REFERENCES empleado(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "orden_compra",
+        "constraint_name": "fk_orden_compra_empleado",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (proveedor_id) REFERENCES proveedor(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "orden_compra",
+        "constraint_name": "fk_orden_compra_proveedor",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "orden_compra",
+        "constraint_name": "fk_orden_compra_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "orden_compra",
+        "constraint_name": "orden_compra_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'APROBADO'::character varying, 'RECHAZADO'::character varying, 'ANULADO'::character varying, 'REEMBOLSADO'::character varying]::text[]))",
+        "table_name": "pago",
+        "constraint_name": "ck_pago_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (metodo::text = ANY (ARRAY['EFECTIVO'::character varying, 'TARJETA'::character varying, 'TRANSFERENCIA'::character varying, 'QR'::character varying, 'OTRO'::character varying]::text[]))",
+        "table_name": "pago",
+        "constraint_name": "ck_pago_metodo",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (monto > 0::numeric)",
+        "table_name": "pago",
+        "constraint_name": "ck_pago_monto",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (venta_id) REFERENCES venta(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "pago",
+        "constraint_name": "fk_pago_venta",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "pago",
+        "constraint_name": "pago_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (referencia_transaccion)",
+        "table_name": "pago",
+        "constraint_name": "uq_pago_referencia",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (precio >= 0::numeric)",
+        "table_name": "producto",
+        "constraint_name": "ck_producto_precio",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (categoria_id) REFERENCES categoria(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "producto",
+        "constraint_name": "fk_producto_categoria",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "producto",
+        "constraint_name": "producto_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (coleccion_id) REFERENCES coleccion(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "producto_coleccion",
+        "constraint_name": "fk_producto_coleccion_coleccion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (producto_id) REFERENCES producto(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "producto_coleccion",
+        "constraint_name": "fk_producto_coleccion_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (producto_id, coleccion_id)",
+        "table_name": "producto_coleccion",
+        "constraint_name": "pk_producto_coleccion",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_fin >= fecha_inicio)",
+        "table_name": "promocion",
+        "constraint_name": "ck_promocion_fechas",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (tipo_descuento::text = ANY (ARRAY['PORCENTAJE'::character varying, 'MONTO'::character varying]::text[]))",
+        "table_name": "promocion",
+        "constraint_name": "ck_promocion_tipo_descuento",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (valor_descuento >= 0::numeric AND (tipo_descuento::text <> 'PORCENTAJE'::text OR valor_descuento <= 100::numeric))",
+        "table_name": "promocion",
+        "constraint_name": "ck_promocion_valor",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "promocion",
+        "constraint_name": "promocion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (producto_id) REFERENCES producto(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "promocion_producto",
+        "constraint_name": "fk_promocion_producto_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (promocion_id) REFERENCES promocion(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "promocion_producto",
+        "constraint_name": "fk_promocion_producto_promocion",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (promocion_id, producto_id)",
+        "table_name": "promocion_producto",
+        "constraint_name": "pk_promocion_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "proveedor",
+        "constraint_name": "proveedor_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nit)",
+        "table_name": "proveedor",
+        "constraint_name": "uq_proveedor_nit",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (costo_referencia >= 0::numeric)",
+        "table_name": "proveedor_producto",
+        "constraint_name": "ck_proveedor_producto_costo",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (producto_id) REFERENCES producto(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "proveedor_producto",
+        "constraint_name": "fk_proveedor_producto_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (proveedor_id) REFERENCES proveedor(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "proveedor_producto",
+        "constraint_name": "fk_proveedor_producto_proveedor",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (proveedor_id, producto_id)",
+        "table_name": "proveedor_producto",
+        "constraint_name": "pk_proveedor_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['INICIADA'::character varying, 'COMPLETADA'::character varying, 'CANCELADA'::character varying, 'ERROR'::character varying]::text[]))",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "ck_prueba_vestidor_ar_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "ck_prueba_vestidor_ar_fechas",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (configuracion_vestidor_ar_id) REFERENCES configuracion_vestidor_ar(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "fk_prueba_vestidor_ar_configuracion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sesion_vestidor_ar_id) REFERENCES sesion_vestidor_ar(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "fk_prueba_vestidor_ar_sesion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (variante_producto_id) REFERENCES variante_producto(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "fk_prueba_vestidor_ar_variante",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "prueba_vestidor_ar",
+        "constraint_name": "prueba_vestidor_ar_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (color_id) REFERENCES color(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "recurso_producto",
+        "constraint_name": "fk_recurso_producto_color",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (producto_id) REFERENCES producto(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "recurso_producto",
+        "constraint_name": "fk_recurso_producto_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "recurso_producto",
+        "constraint_name": "recurso_producto_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'CONFIRMADA'::character varying, 'ATENDIDA'::character varying, 'CANCELADA'::character varying, 'VENCIDA'::character varying]::text[]))",
+        "table_name": "reserva",
+        "constraint_name": "ck_reserva_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_atencion >= fecha_reserva)",
+        "table_name": "reserva",
+        "constraint_name": "ck_reserva_fecha",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (carrito_id) REFERENCES carrito(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "reserva",
+        "constraint_name": "fk_reserva_carrito",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "reserva",
+        "constraint_name": "fk_reserva_cliente",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "reserva",
+        "constraint_name": "fk_reserva_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "reserva",
+        "constraint_name": "reserva_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (carrito_id)",
+        "table_name": "reserva",
+        "constraint_name": "uq_reserva_carrito",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "rol",
+        "constraint_name": "rol_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "rol",
+        "constraint_name": "uq_rol_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (accion_id) REFERENCES accion(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "rol_funcion",
+        "constraint_name": "fk_rol_funcion_accion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (funcion_id) REFERENCES funcion(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "rol_funcion",
+        "constraint_name": "fk_rol_funcion_funcion",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (rol_id) REFERENCES rol(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "rol_funcion",
+        "constraint_name": "fk_rol_funcion_rol",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (rol_id, funcion_id, accion_id)",
+        "table_name": "rol_funcion",
+        "constraint_name": "pk_rol_funcion",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['ACTIVA'::character varying, 'FINALIZADA'::character varying, 'CANCELADA'::character varying]::text[]))",
+        "table_name": "sesion_vestidor_ar",
+        "constraint_name": "ck_sesion_vestidor_ar_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_fin IS NULL OR fecha_fin >= fecha_inicio)",
+        "table_name": "sesion_vestidor_ar",
+        "constraint_name": "ck_sesion_vestidor_ar_fechas",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "sesion_vestidor_ar",
+        "constraint_name": "fk_sesion_vestidor_ar_cliente",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "sesion_vestidor_ar",
+        "constraint_name": "sesion_vestidor_ar_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (ciudad_id) REFERENCES ciudad(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "sucursal",
+        "constraint_name": "fk_sucursal_ciudad",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "sucursal",
+        "constraint_name": "sucursal_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (ciudad_id, nombre)",
+        "table_name": "sucursal",
+        "constraint_name": "uq_sucursal_ciudad_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "talla",
+        "constraint_name": "talla_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "talla",
+        "constraint_name": "uq_talla_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_fin >= fecha_inicio)",
+        "table_name": "temporada",
+        "constraint_name": "ck_temporada_fechas",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "temporada",
+        "constraint_name": "temporada_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (nombre)",
+        "table_name": "temporada",
+        "constraint_name": "uq_temporada_nombre",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (fecha_expiracion > fecha_creacion)",
+        "table_name": "token_recuperacion",
+        "constraint_name": "ck_token_recuperacion_fecha",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (usuario_id) REFERENCES usuario(id) ON UPDATE CASCADE ON DELETE CASCADE",
+        "table_name": "token_recuperacion",
+        "constraint_name": "fk_token_recuperacion_usuario",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "token_recuperacion",
+        "constraint_name": "token_recuperacion_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (token)",
+        "table_name": "token_recuperacion",
+        "constraint_name": "uq_token_recuperacion_token",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (rol_id) REFERENCES rol(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "usuario",
+        "constraint_name": "fk_usuario_rol",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (correo)",
+        "table_name": "usuario",
+        "constraint_name": "uq_usuario_correo",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "usuario",
+        "constraint_name": "usuario_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (color_id) REFERENCES color(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "variante_producto",
+        "constraint_name": "fk_variante_producto_color",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (producto_id) REFERENCES producto(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "variante_producto",
+        "constraint_name": "fk_variante_producto_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (talla_id) REFERENCES talla(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "variante_producto",
+        "constraint_name": "fk_variante_producto_talla",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (producto_id, talla_id, color_id)",
+        "table_name": "variante_producto",
+        "constraint_name": "uq_variante_producto",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (sku)",
+        "table_name": "variante_producto",
+        "constraint_name": "uq_variante_producto_sku",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "variante_producto",
+        "constraint_name": "variante_producto_pkey",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (canal::text = ANY (ARRAY['WEB'::character varying, 'MOVIL'::character varying, 'PRESENCIAL'::character varying]::text[]))",
+        "table_name": "venta",
+        "constraint_name": "ck_venta_canal",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (estado::text = ANY (ARRAY['PENDIENTE'::character varying, 'PAGADA'::character varying, 'COMPLETADA'::character varying, 'CANCELADA'::character varying, 'REEMBOLSADA'::character varying]::text[]))",
+        "table_name": "venta",
+        "constraint_name": "ck_venta_estado",
+        "initially_deferred": false
+    },
+    {
+        "type": "c",
+        "validated": true,
+        "deferrable": false,
+        "definition": "CHECK (total >= 0::numeric)",
+        "table_name": "venta",
+        "constraint_name": "ck_venta_total",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (carrito_id) REFERENCES carrito(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "venta",
+        "constraint_name": "fk_venta_carrito",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (cliente_id) REFERENCES cliente(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "venta",
+        "constraint_name": "fk_venta_cliente",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (empleado_id) REFERENCES empleado(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "venta",
+        "constraint_name": "fk_venta_empleado",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (reserva_id) REFERENCES reserva(id) ON UPDATE CASCADE ON DELETE SET NULL",
+        "table_name": "venta",
+        "constraint_name": "fk_venta_reserva",
+        "initially_deferred": false
+    },
+    {
+        "type": "f",
+        "validated": true,
+        "deferrable": false,
+        "definition": "FOREIGN KEY (sucursal_id) REFERENCES sucursal(id) ON UPDATE CASCADE ON DELETE RESTRICT",
+        "table_name": "venta",
+        "constraint_name": "fk_venta_sucursal",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (carrito_id)",
+        "table_name": "venta",
+        "constraint_name": "uq_venta_carrito",
+        "initially_deferred": false
+    },
+    {
+        "type": "u",
+        "validated": true,
+        "deferrable": false,
+        "definition": "UNIQUE (reserva_id)",
+        "table_name": "venta",
+        "constraint_name": "uq_venta_reserva",
+        "initially_deferred": false
+    },
+    {
+        "type": "p",
+        "validated": true,
+        "deferrable": false,
+        "definition": "PRIMARY KEY (id)",
+        "table_name": "venta",
+        "constraint_name": "venta_pkey",
+        "initially_deferred": false
+    }
+]
+

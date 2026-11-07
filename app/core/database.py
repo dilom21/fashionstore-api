@@ -21,6 +21,41 @@ SessionLocal = sessionmaker(
 )
 
 
+def _motor_auxiliar(url: str | None, tamano: int = 2):
+    """Motor para un pool con función propia (bootstrap / platform_admin).
+
+    Sin DSN dedicado se reutiliza el pool principal, que es el comportamiento
+    previo a la migración 050a-c. Cada pool usa su login PostgreSQL restringido
+    (NOLOGIN + GRANT), nunca una credencial con BYPASSRLS.
+    """
+    if not url:
+        return engine
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=tamano,
+        max_overflow=tamano,
+    )
+
+
+# 5CA: tres pools por función. El login sólo ejecuta la proyección estrecha de
+# bootstrap; /saas/superadmin es el único consumidor del pool platform_admin.
+bootstrap_engine = _motor_auxiliar(settings.database_bootstrap_url)
+platform_engine = _motor_auxiliar(settings.database_platform_url)
+
+BootstrapSession = sessionmaker(
+    bind=bootstrap_engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+PlatformSession = sessionmaker(
+    bind=platform_engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -48,6 +83,17 @@ def _aplicar_contexto_request(
             text("SELECT set_config('app.ip', :ip, true)"),
             {"ip": request_ip},
         )
+    # 5CA: el JWT crudo se publica como GUC LOCAL antes de cualquier consulta,
+    # para que actor_claims() pueda verificar firma, vigencia y membresía en
+    # PostgreSQL. is_local=true es obligatorio: con false el token sobrevive al
+    # commit y una conexión reutilizada del pool heredaría la identidad del
+    # request anterior (demostrado en POOL-03 del laboratorio 5CA).
+    actor_token = session.info.get("actor_token")
+    if actor_token:
+        connection.execute(
+            text("SELECT set_config('app.actor_token', :token, true)"),
+            {"token": actor_token},
+        )
     # El tenant solo se añade a Session.info DESPUES de una membresia
     # comprobada en app/core/tenant_dependencies.py. Cada nueva transaccion
     # reestablece el valor de manera LOCAL (sin fugas por connection pool).
@@ -72,6 +118,28 @@ def get_db(request: Request):
     db = SessionLocal()
     db.info["request_ip"] = obtener_ip_cliente(request)
 
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_bootstrap_db():
+    """Pool de bootstrap: sólo la proyección estrecha de credenciales/empresa.
+
+    No publica IP ni token porque no escribe bitácora ni evalúa policies de
+    tenant; su login PostgreSQL no tiene acceso a tablas comerciales.
+    """
+    db = BootstrapSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_platform_db():
+    """Pool exclusivo de /saas/superadmin (administración global deliberada)."""
+    db = PlatformSession()
     try:
         yield db
     finally:
