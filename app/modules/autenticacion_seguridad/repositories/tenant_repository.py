@@ -17,6 +17,17 @@ class CredencialesBootstrapTenant:
     password_hash: str = field(repr=False)
 
 
+@dataclass(frozen=True, slots=True)
+class PerfilPersonalTenant:
+    """Proyeccion segura del perfil propio del personal autenticado."""
+
+    correo: str
+    empleado_id: int
+    nombre: str
+    apellido: str
+    sucursal_id: int
+
+
 # 5R: lectura mínima antes de conocer la empresa; no carga Usuario ORM,
 # Rol ni otras columnas. No exponer esta consulta a clientes SQL directos.
 # AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquí.
@@ -73,6 +84,7 @@ _SQL_CONTEXTO_TENANT = text(
                 WHERE em.usuario_id = u.id AND em.empresa_id = e.id
                   AND su.empresa_id = e.id
                   AND em.estado IS TRUE
+                  AND su.estado IS TRUE
            ))
       )
     LIMIT 2
@@ -96,6 +108,29 @@ _SQL_EMPRESA_ID_POR_SLUG = text(
     """
     SELECT empresa_id
     FROM fashionstore_private.bootstrap_empresa_id(:slug)
+    """
+)
+
+_SQL_PERFIL_PERSONAL_TENANT = text(
+    """
+    SELECT
+        u.correo,
+        em.id AS empleado_id,
+        em.nombres AS nombre,
+        em.apellidos AS apellido,
+        em.sucursal_id
+    FROM public.usuario AS u
+    JOIN public.empleado AS em
+      ON em.usuario_id = u.id
+     AND em.empresa_id = :empresa_id
+    JOIN public.sucursal AS su
+      ON su.id = em.sucursal_id
+     AND su.empresa_id = em.empresa_id
+    WHERE u.id = :usuario_id
+      AND u.estado IS TRUE
+      AND em.estado IS TRUE
+      AND su.estado IS TRUE
+    LIMIT 2
     """
 )
 
@@ -193,3 +228,28 @@ class TenantAuthRepository:
         if len(rows) != 1:
             return None
         return dict(rows[0])
+
+    @staticmethod
+    def obtener_perfil_personal(
+        db: Session, *, usuario_id: int, empresa_id: int
+    ) -> PerfilPersonalTenant | None:
+        """Obtiene solamente el empleado propio del tenant ya autenticado.
+
+        Debe ejecutarse en la misma sesion SQL donde se publico el JWT. Los
+        filtros explicitos refuerzan las FK compuestas y FORCE RLS mantiene el
+        aislamiento incluso si una llamada futura omite alguno accidentalmente.
+        """
+        rows = db.execute(
+            _SQL_PERFIL_PERSONAL_TENANT,
+            {"usuario_id": usuario_id, "empresa_id": empresa_id},
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        return PerfilPersonalTenant(
+            correo=str(row["correo"]),
+            empleado_id=int(row["empleado_id"]),
+            nombre=str(row["nombre"]),
+            apellido=str(row["apellido"]),
+            sucursal_id=int(row["sucursal_id"]),
+        )

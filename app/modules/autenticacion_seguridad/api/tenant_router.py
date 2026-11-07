@@ -50,6 +50,11 @@ class TenantMeResponse(BaseModel):
     contexto: Literal["cliente", "personal"]
     plan_codigo: str
     permite_reportes_ia: bool
+    correo: str | None = None
+    empleado_id: int | None = None
+    nombre: str | None = None
+    apellido: str | None = None
+    sucursal_id: int | None = None
 
 
 @router.post("/login", response_model=TenantLoginResponse)
@@ -131,7 +136,27 @@ def login_tenant(
 @router.get("/me", response_model=TenantMeResponse)
 def tenant_me(
     tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+    db: Session = Depends(get_db),
 ):
+    perfil = None
+    if tenant.contexto == "personal":
+        try:
+            perfil = TenantAuthRepository.obtener_perfil_personal(
+                db,
+                usuario_id=tenant.usuario_id,
+                empresa_id=tenant.empresa_id,
+            )
+        except SQLAlchemyError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="El perfil empresarial no esta disponible",
+            ) from exc
+        if perfil is None:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Perfil de personal no autorizado para esta empresa",
+            )
+
     return TenantMeResponse(
         usuario_id=tenant.usuario_id,
         empresa_id=tenant.empresa_id,
@@ -141,4 +166,9 @@ def tenant_me(
         contexto=tenant.contexto,
         plan_codigo=tenant.plan_codigo,
         permite_reportes_ia=tenant.permite_reportes_ia,
+        correo=perfil.correo if perfil else None,
+        empleado_id=perfil.empleado_id if perfil else None,
+        nombre=perfil.nombre if perfil else None,
+        apellido=perfil.apellido if perfil else None,
+        sucursal_id=perfil.sucursal_id if perfil else None,
     )

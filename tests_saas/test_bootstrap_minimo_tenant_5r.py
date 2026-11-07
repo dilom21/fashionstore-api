@@ -57,10 +57,26 @@ def membresia_ficticia():
     }
 
 
+def membresia_personal_ficticia(rol):
+    return {
+        "empresa_id": 15, "empresa_slug": "empresa-demo",
+        "empresa_nombre": "Empresa Demo", "rol_id": 3,
+        "rol_nombre": rol, "plan_codigo": "PROFESIONAL",
+        "permite_reportes_ia": True,
+    }
+
+
 def login_request():
     return TenantLoginRequest(
         correo="DEMO@EXAMPLE.COM", password="ClaveCorrecta!",
         empresa_slug="empresa-demo", contexto="cliente",
+    )
+
+
+def login_personal_request():
+    return TenantLoginRequest(
+        correo="PERSONAL@EXAMPLE.COM", password="ClaveCorrecta!",
+        empresa_slug="empresa-demo", contexto="personal",
     )
 
 
@@ -169,6 +185,53 @@ def test_5r_login_saas_exitoso_separa_hash_de_respuesta(monkeypatch):
         ("slug", "empresa-demo"),
         {"usuario_id": 42, "empresa_id": 15, "contexto": "cliente"},
     ]
+
+
+@pytest.mark.parametrize(
+    "rol", ["ADMINISTRADOR", "ENCARGADO_SUCURSAL", "CAJERO"]
+)
+def test_login_personal_con_sucursal_activa_admite_roles_empresariales(
+    monkeypatch, rol
+):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(
+        AuthService, "autenticar_credenciales_tenant", lambda *_: 42
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_empresa_id_por_slug", lambda *_: 15
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_membresia_vigente",
+        lambda db, **kw: membresia_personal_ficticia(rol),
+    )
+    respuesta = login_tenant(
+        datos=login_personal_request(), db=DBFalsa(), db_bootstrap=DBFalsa()
+    )
+    assert respuesta.rol == rol
+    assert respuesta.contexto == "personal"
+    assert leer_token_empresa(respuesta.access_token) == (42, 15, "personal")
+
+
+@pytest.mark.parametrize(
+    "caso", ["sucursal_inactiva", "membresia_inactiva", "otra_empresa"]
+)
+def test_login_personal_invalido_falla_con_mensaje_generico(monkeypatch, caso):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(
+        AuthService, "autenticar_credenciales_tenant", lambda *_: 42
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_empresa_id_por_slug", lambda *_: 15
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_membresia_vigente", lambda db, **kw: None
+    )
+    with pytest.raises(HTTPException) as exc:
+        login_tenant(
+            datos=login_personal_request(), db=DBFalsa(), db_bootstrap=DBFalsa()
+        )
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Credenciales invalidas o empresa no autorizada"
 
 
 def test_5r_login_credenciales_incorrectas_no_consulta_membresia(monkeypatch):

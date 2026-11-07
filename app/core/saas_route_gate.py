@@ -38,6 +38,9 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
     {
         ("GET", "/"),
         ("GET", "/health"),
+        ("GET", "/docs"),
+        ("GET", "/openapi.json"),
+        ("GET", "/redoc"),
         ("POST", "/auth/tenant/login"),
         ("GET", "/auth/tenant/me"),
         ("GET", "/tenant/empresa/me"),
