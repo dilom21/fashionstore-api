@@ -13,6 +13,7 @@ from app.modules.autenticacion_seguridad.api.router import router as auth_router
 from app.modules.autenticacion_seguridad.api.tenant_router import router as tenant_auth_router
 from app.modules.catalogo.api.tenant_router import router as tenant_catalogo_router
 from app.modules.catalogo.api.tenant_write_router import router as tenant_catalogo_write_router
+from app.modules.catalogo.api.tenant_merchandising_router import router as tenant_merchandising_router
 from app.modules.bitacora.api.router import router as bitacora_router
 from app.modules.bitacora.api.tenant_router import router as tenant_bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
@@ -84,6 +85,7 @@ app.include_router(tenant_auth_router)
 # Lecturas de catalogo con empresa_id obligatorio desde el JWT.
 app.include_router(tenant_catalogo_router)
 app.include_router(tenant_catalogo_write_router)
+app.include_router(tenant_merchandising_router)
 # Consulta comercial: admin tenant, GET y detalle; sin escrituras de negocio.
 app.include_router(tenant_commercial_router)
 # CU15 SaaS: primer POST transaccional para carrito de un cliente del tenant.

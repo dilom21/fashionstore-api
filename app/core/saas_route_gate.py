@@ -82,6 +82,26 @@ _RUTA_CATALOGO_POST_VARIANTE = re.compile(
     r"^/tenant/catalogo/productos/[1-9][0-9]*/variantes$"
 )
 
+# CU09: metodos y formas de ruta auditados individualmente. No se habilita el
+# prefijo completo porque futuras subrutas deben permanecer cerradas por defecto.
+_RUTAS_MERCHANDISING_COLECCION = frozenset({
+    "/tenant/merchandising/temporadas",
+    "/tenant/merchandising/colecciones",
+    "/tenant/merchandising/promociones",
+})
+_RUTA_MERCHANDISING_ITEM = re.compile(
+    r"^/tenant/merchandising/(?:temporadas|colecciones|promociones)/[1-9][0-9]*$"
+)
+_RUTA_MERCHANDISING_ESTADO = re.compile(
+    r"^/tenant/merchandising/(?:temporadas|colecciones|promociones)/[1-9][0-9]*/estado$"
+)
+_RUTA_MERCHANDISING_PRODUCTOS = re.compile(
+    r"^/tenant/merchandising/(?:colecciones|promociones)/[1-9][0-9]*/productos$"
+)
+_RUTA_MERCHANDISING_PRECIO = re.compile(
+    r"^/tenant/merchandising/productos/[1-9][0-9]*/precio-promocional$"
+)
+
 # Solo los seis recursos aprobados para consultas administrativas de solo lectura.
 _RECURSOS_COMERCIALES_SAAS = frozenset({
     "/tenant/comercial/carritos",
@@ -130,6 +150,22 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         if metodo == "POST" and _RUTA_SAAS_SUPERADMIN_BOOTSTRAP.fullmatch(ruta):
             return True
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
+        return True
+    if metodo == "GET" and (
+        ruta in _RUTAS_MERCHANDISING_COLECCION
+        or _RUTA_MERCHANDISING_ITEM.fullmatch(ruta) is not None
+        or _RUTA_MERCHANDISING_PRODUCTOS.fullmatch(ruta) is not None
+        or _RUTA_MERCHANDISING_PRECIO.fullmatch(ruta) is not None
+    ):
+        return True
+    if metodo == "POST" and ruta in _RUTAS_MERCHANDISING_COLECCION:
+        return True
+    if metodo == "PATCH" and (
+        _RUTA_MERCHANDISING_ITEM.fullmatch(ruta) is not None
+        or _RUTA_MERCHANDISING_ESTADO.fullmatch(ruta) is not None
+    ):
+        return True
+    if metodo == "PUT" and _RUTA_MERCHANDISING_PRODUCTOS.fullmatch(ruta) is not None:
         return True
     # Primera transaccion CU15 migrada: cliente validado, POST exacto.
     if (metodo, ruta) == ("POST", "/tenant/carritos/items"):

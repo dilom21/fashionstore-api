@@ -69,6 +69,14 @@ class PromocionDetalleResponse(PromocionResponse):
     total_productos: int
 
 
+class PrecioPromocionalResponse(BaseModel):
+    producto_id: int
+    precio_base: Decimal
+    promociones_vigentes: list[PromocionResponse]
+    precio_promocional: Decimal | None
+    precio_definitivo: bool
+
+
 # ---------------------------------------------------------------------------
 # CU10 - Productos asociados a una promocion
 # ---------------------------------------------------------------------------

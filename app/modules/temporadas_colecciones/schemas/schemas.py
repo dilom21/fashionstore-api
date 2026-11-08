@@ -80,6 +80,10 @@ class ColeccionDetalleResponse(ColeccionResponse):
     total_productos: int
 
 
+class TemporadaDetalleResponse(TemporadaResponse):
+    total_colecciones: int
+
+
 # ---------------------------------------------------------------------------
 # CU08 - Productos asignados a una coleccion
 # ---------------------------------------------------------------------------
