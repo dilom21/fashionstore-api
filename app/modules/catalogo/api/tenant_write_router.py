@@ -16,6 +16,7 @@ from app.core.tenant_context import TenantContext
 from app.core.tenant_dependencies import get_current_tenant_admin
 from app.modules.catalogo.api.tenant_router import (
     CategoriaTenantResponse, ProductoTenantResponse, VarianteTenantResponse,
+    RecursoProductoTenantResponse,
 )
 from app.modules.catalogo.repositories.tenant_repository import TenantCatalogoRepository
 from app.modules.catalogo.repositories.tenant_write_repository import TenantCatalogoWriteRepository
@@ -83,6 +84,44 @@ class VarianteEditar(EscrituraTenantBase):
     talla_id: int | None = Field(default=None, gt=0)
     color_id: int | None = Field(default=None, gt=0)
     sku: str | None = Field(default=None, min_length=1, max_length=80)
+
+
+class EstadoEditar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    estado: bool
+
+
+class RecursoCrear(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tipo: str = Field(min_length=1, max_length=50)
+    url: str = Field(min_length=8, max_length=2048)
+    color_id: int | None = Field(default=None, gt=0)
+    es_principal: bool = False
+
+    @field_validator("url")
+    @classmethod
+    def validar_url(cls, value: str) -> str:
+        value = value.strip()
+        if not value.startswith(("http://", "https://")):
+            raise ValueError("La URL debe iniciar con http:// o https://")
+        return value
+
+
+class RecursoEditar(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    tipo: str | None = Field(default=None, min_length=1, max_length=50)
+    url: str | None = Field(default=None, min_length=8, max_length=2048)
+    color_id: int | None = Field(default=None, gt=0)
+    es_principal: bool | None = None
+
+    @field_validator("url")
+    @classmethod
+    def validar_url(cls, value: str | None) -> str | None:
+        if value is not None:
+            value = value.strip()
+            if not value.startswith(("http://", "https://")):
+                raise ValueError("La URL debe iniciar con http:// o https://")
+        return value
 
 
 def _recurso_ajeno() -> HTTPException:
@@ -188,6 +227,19 @@ def editar_categoria(
     )
 
 
+@router.patch("/categorias/{categoria_id}/estado", response_model=CategoriaTenantResponse)
+def cambiar_estado_categoria(
+    categoria_id: int, datos: EstadoEditar, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    ok = _operacion(db, lambda: TenantCatalogoWriteRepository.cambiar_estado_categoria(
+        db, empresa_id=admin.empresa_id, categoria_id=categoria_id, estado=datos.estado,
+    ))
+    return TenantCatalogoRepository.obtener_categoria(
+        db, empresa_id=admin.empresa_id, categoria_id=categoria_id,
+        incluir_inactivo=True,
+    ) or (_recurso_ajeno() if not ok else None)
+
+
 @router.post("/productos", response_model=ProductoTenantResponse, status_code=201)
 def crear_producto(datos: ProductoCrear, admin: AdminTenant, db: Session = Depends(get_db)):
     nuevo_id = _operacion(
@@ -217,6 +269,19 @@ def editar_producto(
     return TenantCatalogoRepository.obtener_producto(
         db, empresa_id=admin.empresa_id, producto_id=producto_id,
     )
+
+
+@router.patch("/productos/{producto_id}/estado", response_model=ProductoTenantResponse)
+def cambiar_estado_producto(
+    producto_id: int, datos: EstadoEditar, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    _operacion(db, lambda: TenantCatalogoWriteRepository.cambiar_estado_producto(
+        db, empresa_id=admin.empresa_id, producto_id=producto_id, estado=datos.estado,
+    ))
+    return TenantCatalogoRepository.obtener_producto(
+        db, empresa_id=admin.empresa_id, producto_id=producto_id,
+        incluir_inactivo=True,
+    ) or (_recurso_ajeno())
 
 
 @router.post(
@@ -256,3 +321,68 @@ def editar_variante(
     return TenantCatalogoRepository.obtener_variante(
         db, empresa_id=admin.empresa_id, variante_id=variante_id,
     )
+
+
+@router.patch("/variantes/{variante_id}/estado", response_model=VarianteTenantResponse)
+def cambiar_estado_variante(
+    variante_id: int, datos: EstadoEditar, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    _operacion(db, lambda: TenantCatalogoWriteRepository.cambiar_estado_variante(
+        db, empresa_id=admin.empresa_id, variante_id=variante_id, estado=datos.estado,
+    ))
+    return TenantCatalogoRepository.obtener_variante(
+        db, empresa_id=admin.empresa_id, variante_id=variante_id,
+        incluir_inactivo=True,
+    ) or (_recurso_ajeno())
+
+
+@router.post("/productos/{producto_id}/recursos", response_model=RecursoProductoTenantResponse, status_code=201)
+def crear_recurso(
+    producto_id: int, datos: RecursoCrear, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    recurso_id = _operacion(db, lambda: TenantCatalogoWriteRepository.crear_recurso(
+        db, empresa_id=admin.empresa_id, producto_id=producto_id, color_id=datos.color_id,
+        tipo=datos.tipo, url=datos.url, es_principal=datos.es_principal,
+    ))
+    return TenantCatalogoRepository.obtener_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id,
+    )
+
+
+@router.patch("/recursos-producto/{recurso_id}", response_model=RecursoProductoTenantResponse)
+def editar_recurso(
+    recurso_id: int, datos: RecursoEditar, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    cambios = datos.model_dump(exclude_unset=True)
+    if not cambios:
+        raise HTTPException(status_code=422, detail="Se requiere al menos un campo")
+    _operacion(db, lambda: TenantCatalogoWriteRepository.actualizar_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id, cambios=cambios,
+    ))
+    return TenantCatalogoRepository.obtener_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id,
+    ) or (_recurso_ajeno())
+
+
+@router.patch("/recursos-producto/{recurso_id}/estado", response_model=RecursoProductoTenantResponse)
+def cambiar_estado_recurso(
+    recurso_id: int, datos: EstadoEditar, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    _operacion(db, lambda: TenantCatalogoWriteRepository.cambiar_estado_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id, estado=datos.estado,
+    ))
+    return TenantCatalogoRepository.obtener_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id,
+    ) or (_recurso_ajeno())
+
+
+@router.patch("/recursos-producto/{recurso_id}/principal", response_model=RecursoProductoTenantResponse)
+def marcar_recurso_principal(
+    recurso_id: int, admin: AdminTenant, db: Session = Depends(get_db),
+):
+    _operacion(db, lambda: TenantCatalogoWriteRepository.marcar_recurso_principal(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id,
+    ))
+    return TenantCatalogoRepository.obtener_recurso(
+        db, empresa_id=admin.empresa_id, recurso_id=recurso_id,
+    ) or (_recurso_ajeno())

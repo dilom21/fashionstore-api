@@ -8,16 +8,20 @@ usan las ordenes de compra.
 """
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.tenant_context import TenantContext
-from app.core.tenant_dependencies import get_current_tenant_personal_con_permiso
+from app.core.tenant_dependencies import (
+    get_current_tenant_personal_con_permiso,
+    get_current_tenant_personal_con_permiso_catalogo,
+)
 from app.modules.proveedores.repositories.tenant_proveedor_repository import (
     ProveedorTenantError,
     TenantProveedorRepository,
@@ -28,6 +32,14 @@ router = APIRouter(prefix="/tenant/proveedores", tags=["Proveedores SaaS"])
 PersonalCompras = Annotated[
     TenantContext,
     Depends(get_current_tenant_personal_con_permiso("COMPRAS", "GESTIONAR")),
+]
+PersonalComprasConsulta = Annotated[
+    TenantContext,
+    Depends(
+        get_current_tenant_personal_con_permiso_catalogo(
+            "GESTIONAR_PROVEEDORES", "CONSULTAR"
+        )
+    ),
 ]
 
 
@@ -113,6 +125,18 @@ class ProveedorProductosTenantResponse(BaseModel):
     total_productos: int
 
 
+class ProveedorProductoTenantResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: int
+    nombre: str
+    descripcion: str | None
+    precio: Decimal
+    categoria_id: int
+    producto_estado: bool
+    costo_referencia: Decimal
+    estado: bool
+
+
 def _verificar_modulo() -> None:
     if not settings.saas_auth_enabled or not getattr(
         settings, "saas_compras_enabled", False
@@ -135,6 +159,57 @@ def _verificar_id(proveedor_id: int) -> None:
 def _error_repositorio(db: Session, exc: ProveedorTenantError) -> HTTPException:
     db.rollback()
     return HTTPException(status_code=exc.codigo, detail=exc.detalle)
+
+
+@router.get("", response_model=list[ProveedorTenantResponse])
+def listar_proveedores(
+    tenant: PersonalComprasConsulta,
+    buscar: str | None = Query(default=None, min_length=1, max_length=100),
+    estado: bool | None = None,
+    limit: int = Query(default=50, ge=1, le=200),
+    offset: int = Query(default=0, ge=0),
+    db: Session = Depends(get_db),
+):
+    _verificar_modulo()
+    return TenantProveedorRepository.listar(
+        db, empresa_id=tenant.empresa_id, buscar=buscar, estado=estado,
+        limit=limit, offset=offset,
+    )
+
+
+@router.get("/{proveedor_id}", response_model=ProveedorTenantResponse)
+def obtener_proveedor(
+    proveedor_id: int,
+    tenant: PersonalComprasConsulta,
+    db: Session = Depends(get_db),
+):
+    _verificar_modulo()
+    _verificar_id(proveedor_id)
+    resultado = TenantProveedorRepository.obtener(
+        db, empresa_id=tenant.empresa_id, proveedor_id=proveedor_id,
+    )
+    if resultado is None:
+        raise HTTPException(status_code=404, detail="Recurso no encontrado")
+    return resultado
+
+
+@router.get(
+    "/{proveedor_id}/productos",
+    response_model=list[ProveedorProductoTenantResponse],
+)
+def listar_productos_proveedor(
+    proveedor_id: int,
+    tenant: PersonalComprasConsulta,
+    db: Session = Depends(get_db),
+):
+    _verificar_modulo()
+    _verificar_id(proveedor_id)
+    resultado = TenantProveedorRepository.listar_productos(
+        db, empresa_id=tenant.empresa_id, proveedor_id=proveedor_id,
+    )
+    if resultado is None:
+        raise HTTPException(status_code=404, detail="Recurso no encontrado")
+    return resultado
 
 
 @router.post("", response_model=ProveedorTenantResponse, status_code=201)

@@ -89,6 +89,7 @@ def escenario(monkeypatch):
     fabricar = sessionmaker(bind=motor, expire_on_commit=False)
     actual = {"empresa_id": 10, "rol": "ADMINISTRADOR", "contexto": "personal"}
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
 
     def obtener_db():
         with fabricar() as db:
@@ -161,10 +162,19 @@ def test_crear_producto_y_variante_en_empresa_propia(escenario):
     assert v.status_code == 201, v.text
     vid = v.json()["id"]
     assert v.json()["sku"] == "U-002"
+    assert v.json()["talla_id"] == 2
+    assert v.json()["color_id"] == 2
+    assert v.json()["talla"] == "L"
+    assert v.json()["color"] == "Azul"
     assert client.patch(f"/tenant/catalogo/variantes/{vid}", json={
-        "sku": "U-003",
+        "talla_id": 1, "color_id": 1, "sku": "U-003",
     }).status_code == 200
-    assert client.get(f"/tenant/catalogo/variantes/{vid}").json()["sku"] == "U-003"
+    editada = client.get(f"/tenant/catalogo/variantes/{vid}").json()
+    assert editada["sku"] == "U-003"
+    assert editada["talla_id"] == 1
+    assert editada["color_id"] == 1
+    assert editada["talla"] == "M"
+    assert editada["color"] == "Negro"
     assert _cantidad(fabricar, Producto.__table__, 20) == 1
     assert _cantidad(fabricar, VarianteProducto.__table__, 20) == 1
 

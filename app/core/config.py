@@ -1,3 +1,4 @@
+import os
 from functools import lru_cache
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -12,6 +13,18 @@ class Settings(BaseSettings):
     app_debug: bool = True
 
     database_url: str
+    # Harold/5CA: pools separados por función.
+    database_bootstrap_url: str | None = None
+    database_platform_url: str | None = None
+
+    # Identidad explícita del único destino remoto permitido en desarrollo.
+    # Se declaran aquí para que pydantic-settings lea también estos valores del
+    # .env y config pueda pasarlos al guard sin perder la precedencia del
+    # entorno del proceso.
+    saas_shared_db_dev_enabled: str | None = None
+    saas_shared_db_host: str | None = None
+    saas_shared_db_port: str | None = None
+    saas_shared_db_name: str | None = None
 
     secret_key: str
     jwt_algorithm: str = "HS256"
@@ -32,22 +45,22 @@ class Settings(BaseSettings):
     # DSN de la base legacy (single-tenant). Solo se usa cuando conviven las dos
     # superficies. Ningun servicio tenant lo consume.
     legacy_database_url: str | None = None
-    # CU01/CU02: administración global independiente del JWT tenant.
-    # Ambas opciones deben configurarse explícitamente para abrir el módulo.
+    # CU01/CU02: administraciÃ³n global independiente del JWT tenant.
+    # Ambas opciones deben configurarse explÃ­citamente para abrir el mÃ³dulo.
     # La clave en texto plano nunca va en el repositorio ni en Settings.
     saas_superadmin_enabled: bool = False
     # Huella(s) SHA-256 de las claves de superadministrador. Admite DOS
     # formatos, ambos sin secretos en claro:
     #   * "<hex64>"                       -> identificador por defecto "v1";
-    #   * "<kid>:<hex64>,<kid>:<hex64>"   -> rotación con dos claves vigentes.
-    # Una clave se revoca quitándola de la lista y reiniciando el proceso; no
-    # existe backdoor ni login público de recuperación.
+    #   * "<kid>:<hex64>,<kid>:<hex64>"   -> rotaciÃ³n con dos claves vigentes.
+    # Una clave se revoca quitÃ¡ndola de la lista y reiniciando el proceso; no
+    # existe backdoor ni login pÃºblico de recuperaciÃ³n.
     saas_superadmin_key_sha256: str | None = None
     # 5BO: fuerza bruta compartida entre procesos (contadores en PostgreSQL).
     saas_superadmin_rate_limit_ip: int = 10
     saas_superadmin_rate_limit_clave: int = 30
     saas_superadmin_rate_limit_ventana_segundos: int = 300
-    # 5BO: en despliegue real exigir HTTPS. Solo se confía en
+    # 5BO: en despliegue real exigir HTTPS. Solo se confÃ­a en
     # X-Forwarded-Proto cuando el cliente es un proxy listado; nunca en un
     # encabezado enviado por un cliente arbitrario.
     saas_superadmin_require_https: bool = False
@@ -78,10 +91,12 @@ class Settings(BaseSettings):
     # Solo lo usa /saas/superadmin/*; nunca el JWT tenant ni los servicios
     # comerciales. Sin valor, CU01/CU02 responden 503 (fail closed).
     saas_admin_database_url: str | None = None
-    # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueño
+    # Harold/5CA: auditoría delegada al trigger SECURITY DEFINER cuando está activa.
+    saas_bitacora_por_trigger: bool = False
+    # Solo tras auditar/instalar un verificador SECURITY DEFINER con dueÃ±o
     # NOLOGIN dedicado; sin valor, la escritura SaaS falla cerrada.
     saas_actor_sql_owner: str | None = None
-    # Un SP SECURITY DEFINER comercial sólo es elegible si su propietario
+    # Un SP SECURITY DEFINER comercial sÃ³lo es elegible si su propietario
     # NOLOGIN se identifica exactamente y sus ACL/search_path son seguros.
     # None bloquea por defecto el modo DEFINER; no instalar desde FastAPI.
     saas_sp_sql_owner: str | None = None
@@ -125,10 +140,24 @@ def get_settings() -> Settings:
     # pydantic-settings prioriza el entorno sobre `.env`, de modo que un
     # DATABASE_URL heredado del proceso padre llegaria hasta aqui sin aviso.
     ajustes = Settings()
+    entorno_guard = dict(os.environ)
+    for clave, valor in {
+        "SAAS_SHARED_DB_DEV_ENABLED": ajustes.saas_shared_db_dev_enabled,
+        "SAAS_SHARED_DB_HOST": ajustes.saas_shared_db_host,
+        "SAAS_SHARED_DB_PORT": ajustes.saas_shared_db_port,
+        "SAAS_SHARED_DB_NAME": ajustes.saas_shared_db_name,
+    }.items():
+        # No sobreescribir una variable del proceso: pydantic ya aplicó la
+        # precedencia entorno > .env y el entorno sigue siendo autoritativo.
+        if clave not in entorno_guard and valor is not None:
+            entorno_guard[clave] = valor
     validar_arranque(
         app_env=ajustes.app_env,
         database_url=ajustes.database_url,
         saas_admin_database_url=ajustes.saas_admin_database_url,
+        database_bootstrap_url=ajustes.database_bootstrap_url,
+        database_platform_url=ajustes.database_platform_url,
+        entorno=entorno_guard,
     )
     # 5C1: la combinacion legacy/SaaS se valida antes de construir engines.
     validar_coexistencia(

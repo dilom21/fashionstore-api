@@ -130,10 +130,10 @@ class AuthService:
         """Login SaaS con proyeccion minima; no modifica el login legacy.
 
         Devuelve solo ID despues de verificar Argon2. No retorna el hash
-        ni carga la relacion ORM Rol. Sigue pendiente un rol SQL bootstrap
-        NO BYPASSRLS para utilizarlo en PostgreSQL real.
+        ni carga la relacion ORM Rol. Usa la proyeccion estrecha del pool
+        bootstrap (5CA): el login restringido no puede leer public.usuario.
         """
-        credenciales = TenantAuthRepository.obtener_credenciales_bootstrap(
+        credenciales = TenantAuthRepository.obtener_credenciales_bootstrap_privadas(
             db, correo.strip().lower()
         )
         if credenciales is None:

@@ -290,8 +290,12 @@ class PersonalTenantRepository:
             text(
                 """
                 WITH catalogo AS (
-                    SELECT DISTINCT funcion, accion
-                      FROM saas.permiso_default
+                    SELECT DISTINCT f.nombre AS funcion, a.nombre AS accion
+                      FROM public.rol_funcion rf
+                      JOIN public.funcion f ON f.id = rf.funcion_id
+                      JOIN public.accion a ON a.id = rf.accion_id
+                     WHERE f.estado IS TRUE
+                       AND a.estado IS TRUE
                 ), roles AS (
                     SELECT unnest(CAST(:roles AS bigint[])) AS rol_id
                 ), combinaciones AS (
@@ -300,16 +304,18 @@ class PersonalTenantRepository:
                       FROM roles r CROSS JOIN catalogo c
                 )
                 SELECT comb.rol_id, comb.funcion, comb.accion,
-                       saas.tiene_permiso_tenant(
-                           comb.empresa_id, comb.rol_id, comb.funcion, comb.accion
-                       ) AS permitido,
                        EXISTS (
-                           SELECT 1 FROM saas.permiso_tenant pt
-                            WHERE pt.empresa_id = comb.empresa_id
-                              AND pt.rol_id = comb.rol_id
-                              AND pt.funcion = comb.funcion
-                              AND pt.accion = comb.accion
-                       ) AS excepcion
+                           SELECT 1
+                             FROM public.rol_funcion rf
+                             JOIN public.funcion f ON f.id = rf.funcion_id
+                             JOIN public.accion a ON a.id = rf.accion_id
+                            WHERE rf.rol_id = comb.rol_id
+                              AND f.nombre = comb.funcion
+                              AND a.nombre = comb.accion
+                              AND f.estado IS TRUE
+                              AND a.estado IS TRUE
+                       ) AS permitido,
+                       FALSE AS excepcion
                   FROM combinaciones comb
                  ORDER BY comb.rol_id, comb.funcion, comb.accion
                 """
@@ -376,7 +382,15 @@ class PersonalTenantRepository:
         catalogo = {
             (str(f), str(a))
             for f, a in db.execute(
-                text("SELECT DISTINCT funcion, accion FROM saas.permiso_default")
+                text(
+                    """
+                    SELECT DISTINCT f.nombre, a.nombre
+                      FROM public.rol_funcion rf
+                      JOIN public.funcion f ON f.id = rf.funcion_id
+                      JOIN public.accion a ON a.id = rf.accion_id
+                     WHERE f.estado IS TRUE AND a.estado IS TRUE
+                    """
+                )
             ).all()
         }
         pares: list[tuple[str, str, bool]] = []
@@ -389,37 +403,13 @@ class PersonalTenantRepository:
         if not pares:
             raise PersonalTenantError(422, "Permisos vacios")
 
-        for funcion, accion, permitido in pares:
-            db.execute(
-                text(
-                    """
-                    INSERT INTO saas.permiso_tenant
-                        (empresa_id, rol_id, funcion, accion, permitido)
-                    VALUES (CAST(:empresa AS bigint), CAST(:rol AS bigint),
-                            CAST(:funcion AS text), CAST(:accion AS text),
-                            CAST(:permitido AS boolean))
-                    ON CONFLICT (empresa_id, rol_id, funcion, accion)
-                    DO UPDATE SET permitido = EXCLUDED.permitido,
-                                  actualizado_en = NOW()
-                    """
-                ),
-                {
-                    "empresa": empresa_id,
-                    "rol": rol_id,
-                    "funcion": funcion,
-                    "accion": accion,
-                    "permitido": permitido,
-                },
-            )
-        _registrar_bitacora(
-            db,
-            empresa_id=empresa_id,
-            usuario_id=actor_id,
-            accion="RBAC_ACTUALIZADO",
-            entidad="permiso_tenant",
-            descripcion=(
-                f"Rol {nombre} (id {rol_id}): {len(pares)} permiso(s) ajustado(s)"
-            ),
+        # El contrato vigente no tiene excepciones RBAC por empresa. Mutar
+        # public.rol_funcion desde un request tenant modificaría el rol para
+        # todas las empresas y sería una escalada transversal, por lo que este
+        # flujo debe detenerse hasta que exista una operación segura aprobada.
+        raise PersonalTenantError(
+            503,
+            "La matriz de permisos empresariales no admite excepciones por empresa",
         )
         return {
             "rol_id": rol_id,

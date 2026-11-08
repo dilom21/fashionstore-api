@@ -18,7 +18,7 @@ class CredencialesBootstrapTenant:
 
 
 def _es_postgres(db: Session) -> bool:
-    """En PostgreSQL el login usa funciones cerradas; SQLite solo pruebas offline."""
+    """Distingue la consulta RLS real de las pruebas offline SQLite."""
     try:
         bind = db.get_bind()
     except AttributeError:
@@ -26,31 +26,9 @@ def _es_postgres(db: Session) -> bool:
     return getattr(getattr(bind, "dialect", None), "name", "") == "postgresql"
 
 
-# Etapa C (5BK): con principal restringido el rol de ejecucion NO tiene SELECT
-# sobre public.usuario ni sobre las tablas SaaS. El bootstrap consulta dos
-# funciones SECURITY DEFINER (propietario NOLOGIN) que devuelven exactamente la
-# proyeccion necesaria y nada mas. Los GRANT son EXECUTE, no SELECT.
-_SQL_CREDENCIALES_PG = text(
-    "SELECT usuario_id, password_hash FROM saas.login_credenciales(:correo)"
-)
-
-_SQL_CONTEXTO_PG = text(
-    """
-    SELECT usuario_id, empresa_id, empresa_slug, empresa_nombre, rol_id,
-           rol_nombre, plan_codigo, permite_reportes_ia
-    FROM saas.login_membresia(
-        CAST(:usuario_id AS bigint),
-        CAST(:empresa_id AS bigint),
-        CAST(:empresa_slug AS text),
-        CAST(:contexto AS text)
-    )
-    """
-)
-
-
-# 5R: lectura mínima antes de conocer la empresa; no carga Usuario ORM,
+# 5R: lectura mÃ­nima antes de conocer la empresa; no carga Usuario ORM,
 # Rol ni otras columnas. No exponer esta consulta a clientes SQL directos.
-# AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquí.
+# AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquÃ­.
 _SQL_CREDENCIALES_BOOTSTRAP_TENANT = text(
     """
     SELECT u.id AS usuario_id, u.password_hash
@@ -104,11 +82,51 @@ _SQL_CONTEXTO_TENANT = text(
                 WHERE em.usuario_id = u.id AND em.empresa_id = e.id
                   AND su.empresa_id = e.id
                   AND em.estado IS TRUE
+                  AND su.estado IS TRUE
            ))
       )
     LIMIT 2
     """
 )
+
+# Supabase compartido publica la identidad mediante app.actor_token y sus
+# politicas RLS llaman fashionstore_private.actor_*. En PostgreSQL la consulta
+# parametrizada queda aislada por esas politicas despues de publicar el JWT.
+# No se invocan funciones saas.* ausentes del contrato instalado.
+_SQL_CONTEXTO_PG = _SQL_CONTEXTO_TENANT
+
+# Proyecciones SECURITY DEFINER del pool bootstrap; no exponen tablas SaaS.
+_SQL_CREDENCIALES_BOOTSTRAP_PRIVADAS = text(
+    "SELECT usuario_id, password_hash FROM fashionstore_private.bootstrap_credencial(:correo)"
+)
+_SQL_EMPRESA_ID_POR_SLUG = text(
+    "SELECT empresa_id FROM fashionstore_private.bootstrap_empresa_id(:slug)"
+)
+_SQL_PERFIL_PERSONAL_TENANT = text(
+    """
+    SELECT u.correo, em.id AS empleado_id, em.nombres AS nombre,
+           em.apellidos AS apellido, em.sucursal_id
+    FROM public.usuario AS u
+    JOIN public.empleado AS em ON em.usuario_id = u.id
+      AND em.empresa_id = :empresa_id
+    JOIN public.sucursal AS su ON su.id = em.sucursal_id
+      AND su.empresa_id = em.empresa_id
+    WHERE u.id = :usuario_id AND u.estado IS TRUE
+      AND em.estado IS TRUE AND su.estado IS TRUE
+    LIMIT 2
+    """
+)
+
+
+@dataclass(frozen=True, slots=True)
+class PerfilPersonalTenant:
+    """Proyección segura del perfil propio del personal autenticado."""
+
+    correo: str
+    empleado_id: int
+    nombre: str
+    apellido: str
+    sucursal_id: int
 
 
 class TenantAuthRepository:
@@ -116,9 +134,9 @@ class TenantAuthRepository:
     def obtener_credenciales_bootstrap(
         db: Session, correo: str
     ) -> CredencialesBootstrapTenant | None:
-        """Proyección mínima: solo usuario_id/hash; sin seleccionar el ORM entero.
+        """ProyecciÃ³n mÃ­nima: solo usuario_id/hash; sin seleccionar el ORM entero.
 
-        La contraseña se verifica en AuthService, nunca aquí.
+        La contraseÃ±a se verifica en AuthService, nunca aquÃ­.
         Los permisos de tabla/columna y RLS para un rol bootstrap REAL
         siguen pendientes; SQL parametrizado no sustituye esos controles.
         """
@@ -134,7 +152,7 @@ class TenantAuthRepository:
                 _SQL_CREDENCIALES_BOOTSTRAP_TENANT,
                 {"correo": correo_normalizado},
             ).mappings().all()
-        # Fail closed: un usuario activo por correo como máximo.
+        # Fail closed: un usuario activo por correo como mÃ¡ximo.
         if len(rows) != 1:
             return None
         row = rows[0]
@@ -142,6 +160,37 @@ class TenantAuthRepository:
             usuario_id=int(row["usuario_id"]),
             password_hash=str(row["password_hash"]),
         )
+
+    @staticmethod
+    def obtener_credenciales_bootstrap_privadas(
+        db: Session, correo: str
+    ) -> CredencialesBootstrapTenant | None:
+        correo_normalizado = correo.strip().lower()
+        if not correo_normalizado:
+            return None
+        rows = db.execute(
+            _SQL_CREDENCIALES_BOOTSTRAP_PRIVADAS,
+            {"correo": correo_normalizado},
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        return CredencialesBootstrapTenant(
+            usuario_id=int(row["usuario_id"]),
+            password_hash=str(row["password_hash"]),
+        )
+
+    @staticmethod
+    def obtener_empresa_id_por_slug(db: Session, empresa_slug: str) -> int | None:
+        slug = empresa_slug.strip().lower()
+        if not slug:
+            return None
+        rows = db.execute(
+            _SQL_EMPRESA_ID_POR_SLUG, {"slug": slug}
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        return int(rows[0]["empresa_id"])
 
     @staticmethod
     def obtener_membresia_vigente(
@@ -166,3 +215,22 @@ class TenantAuthRepository:
         if len(rows) != 1:
             return None
         return dict(rows[0])
+
+    @staticmethod
+    def obtener_perfil_personal(
+        db: Session, *, usuario_id: int, empresa_id: int
+    ) -> PerfilPersonalTenant | None:
+        rows = db.execute(
+            _SQL_PERFIL_PERSONAL_TENANT,
+            {"usuario_id": usuario_id, "empresa_id": empresa_id},
+        ).mappings().all()
+        if len(rows) != 1:
+            return None
+        row = rows[0]
+        return PerfilPersonalTenant(
+            correo=str(row["correo"]),
+            empleado_id=int(row["empleado_id"]),
+            nombre=str(row["nombre"]),
+            apellido=str(row["apellido"]),
+            sucursal_id=int(row["sucursal_id"]),
+        )

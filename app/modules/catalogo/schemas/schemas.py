@@ -106,7 +106,9 @@ class VarianteProductoDetalleResponse(BaseModel):
     id: int
     sku: str
     estado: bool
+    talla_id: int
     talla: TallaResumen
+    color_id: int
     color: ColorResumen
     inventarios: list[InventarioDetalleResponse]
 
@@ -288,7 +290,9 @@ class VarianteAdminResponse(BaseModel):
     producto_id: int
     sku: str
     estado: bool
+    talla_id: int
     talla: TallaResumen
+    color_id: int
     color: ColorResumen
 
     model_config = ConfigDict(from_attributes=True)

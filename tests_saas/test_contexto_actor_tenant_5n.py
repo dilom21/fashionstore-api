@@ -84,14 +84,20 @@ def test_5n_actor_y_empresa_solo_tras_membresia(monkeypatch):
     db = SesionFalsa()
     tenant = get_current_tenant_context(credentials=credenciales(), db=db)
 
-    assert vistos == [({}, {"usuario_id": 42, "empresa_id": 15, "contexto": "personal"})]
+    # 5CA: el token se publica ANTES de la membresía (lo exige actor_claims()
+    # en RLS), pero todavía no hay GUC de identidad (usuario/empresa).
+    assert vistos == [(
+        {"actor_token": db.info["actor_token"]},
+        {"usuario_id": 42, "empresa_id": 15, "contexto": "personal"},
+    )]
     assert tenant.usuario_id == 42 and tenant.empresa_id == 15
-    assert db.info == {"usuario_id": 42, "empresa_id": 15}
-    assert len(db.statements) == 2
-    assert "set_config('app.usuario_id', :usuario_id, true)" in db.statements[0][0]
-    assert db.statements[0][1] == {"usuario_id": "42"}
-    assert "set_config('app.empresa_id', :empresa_id, true)" in db.statements[1][0]
-    assert db.statements[1][1] == {"empresa_id": "15"}
+    assert db.info["usuario_id"] == 42 and db.info["empresa_id"] == 15
+    assert len(db.statements) == 3
+    assert "set_config('app.actor_token', :token, true)" in db.statements[0][0]
+    assert "set_config('app.usuario_id', :usuario_id, true)" in db.statements[1][0]
+    assert db.statements[1][1] == {"usuario_id": "42"}
+    assert "set_config('app.empresa_id', :empresa_id, true)" in db.statements[2][0]
+    assert db.statements[2][1] == {"empresa_id": "15"}
 
 
 def test_5n_token_ausente_no_establece_actor(monkeypatch):
@@ -119,7 +125,10 @@ def test_5n_membresia_revocada_no_establece_actor(monkeypatch):
     with pytest.raises(HTTPException) as err:
         get_current_tenant_context(credentials=credenciales(), db=db)
     assert err.value.status_code == 403
-    assert db.info == {} and db.statements == []
+    # 5CA: sólo se publicó el token; ningún GUC de identidad.
+    assert set(db.info) == {"actor_token"}
+    assert len(db.statements) == 1
+    assert "app.actor_token" in db.statements[0][0]
 
 
 def test_5n_saas_inactivo_no_establece_actor(monkeypatch):
@@ -137,7 +146,9 @@ def test_5n_segundo_set_config_falla_sin_guardar_info(monkeypatch):
     with pytest.raises(HTTPException) as err:
         get_current_tenant_context(credentials=credenciales(), db=db)
     assert err.value.status_code == 503
-    assert db.info == {}  # evita reutilizacion parcial de Session.info
+    # 5CA: el token sí quedó publicado (lo exige RLS), pero ningún GUC de
+    # identidad, evitando reutilizacion parcial de Session.info.
+    assert set(db.info) == {"actor_token"}
     assert len(db.statements) == 2
 
 

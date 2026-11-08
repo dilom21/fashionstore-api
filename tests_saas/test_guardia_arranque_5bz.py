@@ -19,6 +19,7 @@ que tambien queda cubierta por la subclase.
 from __future__ import annotations
 
 import contextlib
+import os
 import socket
 
 import pytest
@@ -48,6 +49,16 @@ DSN_REMOTO_IP = (
     "10.255.255.1:5432/fashionstore_lab_5bx_staging"
 )
 DSN_SQLITE = "sqlite+pysqlite:///./saas_auth_unit_test.db"
+DSN_COMPARTIDO = (
+    "postgresql+psycopg://usuario_ficticio:clave_ficticia@"
+    "db.compartido-ficticio.invalid:5432/postgres"
+)
+ENTORNO_COMPARTIDO = {
+    "SAAS_SHARED_DB_DEV_ENABLED": "true",
+    "SAAS_SHARED_DB_HOST": "db.compartido-ficticio.invalid",
+    "SAAS_SHARED_DB_PORT": "5432",
+    "SAAS_SHARED_DB_NAME": "postgres",
+}
 
 ESTRICTO = {"SAAS_LOCAL_ONLY": "1"}
 LOCAL = {"SAAS_LOCAL_ONLY": "0"}
@@ -245,12 +256,83 @@ def test_desplegado_sin_allowlist_explicita_es_rechazado():
     assert "SAAS_DEPLOY" in str(excinfo.value)
 
 
-def test_override_explicito_permite_remoto_en_local():
+def test_bypass_legacy_no_permite_remoto_en_local():
+    with pytest.raises(ArranqueInseguro):
+        validar_arranque(
+            app_env="development",
+            database_url=DSN_REMOTO_IP,
+            saas_admin_database_url=None,
+            entorno={"SAAS_ALLOW_REMOTE_DB": "true"},
+        )
+
+
+def test_desarrollo_compartido_autorizado_para_los_tres_pools():
+    for nombre in ("DATABASE_URL", "DATABASE_BOOTSTRAP_URL", "DATABASE_PLATFORM_URL"):
+        validar_arranque(
+            app_env="development",
+            database_url=DSN_COMPARTIDO if nombre == "DATABASE_URL" else DSN_SINTETICO,
+            database_bootstrap_url=DSN_COMPARTIDO if nombre == "DATABASE_BOOTSTRAP_URL" else None,
+            database_platform_url=DSN_COMPARTIDO if nombre == "DATABASE_PLATFORM_URL" else None,
+            saas_admin_database_url=None,
+            entorno=ENTORNO_COMPARTIDO,
+        )
     validar_arranque(
         app_env="development",
-        database_url=DSN_REMOTO_IP,
+        database_url=DSN_COMPARTIDO.replace(":5432/", "/"),
         saas_admin_database_url=None,
-        entorno={"SAAS_ALLOW_REMOTE_DB": "true"},
+        entorno=ENTORNO_COMPARTIDO,
+    )
+
+
+@pytest.mark.parametrize(
+    "cambio, motivo",
+    [
+        ({"SAAS_SHARED_DB_HOST": "otro.invalid"}, "host"),
+        ({"SAAS_SHARED_DB_PORT": "5433"}, "host"),
+        ({"SAAS_SHARED_DB_NAME": "otra_base"}, "host"),
+        ({"SAAS_SHARED_DB_DEV_ENABLED": "false"}, "host"),
+    ],
+)
+def test_desarrollo_compartido_rechaza_identidad_incorrecta(cambio, motivo):
+    entorno = {**ENTORNO_COMPARTIDO, **cambio}
+    with pytest.raises(ArranqueInseguro) as excinfo:
+        validar_arranque(
+            app_env="development",
+            database_url=DSN_COMPARTIDO,
+            saas_admin_database_url=None,
+            entorno=entorno,
+        )
+    assert motivo in str(excinfo.value).lower()
+
+
+def test_postgresql_sin_puerto_usa_5432_y_puerto_explicito_se_preserva():
+    assert analizar_dsn("postgresql://u:p@db.example.invalid/postgres")["puerto"] == 5432
+    assert analizar_dsn("postgresql://u:p@db.example.invalid:6543/postgres")["puerto"] == 6543
+
+
+def test_entorno_del_proceso_sobrescribe_el_env(monkeypatch):
+    # Pydantic Settings aplica la precedencia entorno > archivo .env. Solo se
+    # inspecciona host/puerto/base; nunca se muestra el DSN ni sus credenciales.
+    from pydantic_settings import BaseSettings, SettingsConfigDict
+
+    class ProbeSettings(BaseSettings):
+        database_url: str
+
+        model_config = SettingsConfigDict(
+            env_file=".env",
+            env_file_encoding="utf-8",
+            case_sensitive=False,
+            extra="ignore",
+        )
+
+    heredada = "postgresql+psycopg://u:p@pooler.example.invalid:5432/postgres"
+    monkeypatch.setenv("DATABASE_URL", heredada)
+    ajustes = ProbeSettings()
+    datos = analizar_dsn(ajustes.database_url)
+    assert (datos["host"], datos["puerto"], datos["base"]) == (
+        "pooler.example.invalid",
+        5432,
+        "postgres",
     )
 
 

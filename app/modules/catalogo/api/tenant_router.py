@@ -33,6 +33,7 @@ class CategoriaTenantResponse(BaseModel):
     id: int
     nombre: str
     descripcion: str | None
+    estado: bool
 
 
 class ProductoTenantResponse(BaseModel):
@@ -43,6 +44,7 @@ class ProductoTenantResponse(BaseModel):
     precio: Decimal
     categoria_id: int
     categoria_nombre: str
+    estado: bool
 
 
 class VarianteTenantResponse(BaseModel):
@@ -50,8 +52,23 @@ class VarianteTenantResponse(BaseModel):
     id: int
     producto_id: int
     sku: str
+    talla_id: int
     talla: str
+    color_id: int
     color: str
+    estado: bool
+
+
+class RecursoProductoTenantResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    id: int
+    producto_id: int
+    color_id: int | None
+    tipo: str
+    url: str
+    es_principal: bool
+    estado: bool
+    color: str | None
 
 
 class DiccionarioTenantResponse(BaseModel):
@@ -84,7 +101,9 @@ class VarianteListadoTenantResponse(BaseModel):
     producto_id: int
     producto_nombre: str
     sku: str
+    talla_id: int
     talla: str
+    color_id: int
     color: str
 
 
@@ -271,3 +290,43 @@ def listar_variantes_empresa(
         limit=limit,
         offset=offset,
     )
+
+
+@router.get(
+    "/productos/{producto_id}/recursos",
+    response_model=list[RecursoProductoTenantResponse],
+)
+def listar_recursos_producto(
+    producto_id: int,
+    tenant: PersonalCatalogo,
+    estado: bool | None = None,
+    db: Session = Depends(get_db),
+):
+    if producto_id < 1:
+        raise _no_encontrado()
+    if TenantCatalogoRepository.obtener_producto(
+        db, empresa_id=tenant.empresa_id, producto_id=producto_id,
+    ) is None:
+        raise _no_encontrado()
+    return TenantCatalogoRepository.listar_recursos(
+        db, empresa_id=tenant.empresa_id, producto_id=producto_id, estado=estado,
+    )
+
+
+@router.get(
+    "/recursos-producto/{recurso_id}",
+    response_model=RecursoProductoTenantResponse,
+)
+def obtener_recurso_producto(
+    recurso_id: int,
+    tenant: PersonalCatalogo,
+    db: Session = Depends(get_db),
+):
+    if recurso_id < 1:
+        raise _no_encontrado()
+    resultado = TenantCatalogoRepository.obtener_recurso(
+        db, empresa_id=tenant.empresa_id, recurso_id=recurso_id,
+    )
+    if resultado is None:
+        raise _no_encontrado()
+    return resultado

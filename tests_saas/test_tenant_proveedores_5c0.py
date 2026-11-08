@@ -32,6 +32,7 @@ from app.modules.proveedores.repositories.tenant_proveedor_repository import (
     ProveedorTenantError,
     TenantProveedorRepository,
 )
+from app.modules.roles.repositories.repository import RolRepository
 
 EMPRESA_A = 100
 
@@ -57,6 +58,7 @@ def cliente(monkeypatch):
     monkeypatch.setattr(
         tenant_dependencies, "_tiene_permiso_tenant", lambda *a, **k: True
     )
+    monkeypatch.setattr(RolRepository, "tiene_permiso", lambda *a, **k: True)
     app.dependency_overrides[get_current_tenant_context] = _tenant
     with TestClient(app) as client:
         yield client
@@ -85,11 +87,11 @@ def test_gate_bloquea_proveedores_sin_flag(monkeypatch):
 @pytest.mark.parametrize(
     "metodo,ruta",
     [
-        ("GET", "/tenant/proveedores"),
+        ("GET", "/tenant/proveedores/"),
         ("POST", "/tenant/proveedores/"),
         ("DELETE", "/tenant/proveedores/5"),
         ("POST", "/tenant/proveedores/5/productos"),
-        ("GET", "/tenant/proveedores/5/productos"),
+        ("GET", "/tenant/proveedores/5/productos/extra"),
         ("PUT", "/tenant/proveedores/0/productos"),
         ("PUT", "/tenant/proveedores/5/productos/extra"),
     ],
@@ -257,6 +259,71 @@ def test_reemplazar_productos_ajeno_403(cliente, monkeypatch):
     respuesta = cliente.put(
         "/tenant/proveedores/12/productos", json={"producto_ids": [1]}
     )
+    assert respuesta.status_code == 403
+
+
+def test_listar_proveedores_tenant_200(cliente, monkeypatch):
+    capturado = {}
+
+    def falso_listar(db, **kwargs):
+        capturado.update(kwargs)
+        return [{
+            "id": 12, "razon_social": "Proveedor A", "nit": None,
+            "correo": None, "telefono": None, "direccion": None,
+            "estado": True, "total_productos": 2,
+        }]
+
+    monkeypatch.setattr(TenantProveedorRepository, "listar", falso_listar)
+    respuesta = cliente.get("/tenant/proveedores?buscar=Proveedor&limit=10")
+    assert respuesta.status_code == 200, respuesta.text
+    assert respuesta.json()[0]["total_productos"] == 2
+    assert capturado["empresa_id"] == EMPRESA_A
+    assert capturado["limit"] == 10
+
+
+def test_detalle_y_productos_proveedor_tenant_200(cliente, monkeypatch):
+    proveedor = {
+        "id": 12, "razon_social": "Proveedor A", "nit": None,
+        "correo": None, "telefono": None, "direccion": None,
+        "estado": True, "total_productos": 1,
+    }
+    monkeypatch.setattr(TenantProveedorRepository, "obtener", lambda *a, **k: proveedor)
+    monkeypatch.setattr(
+        TenantProveedorRepository,
+        "listar_productos",
+        lambda *a, **k: [{
+            "id": 3, "nombre": "Camisa", "descripcion": None,
+            "precio": 100, "categoria_id": 1, "producto_estado": True,
+            "costo_referencia": 50, "estado": True,
+        }],
+    )
+    detalle = cliente.get("/tenant/proveedores/12")
+    productos = cliente.get("/tenant/proveedores/12/productos")
+    assert detalle.status_code == 200, detalle.text
+    assert productos.status_code == 200, productos.text
+    assert productos.json()[0]["id"] == 3
+
+
+def test_listar_proveedores_sin_permiso_catalogo_403(cliente, monkeypatch):
+    monkeypatch.setattr(RolRepository, "tiene_permiso", lambda *a, **k: False)
+    respuesta = cliente.get("/tenant/proveedores")
+    assert respuesta.status_code == 403
+
+
+def test_listar_proveedores_contexto_cliente_403(cliente, monkeypatch):
+    app.dependency_overrides[get_current_tenant_context] = lambda: TenantContext(
+        usuario_id=50,
+        empresa_id=EMPRESA_A,
+        empresa_slug="empresa-a",
+        empresa_nombre="Empresa A",
+        rol_id=4,
+        rol_nombre="CLIENTE",
+        contexto="cliente",
+        plan_codigo="BASICO",
+        permite_reportes_ia=False,
+    )
+    monkeypatch.setattr(RolRepository, "tiene_permiso", lambda *a, **k: True)
+    respuesta = cliente.get("/tenant/proveedores")
     assert respuesta.status_code == 403
 
 

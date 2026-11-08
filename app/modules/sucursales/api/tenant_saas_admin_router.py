@@ -45,6 +45,20 @@ class CrearSucursal(EntradaEstrica):
         return value.strip()
 
 
+class ActualizarSucursal(EntradaEstrica):
+    ciudad_id: int | None = Field(default=None, gt=0)
+    nombre: str | None = Field(default=None, min_length=1, max_length=120)
+    direccion: str | None = Field(default=None, min_length=1, max_length=255)
+    telefono: str | None = Field(default=None, max_length=30)
+
+    @field_validator("nombre", "direccion")
+    @classmethod
+    def texto_no_vacio_si_se_envia(cls, value):
+        if not value.strip():
+            raise ValueError("Campo obligatorio")
+        return value.strip()
+
+
 class CambiarEstado(EntradaEstrica):
     estado: bool
 
@@ -116,6 +130,28 @@ def crear_sucursal(datos: CrearSucursal, admin: Administrador,
         db, empresa_id=admin.empresa_id, ciudad_id=datos.ciudad_id,
         nombre=datos.nombre, direccion=datos.direccion,
         telefono=datos.telefono,
+    ), escritura=True)
+
+
+@router.get("/sucursales/{sucursal_id}")
+def obtener_sucursal(sucursal_id: int, tenant: Miembro,
+                     db: Session = Depends(get_db)):
+    if sucursal_id <= 0:
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+    return _resolver(db, lambda: Repo.sucursal(
+        db, empresa_id=tenant.empresa_id, sucursal_id=sucursal_id,
+    ), escritura=False)
+
+
+@router.patch("/sucursales/{sucursal_id}")
+def actualizar_sucursal(sucursal_id: int, datos: ActualizarSucursal,
+                        admin: Administrador,
+                        db: Session = Depends(get_db)):
+    if sucursal_id <= 0:
+        raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+    return _resolver(db, lambda: Repo.actualizar_sucursal(
+        db, empresa_id=admin.empresa_id, sucursal_id=sucursal_id,
+        cambios=datos.model_dump(exclude_unset=True),
     ), escritura=True)
 
 

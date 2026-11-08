@@ -60,6 +60,15 @@ VARIABLES_PG = (
     "PGOPTIONS",
 )
 
+# Desarrollo local contra una instancia SaaS compartida: no es un bypass
+# generico. El operador debe activar esta bandera y declarar la identidad
+# exacta del destino que acepta para esta sesion.
+VARIABLES_DESARROLLO_COMPARTIDO = (
+    "SAAS_SHARED_DB_HOST",
+    "SAAS_SHARED_DB_PORT",
+    "SAAS_SHARED_DB_NAME",
+)
+
 MODO_ESTRICTO = "estricto"
 MODO_LOCAL_IMPLICITO = "local_implicito"
 MODO_DESPLEGADO = "desplegado"
@@ -124,6 +133,11 @@ def analizar_dsn(dsn: str) -> dict:
         # Puerto no numerico: se informa como ausente y la validacion lo
         # rechaza; nunca se propaga la excepcion de urlsplit al llamador.
         puerto = None
+    if puerto is None and _familia(esquema) in FAMILIAS_POSTGRES:
+        # libpq usa 5432 cuando PostgreSQL omite el puerto en el DSN. La
+        # guardia debe comparar el destino efectivo, no confundir omision con
+        # una identidad distinta; un puerto no numerico sigue siendo None.
+        puerto = 5432
     return {
         "esquema": esquema,
         "host": host,
@@ -173,6 +187,8 @@ def validar_arranque(
     app_env: str,
     database_url: str,
     saas_admin_database_url: str | None,
+    database_bootstrap_url: str | None = None,
+    database_platform_url: str | None = None,
     entorno: Mapping[str, str] | None = None,
 ) -> None:
     """Aborta con ``ArranqueInseguro`` si el destino no es el permitido.
@@ -206,6 +222,12 @@ def validar_arranque(
             "local exige un destino explicito"
         )
     _validar_dsn("DATABASE_URL", database_url, modo, ambiente)
+    for nombre, dsn in (
+        ("DATABASE_BOOTSTRAP_URL", database_bootstrap_url),
+        ("DATABASE_PLATFORM_URL", database_platform_url),
+    ):
+        if (dsn or "").strip():
+            _validar_dsn(nombre, dsn, modo, ambiente)
     if (saas_admin_database_url or "").strip():
         _validar_dsn(
             "SAAS_ADMIN_DATABASE_URL",
@@ -298,18 +320,52 @@ def _validar_dsn(
                 f"Arranque rechazado: {nombre} usa un puerto no autorizado "
                 "por SAAS_LOCAL_ALLOWED_PORTS"
             )
-    elif not loopback and not es_verdad(ambiente.get("SAAS_ALLOW_REMOTE_DB")):
-        raise ArranqueInseguro(
-            f"Arranque rechazado: {nombre} apunta a un host no loopback sin "
-            "SAAS_ALLOW_REMOTE_DB (override explicito del operador)"
-        )
+    elif not loopback:
+        if not _es_destino_compartido_autorizado(datos, ambiente):
+            raise ArranqueInseguro(
+                f"Arranque rechazado: {nombre} apunta a un host no loopback; "
+                "el desarrollo compartido exige SAAS_SHARED_DB_DEV_ENABLED y "
+                "la identidad SAAS_SHARED_DB_* exacta"
+            )
 
     prefijo = ambiente.get("SAAS_LOCAL_DB_PREFIX") or PREFIJO_BASE_DEFECTO
     if not (datos["base"] or "").startswith(prefijo):
+        if (
+            modo == MODO_LOCAL_IMPLICITO
+            and _es_destino_compartido_autorizado(datos, ambiente)
+            and (datos["base"] or "") == (ambiente.get("SAAS_SHARED_DB_NAME") or "").strip()
+        ):
+            return
         raise ArranqueInseguro(
             f"Arranque rechazado: {nombre} usa una base fuera del prefijo "
             "SAAS_LOCAL_DB_PREFIX"
         )
+
+
+def _es_destino_compartido_autorizado(
+    datos: Mapping[str, object], ambiente: Mapping[str, str]
+) -> bool:
+    """Autoriza únicamente el destino SaaS declarado para desarrollo.
+
+    Esta ruta nunca se aplica a ``SAAS_LOCAL_ONLY`` (modo estricto) y no usa
+    ``SAAS_ALLOW_REMOTE_DB``. Host, puerto y base deben coincidir literalmente
+    con una declaración explícita del operador.
+    """
+    if not es_verdad(ambiente.get("SAAS_SHARED_DB_DEV_ENABLED")):
+        return False
+    if any(not (ambiente.get(clave) or "").strip() for clave in VARIABLES_DESARROLLO_COMPARTIDO):
+        return False
+    try:
+        puerto = int((ambiente.get("SAAS_SHARED_DB_PORT") or "").strip())
+    except ValueError:
+        return False
+    return (
+        (datos.get("host") or "").strip().lower()
+        == (ambiente.get("SAAS_SHARED_DB_HOST") or "").strip().lower()
+        and datos.get("puerto") == puerto
+        and (datos.get("base") or "").strip()
+        == (ambiente.get("SAAS_SHARED_DB_NAME") or "").strip()
+    )
 
 
 def _lista_hosts(valor: str | None) -> set[str]:

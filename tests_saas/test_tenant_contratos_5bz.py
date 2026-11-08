@@ -385,7 +385,9 @@ def test_variantes_filtran_por_empresa_y_forma_exacta(cliente_tenant):
         "producto_id": 1101,
         "producto_nombre": "Polera A",
         "sku": "A-001",
+        "talla_id": 1,
         "talla": "M",
+        "color_id": 1,
         "color": "Negro",
     }
     assert "empresa_id" not in en_a.json()[0]

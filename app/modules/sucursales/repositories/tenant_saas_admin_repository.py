@@ -147,6 +147,13 @@ def _consultar_sucursal(db: Session, empresa_id: int, sucursal_id: int):
     return dict(fila)
 
 
+def _validar_ciudad_activa(db: Session, ciudad_id: int):
+    if db.scalar(select(ciudad.c.id).where(
+        ciudad.c.id == ciudad_id, ciudad.c.estado.is_(True)
+    )) is None:
+        raise AdministracionTenantError(404, "Ciudad activa no encontrada")
+
+
 class TenantEmpresaAdminRepository:
     @staticmethod
     def empresa_actual(db: Session, empresa_id: int):
@@ -176,16 +183,16 @@ class TenantEmpresaAdminRepository:
         return [dict(fila) for fila in filas]
 
     @staticmethod
+    def sucursal(db: Session, *, empresa_id: int, sucursal_id: int):
+        _empresa_propietaria(db, empresa_id, bloqueo=False)
+        _plan_actual(db, empresa_id)
+        return _consultar_sucursal(db, empresa_id, sucursal_id)
+
+    @staticmethod
     def crear_sucursal(db: Session, *, empresa_id: int, ciudad_id: int,
                       nombre: str, direccion: str, telefono: str | None):
         _limite(db, empresa_id)
-        activa = db.scalar(
-            select(ciudad.c.id).where(
-                ciudad.c.id == ciudad_id, ciudad.c.estado.is_(True)
-            )
-        )
-        if activa is None:
-            raise AdministracionTenantError(404, "Ciudad activa no encontrada")
+        _validar_ciudad_activa(db, ciudad_id)
         nuevo_id = db.execute(
             insert(sucursal).values(
                 empresa_id=empresa_id, ciudad_id=ciudad_id,
@@ -194,6 +201,38 @@ class TenantEmpresaAdminRepository:
             ).returning(sucursal.c.id)
         ).scalar_one()
         return _consultar_sucursal(db, empresa_id, nuevo_id)
+
+    @staticmethod
+    def actualizar_sucursal(db: Session, *, empresa_id: int, sucursal_id: int,
+                            cambios: dict):
+        _empresa_propietaria(db, empresa_id, bloqueo=False)
+        _plan_actual(db, empresa_id)
+        actual = _consultar_sucursal(db, empresa_id, sucursal_id)
+        valores = {}
+        if "ciudad_id" in cambios:
+            _validar_ciudad_activa(db, cambios["ciudad_id"])
+            valores["ciudad_id"] = cambios["ciudad_id"]
+        for campo in ("nombre", "direccion", "telefono"):
+            if campo in cambios:
+                valores[campo] = cambios[campo]
+        ciudad_final = valores.get("ciudad_id", actual["ciudad_id"])
+        nombre_final = valores.get("nombre", actual["nombre"])
+        duplicada = db.scalar(select(sucursal.c.id).where(
+            sucursal.c.empresa_id == empresa_id,
+            sucursal.c.ciudad_id == ciudad_final,
+            sucursal.c.nombre == nombre_final,
+            sucursal.c.id != sucursal_id,
+        ))
+        if duplicada is not None:
+            raise AdministracionTenantError(
+                409, "Conflicto de datos de la empresa"
+            )
+        if valores:
+            db.execute(update(sucursal).where(
+                sucursal.c.empresa_id == empresa_id,
+                sucursal.c.id == sucursal_id,
+            ).values(**valores))
+        return _consultar_sucursal(db, empresa_id, sucursal_id)
 
     @staticmethod
     def cambiar_estado_sucursal(db: Session, *, empresa_id: int,

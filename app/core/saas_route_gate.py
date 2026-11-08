@@ -172,15 +172,21 @@ _RUTA_MERCH_ESTADO = re.compile(
 _RUTA_MERCH_PRODUCTOS = re.compile(
     r"^/tenant/merchandising/(?:colecciones|promociones)/[1-9][0-9]*/productos$"
 )
+_RUTA_MERCH_PRECIO = re.compile(
+    r"^/tenant/merchandising/productos/[1-9][0-9]*/precio-promocional$"
+)
 _RUTAS_CATALOGO_ESCRITURA = frozenset({
     ("POST", "/tenant/catalogo/categorias"),
     ("POST", "/tenant/catalogo/productos"),
 })
 _RUTA_CATALOGO_PATCH = re.compile(
-    r"^/tenant/catalogo/(?:categorias|productos|variantes)/[1-9][0-9]*$"
+    r"^/tenant/catalogo/(?:categorias|productos|variantes)/[1-9][0-9]*(?:/estado)?$"
 )
 _RUTA_CATALOGO_POST_VARIANTE = re.compile(
     r"^/tenant/catalogo/productos/[1-9][0-9]*/variantes$"
+)
+_RUTA_CATALOGO_RECURSO = re.compile(
+    r"^/tenant/catalogo/(?:productos/[1-9][0-9]*/recursos|recursos-producto/[1-9][0-9]*(?:/(?:estado|principal))?)$"
 )
 
 # Solo los seis recursos aprobados para consultas administrativas de solo lectura.
@@ -206,6 +212,9 @@ _RUTA_RESERVA_CU16_CU18 = re.compile(
 )
 _RUTA_EMPRESA_SUCURSAL_ESTADO = re.compile(
     r"^/tenant/empresa/sucursales/[1-9][0-9]*/estado$"
+)
+_RUTA_EMPRESA_SUCURSAL = re.compile(
+    r"^/tenant/empresa/sucursales/[1-9][0-9]*$"
 )
 _RUTA_EMPRESA_MIEMBRO_CAMBIO = re.compile(
     r"^/tenant/empresa/usuarios/[1-9][0-9]*/(?:rol|estado|sucursal)$"
@@ -237,6 +246,9 @@ _RUTA_DEVOLUCION_LINEAS_VENTA = re.compile(
 # 5C0: alta tenant de proveedores y su asociacion de productos. Metodo + ruta
 # EXACTOS; comparte el flag de compras porque desbloquea el alta de ordenes.
 _RUTA_PROVEEDOR_TENANT = "/tenant/proveedores"
+_RUTA_PROVEEDOR_DETALLE = re.compile(
+    r"^/tenant/proveedores/[1-9][0-9]*$"
+)
 _RUTA_PROVEEDOR_PRODUCTOS = re.compile(
     r"^/tenant/proveedores/[1-9][0-9]*/productos$"
 )
@@ -277,6 +289,12 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         return True
     if metodo in ("GET", "POST") and _RUTA_MERCH_LISTA.fullmatch(ruta):
         return True
+    if metodo == "GET" and (
+        _RUTA_MERCH_ITEM.fullmatch(ruta) is not None
+        or _RUTA_MERCH_PRODUCTOS.fullmatch(ruta) is not None
+        or _RUTA_MERCH_PRECIO.fullmatch(ruta) is not None
+    ):
+        return True
     if metodo == "PATCH" and (
         _RUTA_MERCH_ITEM.fullmatch(ruta) is not None
         or _RUTA_MERCH_ESTADO.fullmatch(ruta) is not None
@@ -314,6 +332,8 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         return True
     if metodo == "PATCH" and _RUTA_EMPRESA_SUCURSAL_ESTADO.fullmatch(ruta):
         return True
+    if metodo in ("GET", "PATCH") and _RUTA_EMPRESA_SUCURSAL.fullmatch(ruta):
+        return True
     # CU04: solo dos operaciones PATCH exactas sobre IDs positivos.
     if metodo == "PATCH" and _RUTA_EMPRESA_MIEMBRO_CAMBIO.fullmatch(ruta):
         return True
@@ -333,8 +353,13 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
             getattr(settings, "saas_compras_enabled", False))
     # 5C0: alta de proveedores (POST) y reemplazo de productos (PUT).
     if ruta == _RUTA_PROVEEDOR_TENANT:
-        return metodo == "POST" and bool(
+        return metodo in ("GET", "POST") and bool(
             getattr(settings, "saas_compras_enabled", False))
+    if metodo == "GET" and (
+        _RUTA_PROVEEDOR_DETALLE.fullmatch(ruta) is not None
+        or _RUTA_PROVEEDOR_PRODUCTOS.fullmatch(ruta) is not None
+    ):
+        return bool(getattr(settings, "saas_compras_enabled", False))
     if metodo == "PUT" and (
         _RUTA_PROVEEDOR_PRODUCTOS.fullmatch(ruta) is not None
     ):
@@ -375,6 +400,7 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
             or _RUTA_CLIENTE_VENTA_DETALLE.fullmatch(ruta) is not None
             or _RUTA_CLIENTE_ESTADO_PAGO.fullmatch(ruta) is not None
             or _RUTAS_CATALOGO_DETALLE.fullmatch(ruta) is not None
+            or _RUTA_CATALOGO_RECURSO.fullmatch(ruta) is not None
             or ruta in _RECURSOS_COMERCIALES_SAAS
             or _DETALLE_COMERCIAL_SAAS.fullmatch(ruta) is not None
         )
@@ -383,9 +409,15 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     if metodo == "POST" and ruta in _RUTAS_CLIENTE_TENANT_POST:
         return True
     if metodo == "POST":
-        return _RUTA_CATALOGO_POST_VARIANTE.fullmatch(ruta) is not None
+        return (
+            _RUTA_CATALOGO_POST_VARIANTE.fullmatch(ruta) is not None
+            or re.fullmatch(r"/tenant/catalogo/productos/[1-9][0-9]*/recursos", ruta) is not None
+        )
     if metodo == "PATCH":
-        return _RUTA_CATALOGO_PATCH.fullmatch(ruta) is not None
+        return (
+            _RUTA_CATALOGO_PATCH.fullmatch(ruta) is not None
+            or _RUTA_CATALOGO_RECURSO.fullmatch(ruta) is not None
+        )
     return False
 
 
@@ -439,6 +471,8 @@ class BloqueoRutasLegacySaaS:
             await self.app(scope, receive, send)
             return
         if ruta in _RUTAS_SIEMPRE_BLOQUEADAS_EN_SAAS:
+            # La documentación describe también contratos legacy y nunca debe
+            # publicarse desde una superficie SaaS, incluso en modo SaaS-only.
             await _denegar(scope, receive, send)
             return
         if (

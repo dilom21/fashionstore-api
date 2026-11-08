@@ -6,12 +6,13 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
 from app.core.request_ip import obtener_ip_cliente
-from app.core.saas_rls_assertion import construir_asercion, es_postgres
 from app.core.surface_guard import SURFACE_LEGACY, SURFACE_TENANT
 
 
 def _crear_engine(url: str):
     """Engine con la misma politica de pool para ambas superficies."""
+    if url.startswith("sqlite"):
+        return create_engine(url, connect_args={"check_same_thread": False})
     return create_engine(
         url,
         pool_pre_ping=True,
@@ -50,6 +51,43 @@ SessionLegacyLocal = (
 )
 
 
+def _motor_auxiliar(url: str | None, tamano: int = 2):
+    """Motor para un pool con función propia (bootstrap / platform_admin).
+
+    Sin DSN dedicado se reutiliza el pool principal, que es el comportamiento
+    previo a la migración 050a-c. Cada pool usa su login PostgreSQL restringido
+    (NOLOGIN + GRANT), nunca una credencial con BYPASSRLS.
+    """
+    if not url:
+        return engine
+    if url.startswith("sqlite"):
+        return create_engine(url, connect_args={"check_same_thread": False})
+    return create_engine(
+        url,
+        pool_pre_ping=True,
+        pool_size=tamano,
+        max_overflow=tamano,
+    )
+
+
+# 5CA: tres pools por función. El login sólo ejecuta la proyección estrecha de
+# bootstrap; /saas/superadmin es el único consumidor del pool platform_admin.
+bootstrap_engine = _motor_auxiliar(settings.database_bootstrap_url)
+platform_engine = _motor_auxiliar(settings.database_platform_url)
+
+BootstrapSession = sessionmaker(
+    bind=bootstrap_engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+PlatformSession = sessionmaker(
+    bind=platform_engine,
+    autoflush=False,
+    autocommit=False,
+)
+
+
 class Base(DeclarativeBase):
     pass
 
@@ -77,6 +115,17 @@ def _aplicar_contexto_request(
             text("SELECT set_config('app.ip', :ip, true)"),
             {"ip": request_ip},
         )
+    # 5CA: el JWT crudo se publica como GUC LOCAL antes de cualquier consulta,
+    # para que actor_claims() pueda verificar firma, vigencia y membresía en
+    # PostgreSQL. is_local=true es obligatorio: con false el token sobrevive al
+    # commit y una conexión reutilizada del pool heredaría la identidad del
+    # request anterior (demostrado en POOL-03 del laboratorio 5CA).
+    actor_token = session.info.get("actor_token")
+    if actor_token:
+        connection.execute(
+            text("SELECT set_config('app.actor_token', :token, true)"),
+            {"token": actor_token},
+        )
     # El tenant solo se añade a Session.info DESPUES de una membresia
     # comprobada en app/core/tenant_dependencies.py. Cada nueva transaccion
     # reestablece el valor de manera LOCAL (sin fugas por connection pool).
@@ -95,26 +144,6 @@ def _aplicar_contexto_request(
             text("SELECT set_config('app.usuario_id', :usuario_id, true)"),
             {"usuario_id": str(usuario_id)},
         )
-    # Etapa C (5BK): asercion FIRMADA por transaccion. Es lo unico que las
-    # politicas RLS usan para resolver la empresa; los GUC anteriores quedan
-    # como datos de auditoria y pueden ser falsificados sin efecto alguno.
-    # Se reemite con expiracion nueva cada vez que la Session abre transaccion,
-    # de modo que una conexion reutilizada del pool nunca herede una asercion
-    # vencida ni la de otro request.
-    if (
-        empresa_id is not None
-        and usuario_id is not None
-        and session.info.get("rls_assertion", True)
-        and es_postgres(connection)
-    ):
-        asercion = construir_asercion(int(empresa_id), int(usuario_id))
-        if asercion is not None:
-            connection.execute(
-                text("SELECT set_config('app.tenant_assertion', :asercion, true)"),
-                {"asercion": asercion},
-            )
-
-
 def _fabrica_de_sesiones(superficie: str):
     """Sesion adecuada a la superficie de la peticion.
 
@@ -134,6 +163,28 @@ def get_db(request: Request):
     # Marca de diagnostico: nunca se usa como autorizacion.
     db.info["superficie"] = superficie
 
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_bootstrap_db():
+    """Pool de bootstrap: sólo la proyección estrecha de credenciales/empresa.
+
+    No publica IP ni token porque no escribe bitácora ni evalúa policies de
+    tenant; su login PostgreSQL no tiene acceso a tablas comerciales.
+    """
+    db = BootstrapSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_platform_db():
+    """Pool exclusivo de /saas/superadmin (administración global deliberada)."""
+    db = PlatformSession()
     try:
         yield db
     finally:

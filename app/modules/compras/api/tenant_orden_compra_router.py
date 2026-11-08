@@ -18,7 +18,10 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.core.database import get_db
 from app.core.tenant_context import TenantContext
-from app.core.tenant_dependencies import get_current_tenant_context
+from app.core.tenant_dependencies import (
+    get_current_tenant_context,
+    get_current_tenant_personal_con_permiso_catalogo,
+)
 from app.modules.compras.repositories.tenant_orden_compra_repository import (
     OrdenCompraTenantError,
     TenantOrdenCompraRepository,
@@ -178,6 +181,26 @@ def _verificar_acceso(tenant: TenantContext) -> None:
         raise HTTPException(status_code=403, detail="Se requiere personal autorizado")
 
 
+def _verificar_acceso_lectura(tenant: TenantContext) -> None:
+    """Guarda de lectura; la autorización efectiva viene del catálogo RBAC."""
+    if not settings.saas_auth_enabled or not getattr(
+        settings, "saas_compras_enabled", False
+    ):
+        raise HTTPException(status_code=503, detail="Compras SaaS aun no habilitadas")
+    if tenant.contexto != "personal":
+        raise HTTPException(status_code=403, detail="Se requiere personal autorizado")
+
+
+PersonalComprasConsulta = Annotated[
+    TenantContext,
+    Depends(
+        get_current_tenant_personal_con_permiso_catalogo(
+            "GESTIONAR_ORDENES_COMPRA", "CONSULTAR"
+        )
+    ),
+]
+
+
 def _recurso_no_encontrado() -> HTTPException:
     return HTTPException(status_code=404, detail="Recurso no encontrado")
 
@@ -198,7 +221,7 @@ def _error_repositorio(db: Session, exc: OrdenCompraTenantError) -> HTTPExceptio
 # ---------------------------------------------------------------------------
 @router.get("", response_model=list[OrdenCompraResumen])
 def listar_ordenes(
-    tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+    tenant: PersonalComprasConsulta,
     estado: EstadoOrdenCompra | None = Query(default=None),
     proveedor_id: int | None = Query(default=None, gt=0),
     sucursal_id: int | None = Query(default=None, gt=0),
@@ -206,7 +229,7 @@ def listar_ordenes(
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
 ):
-    _verificar_acceso(tenant)
+    _verificar_acceso_lectura(tenant)
     try:
         return TenantOrdenCompraRepository.listar(
             db,
@@ -231,7 +254,7 @@ def crear_orden(
     tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
     db: Session = Depends(get_db),
 ):
-    _verificar_acceso(tenant)
+    _verificar_acceso_lectura(tenant)
     try:
         orden = TenantOrdenCompraRepository.crear(
             db,
@@ -259,7 +282,7 @@ def crear_orden(
 @router.get("/{orden_id}", response_model=OrdenCompraDetalle)
 def obtener_orden(
     orden_id: int,
-    tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+    tenant: PersonalComprasConsulta,
     db: Session = Depends(get_db),
 ):
     _verificar_acceso(tenant)

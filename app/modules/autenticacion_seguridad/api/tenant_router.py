@@ -8,7 +8,7 @@ from sqlalchemy import text
 from sqlalchemy.exc import DBAPIError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_bootstrap_db, get_db
 from app.core.password_policy import password_cumple_politica
 from app.core.saas_invitation_rate_limit import (
     registrar_exito,
@@ -20,6 +20,7 @@ from app.core.tenant_context import TenantContext, emitir_token_empresa
 from app.core.tenant_dependencies import (
     comprobar_saas_habilitado,
     get_current_tenant_context,
+    publicar_token,
 )
 from app.modules.autenticacion_seguridad.schemas.schemas import LoginRequest
 from app.modules.autenticacion_seguridad.services.service import AuthService
@@ -58,12 +59,18 @@ class TenantMeResponse(BaseModel):
     contexto: Literal["cliente", "personal"]
     plan_codigo: str
     permite_reportes_ia: bool
+    correo: str | None = None
+    empleado_id: int | None = None
+    nombre: str | None = None
+    apellido: str | None = None
+    sucursal_id: int | None = None
 
 
 @router.post("/login", response_model=TenantLoginResponse)
 def login_tenant(
     datos: TenantLoginRequest,
     db: Session = Depends(get_db),
+    db_bootstrap: Session = Depends(get_bootstrap_db),
 ):
     """Autenticacion con empresa explicita; no acepta empresa_id/rol externos."""
     comprobar_saas_habilitado()
@@ -72,20 +79,37 @@ def login_tenant(
     # NO equivale a contar con un rol PostgreSQL restringido ni RLS aplicado.
     try:
         usuario_id = AuthService.autenticar_credenciales_tenant(
-            db, datos.correo, datos.password
+            db_bootstrap, datos.correo, datos.password
         )
         if usuario_id is None:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Credenciales invalidas o empresa no autorizada",
             )
+        empresa_id = TenantAuthRepository.obtener_empresa_id_por_slug(
+            db_bootstrap, datos.empresa_slug
+        )
+        if empresa_id is None:
+            raise HTTPException(status_code=401, detail="Credenciales invalidas o empresa no autorizada")
+        token = emitir_token_empresa(
+            usuario_id=usuario_id, empresa_id=empresa_id, contexto=datos.contexto
+        )
+        publicar_token(db, token)
         registro = TenantAuthRepository.obtener_membresia_vigente(
             db,
             usuario_id=usuario_id,
-            empresa_slug=datos.empresa_slug,
+            empresa_id=empresa_id,
             contexto=datos.contexto,
         )
     except SQLAlchemyError as exc:
+        # El contrato instalado usa RLS + fashionstore_private.actor_*.
+        # Un JWT sin membresía vigente puede abortar la consulta con 42501;
+        # es una denegación de autenticación, no una caída del esquema.
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "42501":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Credenciales invalidas o empresa no autorizada",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El esquema de autenticacion SaaS no esta disponible",
@@ -115,7 +139,15 @@ def login_tenant(
 @router.get("/me", response_model=TenantMeResponse)
 def tenant_me(
     tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+    db: Session = Depends(get_db),
 ):
+    perfil = None
+    if tenant.contexto == "personal":
+        perfil = TenantAuthRepository.obtener_perfil_personal(
+            db, usuario_id=tenant.usuario_id, empresa_id=tenant.empresa_id
+        )
+        if perfil is None:
+            raise HTTPException(status_code=403, detail="Perfil de personal no autorizado para esta empresa")
     return TenantMeResponse(
         usuario_id=tenant.usuario_id,
         empresa_id=tenant.empresa_id,
@@ -125,6 +157,11 @@ def tenant_me(
         contexto=tenant.contexto,
         plan_codigo=tenant.plan_codigo,
         permite_reportes_ia=tenant.permite_reportes_ia,
+        correo=perfil.correo if perfil else None,
+        empleado_id=perfil.empleado_id if perfil else None,
+        nombre=perfil.nombre if perfil else None,
+        apellido=perfil.apellido if perfil else None,
+        sucursal_id=perfil.sucursal_id if perfil else None,
     )
 
 

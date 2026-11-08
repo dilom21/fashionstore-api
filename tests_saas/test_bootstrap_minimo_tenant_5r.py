@@ -1,4 +1,4 @@
-"""B3/P5R: 16 pruebas unitarias de bootstrap SaaS con proyección mínima.
+"""B3/P5R: pruebas unitarias de bootstrap SaaS con proyección mínima.
 
 No conecta a PostgreSQL ni Supabase y no abre rutas SaaS reales: sesiones
 falsas, dos empresas inventadas y Argon2 simulado solamente en unit tests.
@@ -35,6 +35,7 @@ class DBFalsa:
     def __init__(self, rows=()):
         self.rows = list(rows)
         self.queries = []
+        self.info = {}
 
     def execute(self, statement, params):
         self.queries.append((str(statement), dict(params)))
@@ -56,10 +57,26 @@ def membresia_ficticia():
     }
 
 
+def membresia_personal_ficticia(rol):
+    return {
+        "empresa_id": 15, "empresa_slug": "empresa-demo",
+        "empresa_nombre": "Empresa Demo", "rol_id": 3,
+        "rol_nombre": rol, "plan_codigo": "PROFESIONAL",
+        "permite_reportes_ia": True,
+    }
+
+
 def login_request():
     return TenantLoginRequest(
         correo="DEMO@EXAMPLE.COM", password="ClaveCorrecta!",
         empresa_slug="empresa-demo", contexto="cliente",
+    )
+
+
+def login_personal_request():
+    return TenantLoginRequest(
+        correo="PERSONAL@EXAMPLE.COM", password="ClaveCorrecta!",
+        empresa_slug="empresa-demo", contexto="personal",
     )
 
 
@@ -143,10 +160,17 @@ def test_5r_login_saas_exitoso_separa_hash_de_respuesta(monkeypatch):
         lambda db, correo, password: llamadas.append((correo, password)) or 42,
     )
     monkeypatch.setattr(
+        TenantAuthRepository, "obtener_empresa_id_por_slug",
+        lambda db, slug: llamadas.append(("slug", slug)) or 15,
+    )
+    monkeypatch.setattr(
         TenantAuthRepository, "obtener_membresia_vigente",
         lambda db, **kw: llamadas.append(kw) or membresia_ficticia(),
     )
-    respuesta = login_tenant(datos=login_request(), db=DBFalsa())
+    respuesta = login_tenant(
+        datos=login_request(), db=DBFalsa(),
+        db_bootstrap=DBFalsa([{"empresa_id": 15}]),
+    )
     assert leer_token_empresa(respuesta.access_token) == (42, 15, "cliente")
     assert respuesta.empresa_id == 15
     assert respuesta.rol == "CLIENTE"
@@ -158,8 +182,56 @@ def test_5r_login_saas_exitoso_separa_hash_de_respuesta(monkeypatch):
     assert "password_hash" not in repr(respuesta)
     assert llamadas == [
         ("demo@example.com", "ClaveCorrecta!"),
-        {"usuario_id": 42, "empresa_slug": "empresa-demo", "contexto": "cliente"},
+        ("slug", "empresa-demo"),
+        {"usuario_id": 42, "empresa_id": 15, "contexto": "cliente"},
     ]
+
+
+@pytest.mark.parametrize(
+    "rol", ["ADMINISTRADOR", "ENCARGADO_SUCURSAL", "CAJERO"]
+)
+def test_login_personal_con_sucursal_activa_admite_roles_empresariales(
+    monkeypatch, rol
+):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(
+        AuthService, "autenticar_credenciales_tenant", lambda *_: 42
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_empresa_id_por_slug", lambda *_: 15
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_membresia_vigente",
+        lambda db, **kw: membresia_personal_ficticia(rol),
+    )
+    respuesta = login_tenant(
+        datos=login_personal_request(), db=DBFalsa(), db_bootstrap=DBFalsa()
+    )
+    assert respuesta.rol == rol
+    assert respuesta.contexto == "personal"
+    assert leer_token_empresa(respuesta.access_token) == (42, 15, "personal")
+
+
+@pytest.mark.parametrize(
+    "caso", ["sucursal_inactiva", "membresia_inactiva", "otra_empresa"]
+)
+def test_login_personal_invalido_falla_con_mensaje_generico(monkeypatch, caso):
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(
+        AuthService, "autenticar_credenciales_tenant", lambda *_: 42
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_empresa_id_por_slug", lambda *_: 15
+    )
+    monkeypatch.setattr(
+        TenantAuthRepository, "obtener_membresia_vigente", lambda db, **kw: None
+    )
+    with pytest.raises(HTTPException) as exc:
+        login_tenant(
+            datos=login_personal_request(), db=DBFalsa(), db_bootstrap=DBFalsa()
+        )
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Credenciales invalidas o empresa no autorizada"
 
 
 def test_5r_login_credenciales_incorrectas_no_consulta_membresia(monkeypatch):
@@ -181,7 +253,25 @@ def test_5r_login_membresia_revocada_devuelve_mismo_401(monkeypatch):
         TenantAuthRepository, "obtener_membresia_vigente", lambda db, **kw: None
     )
     with pytest.raises(HTTPException) as exc:
-        login_tenant(datos=login_request(), db=DBFalsa())
+        login_tenant(
+            datos=login_request(), db=DBFalsa(),
+            db_bootstrap=DBFalsa([{"empresa_id": 15}]),
+        )
+    assert exc.value.status_code == 401
+    assert exc.value.detail == "Credenciales invalidas o empresa no autorizada"
+
+
+def test_5r_login_slug_inexistente_no_consulta_membresia(monkeypatch):
+    """5CA: un slug no registrado no llega a firmar token ni a consultar RLS."""
+    monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(AuthService, "autenticar_credenciales_tenant", lambda *_: 42)
+    def indebido(*args, **kwargs):
+        raise AssertionError("No consultar membresía sin empresa resuelta")
+    monkeypatch.setattr(TenantAuthRepository, "obtener_membresia_vigente", indebido)
+    with pytest.raises(HTTPException) as exc:
+        login_tenant(
+            datos=login_request(), db=DBFalsa(), db_bootstrap=DBFalsa(),
+        )
     assert exc.value.status_code == 401
     assert exc.value.detail == "Credenciales invalidas o empresa no autorizada"
 
@@ -204,7 +294,10 @@ def test_5r_login_error_sql_membresia_no_expone_detalles(monkeypatch):
         raise SQLAlchemyError("Otro error privado ficticio")
     monkeypatch.setattr(TenantAuthRepository, "obtener_membresia_vigente", error_sql)
     with pytest.raises(HTTPException) as exc:
-        login_tenant(datos=login_request(), db=DBFalsa())
+        login_tenant(
+            datos=login_request(), db=DBFalsa(),
+            db_bootstrap=DBFalsa([{"empresa_id": 15}]),
+        )
     assert exc.value.status_code == 503
     assert "privado" not in str(exc.value.detail)
 

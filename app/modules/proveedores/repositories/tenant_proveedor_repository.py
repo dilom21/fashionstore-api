@@ -91,6 +91,88 @@ def _llamar(db: Session, consulta: str, parametros: dict) -> dict:
 
 class TenantProveedorRepository:
     @staticmethod
+    def listar(
+        db: Session,
+        *,
+        empresa_id: int,
+        buscar: str | None = None,
+        estado: bool | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> list[dict]:
+        """Consulta tenant de proveedores, sin usar la superficie legacy."""
+        condiciones = ["p.empresa_id = :empresa"]
+        parametros: dict[str, Any] = {
+            "empresa": empresa_id,
+            "limit": limit,
+            "offset": offset,
+        }
+        if buscar:
+            condiciones.append(
+                "(p.razon_social ILIKE :buscar OR p.nit ILIKE :buscar "
+                "OR p.correo ILIKE :buscar)"
+            )
+            parametros["buscar"] = f"%{buscar.strip()}%"
+        if estado is not None:
+            condiciones.append("p.estado = :estado")
+            parametros["estado"] = estado
+        consulta = (
+            "SELECT p.id, p.razon_social, p.nit, p.correo, p.telefono, "
+            "p.direccion, p.estado, COUNT(pp.producto_id)::int AS total_productos "
+            "FROM public.proveedor p "
+            "LEFT JOIN public.proveedor_producto pp ON "
+            "pp.proveedor_id = p.id AND pp.empresa_id = p.empresa_id "
+            "WHERE " + " AND ".join(condiciones) + " "
+            "GROUP BY p.id, p.razon_social, p.nit, p.correo, p.telefono, "
+            "p.direccion, p.estado ORDER BY p.razon_social, p.id "
+            "LIMIT :limit OFFSET :offset"
+        )
+        filas = db.execute(text(consulta), parametros).mappings().all()
+        return [dict(fila) for fila in filas]
+
+    @staticmethod
+    def obtener(
+        db: Session, *, empresa_id: int, proveedor_id: int
+    ) -> dict | None:
+        consulta = (
+            "SELECT p.id, p.razon_social, p.nit, p.correo, p.telefono, "
+            "p.direccion, p.estado, COUNT(pp.producto_id)::int AS total_productos "
+            "FROM public.proveedor p LEFT JOIN public.proveedor_producto pp ON "
+            "pp.proveedor_id = p.id AND pp.empresa_id = p.empresa_id "
+            "WHERE p.id = :proveedor AND p.empresa_id = :empresa "
+            "GROUP BY p.id, p.razon_social, p.nit, p.correo, p.telefono, "
+            "p.direccion, p.estado"
+        )
+        fila = db.execute(
+            text(consulta), {"empresa": empresa_id, "proveedor": proveedor_id}
+        ).mappings().one_or_none()
+        return dict(fila) if fila is not None else None
+
+    @staticmethod
+    def listar_productos(
+        db: Session, *, empresa_id: int, proveedor_id: int
+    ) -> list[dict] | None:
+        consulta = (
+            "SELECT p.id, p.nombre, p.descripcion, p.precio, p.categoria_id, "
+            "p.estado AS producto_estado, pp.costo_referencia, pp.estado "
+            "FROM public.proveedor_producto pp "
+            "JOIN public.proveedor pr ON pr.id = pp.proveedor_id "
+            "AND pr.empresa_id = pp.empresa_id "
+            "JOIN public.producto p ON p.id = pp.producto_id "
+            "AND p.empresa_id = pp.empresa_id "
+            "WHERE pp.empresa_id = :empresa AND pp.proveedor_id = :proveedor "
+            "ORDER BY p.id"
+        )
+        filas = db.execute(
+            text(consulta), {"empresa": empresa_id, "proveedor": proveedor_id}
+        ).mappings().all()
+        if not filas and TenantProveedorRepository.obtener(
+            db, empresa_id=empresa_id, proveedor_id=proveedor_id
+        ) is None:
+            return None
+        return [dict(fila) for fila in filas]
+
+    @staticmethod
     def crear(
         db: Session,
         *,

@@ -9,15 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.core.config import settings
 from app.core.database import get_db
-from app.core.saas_rls_assertion import (
-    aplicar_asercion,
-    clave_disponible,
-    es_postgres,
-)
 from app.core.tenant_context import TenantContext, leer_token_empresa
 from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
     TenantAuthRepository,
 )
+from app.modules.roles.repositories.repository import RolRepository
 from app.modules.roles.services.service import RolService
 
 _tenant_bearer = HTTPBearer(auto_error=False)
@@ -40,6 +36,24 @@ def _error_token() -> HTTPException:
     )
 
 
+def publicar_token(db: Session, token: str) -> None:
+    """Publica el JWT crudo como GUC LOCAL antes de cualquier consulta.
+
+    Es el paso probado en 5CA: la firma, la vigencia y la membresía las vuelve
+    a verificar PostgreSQL en cada policy. El valor viaja como LOCAL
+    (``set_config(..., true)``) para que ninguna conexión del pool lo herede.
+    Guardarlo en ``Session.info`` permite que ``after_begin`` lo reaplique si la
+    misma Session abre otra transacción durante el request.
+    """
+    db.execute(
+        text("SELECT set_config('app.actor_token', :token, true)"),
+        {"token": token},
+    )
+    # Se guarda SÓLO si el set_config anterior funcionó: así una sesión que
+    # falla no conserva contexto parcial para una transacción posterior.
+    db.info["actor_token"] = token
+
+
 def get_current_tenant_context(
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(_tenant_bearer)
@@ -55,6 +69,11 @@ def get_current_tenant_context(
     usuario_id, empresa_id, contexto = claims
 
     try:
+        # 5CA: el token se publica ANTES de consultar membresía. Con el pool
+        # restringido, actor_claims() es la única fuente de identidad: sin este
+        # paso toda policy aborta y la consulta no puede distinguir "sin
+        # membresía" de "esquema no disponible".
+        publicar_token(db, credentials.credentials)
         registro = TenantAuthRepository.obtener_membresia_vigente(
             db, usuario_id=usuario_id, empresa_id=empresa_id, contexto=contexto
         )
@@ -91,19 +110,16 @@ def get_current_tenant_context(
         # after_begin lo reaplica si la misma Session abre otra transaccion.
         db.info["usuario_id"] = tenant.usuario_id
         db.info["empresa_id"] = tenant.empresa_id
-        # Etapa C (5BK): el principal SQL restringido resuelve la empresa SOLO
-        # con esta asercion firmada. Sin clave configurada, PostgreSQL queda
-        # deny-all: se falla cerrado con 503 en lugar de consultar sin RLS.
-        if es_postgres(db):
-            if not clave_disponible() or not aplicar_asercion(
-                db, tenant.empresa_id, tenant.usuario_id
-            ):
-                raise HTTPException(
-                    status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                    detail="El principal SQL restringido no esta configurado",
-                )
         return tenant
     except SQLAlchemyError as exc:
+        # 5CA: sin membresía vigente, actor_claims() aborta la consulta con
+        # SQLSTATE 42501 en vez de devolver 0 filas. Eso es "no autorizado",
+        # no "servicio no disponible": se mantiene el 403.
+        if getattr(getattr(exc, "orig", None), "sqlstate", None) == "42501":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="No autorizado para la empresa solicitada",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="El esquema de autenticacion SaaS no esta disponible",
@@ -113,34 +129,22 @@ def get_current_tenant_context(
 def _tiene_permiso_tenant(
     db: Session, tenant: TenantContext, funcion: str, accion: str
 ) -> bool:
-    """RBAC nominal por empresa (5BO).
+    """Comprueba el permiso nominal del rol de la membresía autenticada.
 
-    En PostgreSQL la autoridad es `saas.tiene_permiso_tenant`, que aplica
-    excepcion por empresa > default por nombre de rol > denegado y NUNCA
-    resuelve permisos de otra empresa. En SQLite (pruebas offline) se conserva
-    la matriz global del primer parcial.
+    El contrato instalado no contiene el esquema ``saas``. La autoridad es la
+    matriz vigente ``public.rol_funcion`` + ``public.funcion`` +
+    ``public.accion``; en PostgreSQL RLS limita esas lecturas al actor
+    publicado en ``app.actor_token``. ``empresa_id`` no se usa para autorizar:
+    solo se conserva en el contexto ya validado para consultas de negocio.
     """
-    if es_postgres(db):
-        try:
-            return bool(
-                db.scalar(
-                    text(
-                        "SELECT saas.tiene_permiso_tenant("
-                        "CAST(:empresa AS bigint), CAST(:rol AS bigint), "
-                        "CAST(:funcion AS text), CAST(:accion AS text))"
-                    ),
-                    {
-                        "empresa": tenant.empresa_id,
-                        "rol": tenant.rol_id,
-                        "funcion": funcion,
-                        "accion": accion,
-                    },
-                )
-            )
-        except SQLAlchemyError:
-            # Fail closed: sin matriz disponible no se concede el permiso.
-            return False
-    return RolService.tiene_permiso(db, tenant.rol_id, funcion, accion)
+    try:
+        # RolService se conserva como fachada para el contrato offline y para
+        # consumidores que sustituyen la matriz en pruebas; en PostgreSQL
+        # delega exclusivamente a public.rol_funcion.
+        return bool(RolService.tiene_permiso(db, tenant.rol_id, funcion, accion))
+    except SQLAlchemyError:
+        # Fail closed: un catálogo RBAC indisponible nunca concede acceso.
+        return False
 
 
 def require_tenant_permission(funcion: str, accion: str):
@@ -196,6 +200,54 @@ def get_current_tenant_personal_con_permiso(funcion: str, accion: str):
                 detail="Permiso empresarial insuficiente",
             )
         return tenant
+    return _verificador
+
+
+def get_current_tenant_personal_con_permiso_catalogo(
+    funcion: str, accion: str
+):
+    """Personal tenant autorizado por el catalogo RBAC real de Supabase.
+
+    El contrato compartido no instala funciones ni tablas del esquema ``saas``.
+    Para lecturas que ya tienen un nombre de función del catálogo histórico, se
+    consulta ``public.rol_funcion`` mediante el ``rol_id`` obtenido de
+    ``usuario_empresa`` por la membresía validada.
+
+    La dependencia de contexto publica ``app.actor_token`` antes de llegar
+    aqui; por eso esta consulta tambien queda bajo el mismo RLS y la misma
+    transaccion. No usa ``usuario.rol_id`` ni concede excepciones por empresa.
+    """
+
+    def _verificador(
+        tenant: Annotated[TenantContext, Depends(get_current_tenant_context)],
+        db: Session = Depends(get_db),
+    ) -> TenantContext:
+        if tenant.contexto != "personal":
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Se requiere personal de esta empresa",
+            )
+        try:
+            permitido = RolRepository.tiene_permiso(
+                db, tenant.rol_id, funcion, accion
+            )
+        except SQLAlchemyError as exc:
+            if getattr(getattr(exc, "orig", None), "sqlstate", None) == "42501":
+                raise HTTPException(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    detail="Permiso empresarial insuficiente",
+                ) from exc
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="El catalogo de permisos empresariales no esta disponible",
+            ) from exc
+        if not permitido:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Permiso empresarial insuficiente",
+            )
+        return tenant
+
     return _verificador
 
 

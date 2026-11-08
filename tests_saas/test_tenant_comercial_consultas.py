@@ -121,6 +121,7 @@ def escenario_comercial(monkeypatch):
     fabrica = sessionmaker(bind=motor, expire_on_commit=False)
     actual = {"empresa_id": 10, "rol": "ADMINISTRADOR", "contexto": "personal"}
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
 
     def bd_ficticia():
         with fabrica() as db:

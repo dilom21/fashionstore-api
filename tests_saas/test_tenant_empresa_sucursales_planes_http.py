@@ -193,6 +193,34 @@ def test_basico_limite_2_backend_y_sin_comit_de_exceso(caso):
     assert plan["sucursales_activas"]==2
 
 
+def test_profesional_limite_registrado_10_y_rechaza_11(caso):
+    client, estado, _, _ = caso
+    professional_company = None
+    for company_id, _ in enumerate(COMPANIES, start=1):
+        estado["empresa_id"] = company_id
+        plan = client.get("/tenant/empresa/plan")
+        assert plan.status_code == 200, plan.text
+        if plan.json()["codigo"] == "PROFESIONAL":
+            professional_company = company_id
+            break
+
+    assert professional_company is not None
+    plan = client.get("/tenant/empresa/plan").json()
+    maximum = plan["max_sucursales_activas"]
+    active = plan["sucursales_activas"]
+    assert maximum == 10
+    assert active < maximum
+
+    for index in range(active, maximum):
+        response = crear(client, f"Profesional {index + 1}")
+        assert response.status_code == 201, response.text
+
+    assert client.get("/tenant/empresa/plan").json()["sucursales_activas"] == maximum
+    rejected = crear(client, "Profesional 11")
+    assert rejected.status_code == 409
+    assert client.get("/tenant/empresa/plan").json()["sucursales_activas"] == maximum
+
+
 def test_upgrade_y_downgrade_respeta_sucursales(caso):
     """El cambio de plan por autoservicio NO existe: CU02 lo reserva a superadmin.
 
@@ -257,6 +285,83 @@ def test_no_permitir_editar_sucursal_ajena(caso):
         "estado":False}).status_code==404
     assert contar(factory,1)==4
     assert contar(factory,2)==1
+
+
+def test_detalle_y_edicion_tenant_segura(caso):
+    client, _, factory, _ = caso
+    own = client.get("/tenant/empresa/sucursales").json()[0]["id"]
+    detalle = client.get(f"/tenant/empresa/sucursales/{own}")
+    assert detalle.status_code == 200
+    assert detalle.json()["id"] == own
+    actualizado = client.patch(
+        f"/tenant/empresa/sucursales/{own}",
+        json={"nombre": "Sucursal editada", "direccion": "Nueva direccion",
+              "telefono": "70000000"},
+    )
+    assert actualizado.status_code == 200
+    assert actualizado.json()["nombre"] == "Sucursal editada"
+    assert client.get(f"/tenant/empresa/sucursales/{own}").json()[
+        "direccion"
+    ] == "Nueva direccion"
+    assert contar(factory, 2) == 1
+
+
+def test_detalle_y_edicion_ajena_no_revelan_datos(caso):
+    client, estado, _, _ = caso
+    estado["empresa_id"] = 1
+    ajena = client.get("/tenant/empresa/sucursales").json()[0]["id"]
+    estado["empresa_id"] = 2
+    assert client.get(f"/tenant/empresa/sucursales/{ajena}").status_code == 404
+    assert client.patch(
+        f"/tenant/empresa/sucursales/{ajena}",
+        json={"nombre": "No debe cambiar"},
+    ).status_code == 404
+
+
+@pytest.mark.parametrize("payload", [
+    {"empresa_id": 1, "nombre": "No", "direccion": "X"},
+    {"nombre": " ", "direccion": "X"},
+    {"nombre": "Nuevo", "direccion": " "},
+    {"ciudad_id": 999, "nombre": "Nuevo", "direccion": "X"},
+])
+def test_edicion_rechaza_tenant_inyectado_y_payload_invalido(caso, payload):
+    client, _, _, _ = caso
+    own = client.get("/tenant/empresa/sucursales").json()[0]["id"]
+    assert client.patch(f"/tenant/empresa/sucursales/{own}",
+                        json=payload).status_code in (404, 422)
+
+
+def test_edicion_requiere_administrador(caso):
+    client, estado, _, _ = caso
+    estado["contexto"] = "cliente"
+    estado["rol"] = "CLIENTE"
+    own = client.get("/tenant/empresa/sucursales").json()[0]["id"]
+    assert client.patch(f"/tenant/empresa/sucursales/{own}",
+                        json={"nombre": "No"}).status_code == 403
+
+
+def test_edicion_duplica_nombre_en_ciudad_y_allowlist_exacta(caso):
+    client, _, _, _ = caso
+    own, other = client.get("/tenant/empresa/sucursales").json()[0]["id"], None
+    created = crear(client, "Segunda")
+    assert created.status_code == 201
+    other = created.json()["id"]
+    existing_name = client.get(
+        f"/tenant/empresa/sucursales/{own}"
+    ).json()["nombre"]
+    duplicate = client.patch(f"/tenant/empresa/sucursales/{other}", json={
+        "nombre": existing_name,
+    })
+    assert duplicate.status_code == 409
+    assert _ruta_saas_permitida(
+        "GET", f"/tenant/empresa/sucursales/{own}"
+    ) is True
+    assert _ruta_saas_permitida(
+        "PATCH", f"/tenant/empresa/sucursales/{own}"
+    ) is True
+    assert _ruta_saas_permitida(
+        "GET", f"/tenant/empresa/sucursales/{own}/extra"
+    ) is False
 
 
 def test_no_habilitar_sucursal_que_excede_plan(caso):

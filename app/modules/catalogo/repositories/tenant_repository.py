@@ -14,7 +14,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.modules.catalogo.models.models import (
-    Categoria, Color, Producto, Talla, Temporada, VarianteProducto,
+    Categoria, Color, Producto, RecursoProducto, Talla, Temporada, VarianteProducto,
 )
 from app.modules.proveedores.models.models import Proveedor
 from app.modules.sucursales.models.models import Ciudad
@@ -32,7 +32,7 @@ class TenantCatalogoRepository:
         tenant_id = cls._empresa_valida(empresa_id)
         c = Categoria.__table__
         statement = (
-            select(c.c.id, c.c.nombre, c.c.descripcion)
+            select(c.c.id, c.c.nombre, c.c.descripcion, c.c.estado)
             .where(c.c.empresa_id == tenant_id, c.c.estado.is_(True))
             .order_by(c.c.nombre, c.c.id)
         )
@@ -40,18 +40,20 @@ class TenantCatalogoRepository:
 
     @classmethod
     def obtener_categoria(
-        cls, db: Session, *, empresa_id: int, categoria_id: int
+        cls, db: Session, *, empresa_id: int, categoria_id: int,
+        incluir_inactivo: bool = False,
     ) -> dict | None:
         tenant_id = cls._empresa_valida(empresa_id)
         c = Categoria.__table__
         statement = (
-            select(c.c.id, c.c.nombre, c.c.descripcion)
+            select(c.c.id, c.c.nombre, c.c.descripcion, c.c.estado)
             .where(
                 c.c.empresa_id == tenant_id,
                 c.c.id == categoria_id,
-                c.c.estado.is_(True),
             )
         )
+        if not incluir_inactivo:
+            statement = statement.where(c.c.estado.is_(True))
         row = db.execute(statement).mappings().one_or_none()
         return dict(row) if row is not None else None
 
@@ -70,7 +72,7 @@ class TenantCatalogoRepository:
         c = Categoria.__table__
         statement = (
             select(
-                p.c.id, p.c.nombre, p.c.descripcion,
+                p.c.id, p.c.nombre, p.c.descripcion, p.c.estado,
                 p.c.precio, p.c.categoria_id,
                 c.c.nombre.label("categoria_nombre"),
             )
@@ -88,14 +90,15 @@ class TenantCatalogoRepository:
 
     @classmethod
     def obtener_producto(
-        cls, db: Session, *, empresa_id: int, producto_id: int
+        cls, db: Session, *, empresa_id: int, producto_id: int,
+        incluir_inactivo: bool = False,
     ) -> dict | None:
         tenant_id = cls._empresa_valida(empresa_id)
         p = Producto.__table__
         c = Categoria.__table__
         statement = (
             select(
-                p.c.id, p.c.nombre, p.c.descripcion,
+                p.c.id, p.c.nombre, p.c.descripcion, p.c.estado,
                 p.c.precio, p.c.categoria_id,
                 c.c.nombre.label("categoria_nombre"),
             )
@@ -103,10 +106,11 @@ class TenantCatalogoRepository:
             .where(
                 p.c.empresa_id == tenant_id,
                 p.c.id == producto_id,
-                p.c.estado.is_(True),
                 c.c.estado.is_(True),
             )
         )
+        if not incluir_inactivo:
+            statement = statement.where(p.c.estado.is_(True))
         resultado = db.execute(statement).mappings().one_or_none()
         return dict(resultado) if resultado is not None else None
 
@@ -122,7 +126,8 @@ class TenantCatalogoRepository:
         color = Color.__table__
         statement = (
             select(
-                v.c.id, v.c.producto_id, v.c.sku,
+                v.c.id, v.c.producto_id, v.c.sku, v.c.estado,
+                v.c.talla_id, v.c.color_id,
                 talla.c.nombre.label("talla"),
                 color.c.nombre.label("color"),
             )
@@ -145,7 +150,8 @@ class TenantCatalogoRepository:
 
     @classmethod
     def obtener_variante(
-        cls, db: Session, *, empresa_id: int, variante_id: int
+        cls, db: Session, *, empresa_id: int, variante_id: int,
+        incluir_inactivo: bool = False,
     ) -> dict | None:
         tenant_id = cls._empresa_valida(empresa_id)
         p = Producto.__table__
@@ -155,7 +161,8 @@ class TenantCatalogoRepository:
         color = Color.__table__
         statement = (
             select(
-                v.c.id, v.c.producto_id, v.c.sku,
+                v.c.id, v.c.producto_id, v.c.sku, v.c.estado,
+                v.c.talla_id, v.c.color_id,
                 talla.c.nombre.label("talla"),
                 color.c.nombre.label("color"),
             )
@@ -166,13 +173,14 @@ class TenantCatalogoRepository:
             .where(
                 v.c.empresa_id == tenant_id,
                 v.c.id == variante_id,
-                v.c.estado.is_(True),
                 p.c.estado.is_(True),
                 c.c.estado.is_(True),
                 talla.c.estado.is_(True),
                 color.c.estado.is_(True),
             )
         )
+        if not incluir_inactivo:
+            statement = statement.where(v.c.estado.is_(True))
         resultado = db.execute(statement).mappings().one_or_none()
         return dict(resultado) if resultado is not None else None
 
@@ -279,7 +287,9 @@ class TenantCatalogoRepository:
                 v.c.producto_id,
                 p.c.nombre.label("producto_nombre"),
                 v.c.sku,
+                v.c.talla_id,
                 talla.c.nombre.label("talla"),
+                v.c.color_id,
                 color.c.nombre.label("color"),
             )
             .join(p, (p.c.id == v.c.producto_id) & (p.c.empresa_id == tenant_id))
@@ -303,3 +313,46 @@ class TenantCatalogoRepository:
             )
         statement = statement.order_by(v.c.id).limit(limit).offset(offset)
         return [dict(row) for row in db.execute(statement).mappings().all()]
+
+    @classmethod
+    def listar_recursos(
+        cls, db: Session, *, empresa_id: int, producto_id: int,
+        estado: bool | None = None,
+    ) -> list[dict]:
+        tenant_id = cls._empresa_valida(empresa_id)
+        r = RecursoProducto.__table__
+        p = Producto.__table__
+        c = Color.__table__
+        statement = (
+            select(
+                r.c.id, r.c.producto_id, r.c.color_id, r.c.tipo, r.c.url,
+                r.c.es_principal, r.c.estado, c.c.nombre.label("color"),
+            )
+            .join(p, (p.c.id == r.c.producto_id) & (p.c.empresa_id == tenant_id))
+            .outerjoin(c, c.c.id == r.c.color_id)
+            .where(r.c.empresa_id == tenant_id, r.c.producto_id == producto_id)
+            .order_by(r.c.id)
+        )
+        if estado is not None:
+            statement = statement.where(r.c.estado.is_(estado))
+        return [dict(row) for row in db.execute(statement).mappings().all()]
+
+    @classmethod
+    def obtener_recurso(
+        cls, db: Session, *, empresa_id: int, recurso_id: int,
+    ) -> dict | None:
+        tenant_id = cls._empresa_valida(empresa_id)
+        r = RecursoProducto.__table__
+        p = Producto.__table__
+        c = Color.__table__
+        statement = (
+            select(
+                r.c.id, r.c.producto_id, r.c.color_id, r.c.tipo, r.c.url,
+                r.c.es_principal, r.c.estado, c.c.nombre.label("color"),
+            )
+            .join(p, (p.c.id == r.c.producto_id) & (p.c.empresa_id == tenant_id))
+            .outerjoin(c, c.c.id == r.c.color_id)
+            .where(r.c.empresa_id == tenant_id, r.c.id == recurso_id)
+        )
+        row = db.execute(statement).mappings().one_or_none()
+        return dict(row) if row is not None else None

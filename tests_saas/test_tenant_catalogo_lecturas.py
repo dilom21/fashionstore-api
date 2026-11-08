@@ -90,6 +90,7 @@ def db_falsa():
 @pytest.fixture()
 def cliente_tenant(monkeypatch, db_falsa):
     monkeypatch.setattr(settings, "saas_auth_enabled", True)
+    monkeypatch.setattr(settings, "legacy_surface_enabled", False)
     actual = {"empresa_id": 10}
 
     def obtener_db():
@@ -142,8 +143,18 @@ def test_acceso_a_id_ajeno_o_inactivo_responde_404(cliente_tenant, ruta):
 
 def test_variantes_del_propio_producto_visibles_sin_pasar_empresa_id(cliente_tenant):
     client, _ = cliente_tenant
-    assert [x["id"] for x in client.get("/tenant/catalogo/productos/1001/variantes").json()] == [5001]
-    assert client.get("/tenant/catalogo/variantes/5001").json()["sku"] == "U-001"
+    listado = client.get("/tenant/catalogo/productos/1001/variantes").json()
+    assert [x["id"] for x in listado] == [5001]
+    assert listado[0]["talla_id"] == 1
+    assert listado[0]["color_id"] == 1
+    assert listado[0]["talla"] == "M"
+    assert listado[0]["color"] == "Negro"
+    detalle = client.get("/tenant/catalogo/variantes/5001").json()
+    assert detalle["sku"] == "U-001"
+    assert detalle["talla_id"] == 1
+    assert detalle["color_id"] == 1
+    assert detalle["talla"] == "M"
+    assert detalle["color"] == "Negro"
 
 
 def test_filtro_categoria_ajena_retorna_vacio_sin_filtrar(cliente_tenant):

@@ -6,10 +6,24 @@ from datetime import date, datetime, timezone
 # Test collection must never inherit a remote DATABASE_URL.  Keep the default
 # disposable and local; callers may opt into a different local URL explicitly.
 _test_database_url = os.environ.get("FASHIONSTORE_TEST_DATABASE_URL")
-if not _test_database_url:
+if not _test_database_url or not _test_database_url.lower().startswith("sqlite"):
     _test_database_url = f"sqlite:///{tempfile.mktemp(prefix='fashionstore-test-', suffix='.db')}"
 os.environ["DATABASE_URL"] = _test_database_url
-os.environ.setdefault("APP_ENV", "test")
+os.environ["APP_ENV"] = "test"
+
+# ``Settings`` also reads the auxiliary DSNs from the repository .env.  They
+# are production/shared-Supabase values and must never be inherited by pytest.
+# Override them in the test process before importing app.core.config; this does
+# not alter .env and keeps launch_guard fully active (SQLite is accepted only
+# in the local test mode).
+_offline_test_dsn = "sqlite+pysqlite:///:memory:"
+for _name in (
+    "DATABASE_BOOTSTRAP_URL",
+    "DATABASE_PLATFORM_URL",
+    "SAAS_ADMIN_DATABASE_URL",
+):
+    os.environ[_name] = _offline_test_dsn
+os.environ.pop("LEGACY_DATABASE_URL", None)
 
 import pytest
 from fastapi.testclient import TestClient
