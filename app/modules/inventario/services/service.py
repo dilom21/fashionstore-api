@@ -2,12 +2,17 @@ from datetime import date, datetime, time, timezone
 
 from sqlalchemy.orm import Session
 
+from app.core.tenant_context import TenantContext
 from app.modules.autenticacion_seguridad.models.models import Usuario
+from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
+    TenantAuthRepository,
+)
 from app.modules.inventario.models.models import Inventario
 from app.modules.inventario.repositories.repository import InventarioRepository
 from app.modules.inventario.schemas.schemas import (
     DisponibilidadFiltro,
     InventarioConsultaResponse,
+    InventarioFiltrosResponse,
     InventarioItemResponse,
     MovimientoInventarioConsultaResponse,
     MovimientoInventarioItemResponse,
@@ -15,6 +20,8 @@ from app.modules.inventario.schemas.schemas import (
 )
 
 ROL_ADMINISTRADOR = "ADMINISTRADOR"
+ROL_ENCARGADO_SUCURSAL = "ENCARGADO_SUCURSAL"
+ROLES_INVENTARIO_SAAS = frozenset({ROL_ADMINISTRADOR, ROL_ENCARGADO_SUCURSAL})
 
 DISPONIBILIDADES_VALIDAS = frozenset(
     {
@@ -48,6 +55,10 @@ class RangoFechasInvalidoError(Exception):
     pass
 
 
+class RolInventarioTenantError(Exception):
+    """El rol empresarial no puede consultar CU08."""
+
+
 def _es_administrador(usuario: Usuario) -> bool:
     return str(usuario.rol.nombre).strip().upper() == ROL_ADMINISTRADOR
 
@@ -65,6 +76,36 @@ def _sucursal_scope(usuario: Usuario) -> int | None:
     if empleado is None or not empleado.estado:
         raise SucursalScopeError()
     return empleado.sucursal_id
+
+
+def _sucursal_scope_tenant(db: Session, tenant: TenantContext) -> int | None:
+    """Alcance CU08 basado solamente en membresia/rol empresarial vigentes."""
+    rol = tenant.rol_nombre.strip().upper()
+    if tenant.contexto != "personal" or rol not in ROLES_INVENTARIO_SAAS:
+        raise RolInventarioTenantError()
+    if rol == ROL_ADMINISTRADOR:
+        return None
+    perfil = TenantAuthRepository.obtener_perfil_personal(
+        db, usuario_id=tenant.usuario_id, empresa_id=tenant.empresa_id
+    )
+    if perfil is None:
+        raise SucursalScopeError()
+    return perfil.sucursal_id
+
+
+def _resolver_sucursal_tenant(
+    db: Session, tenant: TenantContext, sucursal_id: int | None
+) -> int | None:
+    scope = _sucursal_scope_tenant(db, tenant)
+    if scope is not None:
+        if sucursal_id is not None and sucursal_id != scope:
+            raise SucursalScopeError()
+        return scope
+    if sucursal_id is not None and InventarioRepository.obtener_sucursal_activa(
+        db, sucursal_id, empresa_id=tenant.empresa_id
+    ) is None:
+        raise SucursalNoEncontradaError()
+    return sucursal_id
 
 
 def _construir_item(inventario: Inventario) -> InventarioItemResponse:
@@ -361,5 +402,85 @@ class InventarioService:
             total=total,
             limit=limit,
             offset=offset,
+        )
+
+    # ------------------------------------------------------------------
+    # CU08 SaaS - adaptacion segura de CU13/CU14
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def consultar_inventario_tenant(
+        db: Session,
+        tenant: TenantContext,
+        **filtros,
+    ) -> InventarioConsultaResponse:
+        disponibilidad = InventarioService._normalizar_disponibilidad(
+            filtros.pop("disponibilidad", None)
+        )
+        sucursal_id = _resolver_sucursal_tenant(
+            db, tenant, filtros.pop("sucursal_id", None)
+        )
+        limit = filtros.pop("limit", 50)
+        offset = filtros.pop("offset", 0)
+        inventarios, total = InventarioRepository.consultar(
+            db,
+            empresa_id=tenant.empresa_id,
+            sucursal_id=sucursal_id,
+            disponibilidad=disponibilidad,
+            limit=limit,
+            offset=offset,
+            **filtros,
+        )
+        return InventarioConsultaResponse(
+            items=[_construir_item(item) for item in inventarios],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @staticmethod
+    def consultar_movimientos_tenant(
+        db: Session,
+        tenant: TenantContext,
+        **filtros,
+    ) -> MovimientoInventarioConsultaResponse:
+        tipo = InventarioService._normalizar_tipo_movimiento(
+            filtros.pop("tipo", None)
+        )
+        desde, hasta = _rango_fechas(
+            filtros.pop("fecha_desde", None), filtros.pop("fecha_hasta", None)
+        )
+        sucursal_id = _resolver_sucursal_tenant(
+            db, tenant, filtros.pop("sucursal_id", None)
+        )
+        limit = filtros.pop("limit", 10)
+        offset = filtros.pop("offset", 0)
+        filas, total = InventarioRepository.consultar_movimientos(
+            db,
+            empresa_id=tenant.empresa_id,
+            sucursal_id=sucursal_id,
+            tipo=tipo,
+            fecha_desde=desde,
+            fecha_hasta=hasta,
+            limit=limit,
+            offset=offset,
+            **filtros,
+        )
+        return MovimientoInventarioConsultaResponse(
+            items=[_construir_movimiento_item(fila) for fila in filas],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @staticmethod
+    def filtros_tenant(
+        db: Session, tenant: TenantContext
+    ) -> InventarioFiltrosResponse:
+        sucursal_id = _resolver_sucursal_tenant(db, tenant, None)
+        return InventarioFiltrosResponse.model_validate(
+            InventarioRepository.listar_filtros_tenant(
+                db, empresa_id=tenant.empresa_id, sucursal_id=sucursal_id
+            )
         )
 

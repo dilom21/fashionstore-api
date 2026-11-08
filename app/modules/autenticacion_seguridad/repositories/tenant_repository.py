@@ -28,6 +28,19 @@ class PerfilPersonalTenant:
     sucursal_id: int
 
 
+@dataclass(frozen=True, slots=True)
+class EmpresaPublicaTenant:
+    slug: str
+    nombre_comercial: str
+
+
+@dataclass(frozen=True, slots=True)
+class RegistroClienteTenant:
+    usuario_id: int
+    cliente_id: int
+    empresa_slug: str
+
+
 # 5R: lectura mínima antes de conocer la empresa; no carga Usuario ORM,
 # Rol ni otras columnas. No exponer esta consulta a clientes SQL directos.
 # AUN NECESITA permisos RLS/ACL restringidos que NO se instalan aquí.
@@ -134,8 +147,77 @@ _SQL_PERFIL_PERSONAL_TENANT = text(
     """
 )
 
+_SQL_EMPRESAS_PUBLICAS = text(
+    """
+    SELECT slug, nombre_comercial
+    FROM fashionstore_private.bootstrap_empresas_publicas()
+    """
+)
+
+_SQL_REGISTRAR_CLIENTE = text(
+    """
+    SELECT usuario_id, cliente_id, empresa_slug
+    FROM fashionstore_private.bootstrap_registrar_cliente(
+        :empresa_slug, :correo, :password_hash, :nombre, :apellido,
+        :ci, :telefono, :sexo, :fecha_nacimiento
+    )
+    """
+)
+
 
 class TenantAuthRepository:
+    @staticmethod
+    def listar_empresas_publicas(db: Session) -> list[EmpresaPublicaTenant]:
+        rows = db.execute(_SQL_EMPRESAS_PUBLICAS).mappings().all()
+        return [
+            EmpresaPublicaTenant(
+                slug=str(row["slug"]),
+                nombre_comercial=str(row["nombre_comercial"]),
+            )
+            for row in rows
+        ]
+
+    @staticmethod
+    def registrar_cliente_publico(
+        db: Session,
+        *,
+        empresa_slug: str,
+        correo: str,
+        password_hash: str,
+        nombre: str,
+        apellido: str,
+        ci: str,
+        telefono: str,
+        sexo: str,
+        fecha_nacimiento,
+    ) -> RegistroClienteTenant:
+        """Invoca la unica operacion bootstrap atomica autorizada.
+
+        No realiza INSERT directo ni acepta IDs/rol/estado del consumidor.
+        """
+        rows = db.execute(
+            _SQL_REGISTRAR_CLIENTE,
+            {
+                "empresa_slug": empresa_slug,
+                "correo": correo,
+                "password_hash": password_hash,
+                "nombre": nombre,
+                "apellido": apellido,
+                "ci": ci,
+                "telefono": telefono,
+                "sexo": sexo,
+                "fecha_nacimiento": fecha_nacimiento,
+            },
+        ).mappings().all()
+        if len(rows) != 1:
+            raise RuntimeError("Resultado de registro bootstrap invalido")
+        row = rows[0]
+        return RegistroClienteTenant(
+            usuario_id=int(row["usuario_id"]),
+            cliente_id=int(row["cliente_id"]),
+            empresa_slug=str(row["empresa_slug"]),
+        )
+
     @staticmethod
     def obtener_credenciales_bootstrap(
         db: Session, correo: str

@@ -13,8 +13,19 @@ from app.core.tenant_dependencies import (
     get_current_tenant_context,
     publicar_token,
 )
-from app.modules.autenticacion_seguridad.schemas.schemas import LoginRequest
-from app.modules.autenticacion_seguridad.services.service import AuthService
+from app.modules.autenticacion_seguridad.schemas.schemas import (
+    ClienteRegistroRequest,
+    LoginRequest,
+)
+from app.modules.autenticacion_seguridad.services.service import (
+    AuthService,
+    CiClienteDuplicadoError,
+    CorreoClienteDuplicadoError,
+    EmpresaRegistroNoDisponibleError,
+    PasswordInseguraError,
+    PasswordsNoCoincidenError,
+    RegistroInesperadoError,
+)
 from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
     TenantAuthRepository,
 )
@@ -55,6 +66,80 @@ class TenantMeResponse(BaseModel):
     nombre: str | None = None
     apellido: str | None = None
     sucursal_id: int | None = None
+
+
+class EmpresaTenantPublicaResponse(BaseModel):
+    slug: str
+    nombre_comercial: str
+
+
+class TenantClienteRegistroRequest(ClienteRegistroRequest):
+    empresa_slug: str = Field(
+        min_length=1, max_length=80, pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$"
+    )
+
+
+class TenantClienteRegistroResponse(BaseModel):
+    mensaje: str
+    usuario_id: int
+    cliente_id: int
+    empresa_slug: str
+    correo: str
+    nombre: str
+    apellido: str
+
+
+@router.get("/empresas", response_model=list[EmpresaTenantPublicaResponse])
+def listar_empresas_publicas(db_bootstrap: Session = Depends(get_bootstrap_db)):
+    comprobar_saas_habilitado()
+    try:
+        return TenantAuthRepository.listar_empresas_publicas(db_bootstrap)
+    except SQLAlchemyError as exc:
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "El selector de empresas aun no esta disponible",
+        ) from exc
+
+
+@router.post(
+    "/clientes/registro",
+    response_model=TenantClienteRegistroResponse,
+    status_code=status.HTTP_201_CREATED,
+)
+def registrar_cliente_tenant(
+    datos: TenantClienteRegistroRequest,
+    db_bootstrap: Session = Depends(get_bootstrap_db),
+):
+    comprobar_saas_habilitado()
+    try:
+        resultado = AuthService.registrar_cliente_tenant(
+            db_bootstrap, datos, empresa_slug=datos.empresa_slug
+        )
+    except PasswordInseguraError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    except PasswordsNoCoincidenError as exc:
+        raise HTTPException(400, "Las contrasenas no coinciden") from exc
+    except CorreoClienteDuplicadoError as exc:
+        # No se vincula una identidad global existente sin autenticarla.
+        raise HTTPException(409, "No fue posible registrar la cuenta") from exc
+    except CiClienteDuplicadoError as exc:
+        raise HTTPException(409, "Ya existe un cliente con este documento") from exc
+    except EmpresaRegistroNoDisponibleError as exc:
+        raise HTTPException(404, "Empresa no disponible para registro") from exc
+    except (RegistroInesperadoError, RuntimeError) as exc:
+        raise HTTPException(
+            503, "El registro empresarial aun no esta disponible"
+        ) from exc
+
+    return TenantClienteRegistroResponse(
+        mensaje="Cuenta creada correctamente. Inicie sesion para continuar.",
+        usuario_id=resultado.usuario_id,
+        cliente_id=resultado.cliente_id,
+        empresa_slug=resultado.empresa_slug,
+        correo=datos.correo,
+        nombre=datos.nombre,
+        apellido=datos.apellido,
+    )
 
 
 @router.post("/login", response_model=TenantLoginResponse)

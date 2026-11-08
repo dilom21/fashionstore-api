@@ -124,6 +124,7 @@ class InventarioRepository:
     @staticmethod
     def _condiciones_consulta(
         *,
+        empresa_id: int | None = None,
         sucursal_id: int | None = None,
         producto: str | None = None,
         producto_id: int | None = None,
@@ -135,6 +136,13 @@ class InventarioRepository:
     ) -> list:
         """Condiciones reutilizables por el listado y el conteo (evita drift)."""
         condiciones = []
+
+        if empresa_id is not None:
+            condiciones.extend((
+                Inventario.empresa_id == empresa_id,
+                VarianteProducto.empresa_id == empresa_id,
+                Producto.empresa_id == empresa_id,
+            ))
 
         if sucursal_id is not None:
             condiciones.append(Inventario.sucursal_id == sucursal_id)
@@ -169,6 +177,7 @@ class InventarioRepository:
     def consultar(
         db: Session,
         *,
+        empresa_id: int | None = None,
         sucursal_id: int | None = None,
         producto: str | None = None,
         producto_id: int | None = None,
@@ -182,6 +191,7 @@ class InventarioRepository:
     ) -> tuple[list[Inventario], int]:
         """Listado paginado de inventario con filtros y total de coincidencias."""
         condiciones = InventarioRepository._condiciones_consulta(
+            empresa_id=empresa_id,
             sucursal_id=sucursal_id,
             producto=producto,
             producto_id=producto_id,
@@ -213,11 +223,15 @@ class InventarioRepository:
         return list(db.scalars(statement).all()), total
 
     @staticmethod
-    def obtener_sucursal_activa(db: Session, sucursal_id: int) -> Sucursal | None:
+    def obtener_sucursal_activa(
+        db: Session, sucursal_id: int, *, empresa_id: int | None = None
+    ) -> Sucursal | None:
         statement = select(Sucursal).where(
             Sucursal.id == sucursal_id,
             Sucursal.estado.is_(True),
         )
+        if empresa_id is not None:
+            statement = statement.where(Sucursal.empresa_id == empresa_id)
         return db.scalar(statement)
 
     # ------------------------------------------------------------------
@@ -227,6 +241,7 @@ class InventarioRepository:
     @staticmethod
     def _condiciones_movimientos(
         *,
+        empresa_id: int | None = None,
         sucursal_id: int | None = None,
         tipo: str | None = None,
         producto: str | None = None,
@@ -240,6 +255,14 @@ class InventarioRepository:
     ) -> list:
         """Condiciones compartidas por listado y conteo (evita drift)."""
         condiciones = []
+
+        if empresa_id is not None:
+            condiciones.extend((
+                MovimientoInventario.empresa_id == empresa_id,
+                Inventario.empresa_id == empresa_id,
+                VarianteProducto.empresa_id == empresa_id,
+                Producto.empresa_id == empresa_id,
+            ))
 
         if sucursal_id is not None:
             condiciones.append(Inventario.sucursal_id == sucursal_id)
@@ -301,6 +324,7 @@ class InventarioRepository:
     def consultar_movimientos(
         db: Session,
         *,
+        empresa_id: int | None = None,
         sucursal_id: int | None = None,
         tipo: str | None = None,
         producto: str | None = None,
@@ -316,6 +340,7 @@ class InventarioRepository:
     ):
         """Listado paginado del Kardex + total con los mismos filtros."""
         condiciones = InventarioRepository._condiciones_movimientos(
+            empresa_id=empresa_id,
             sucursal_id=sucursal_id,
             tipo=tipo,
             producto=producto,
@@ -353,5 +378,56 @@ class InventarioRepository:
             .offset(offset)
         )
         return db.execute(statement).all(), total
+
+    @staticmethod
+    def listar_filtros_tenant(
+        db: Session, *, empresa_id: int, sucursal_id: int | None
+    ) -> dict[str, list[dict]]:
+        """Opciones activas realmente utilizadas por el inventario del tenant."""
+        base = (
+            select(Inventario.id)
+            .join(VarianteProducto, VarianteProducto.id == Inventario.variante_producto_id)
+            .join(Producto, Producto.id == VarianteProducto.producto_id)
+            .where(
+                Inventario.empresa_id == empresa_id,
+                VarianteProducto.empresa_id == empresa_id,
+                Producto.empresa_id == empresa_id,
+                VarianteProducto.estado.is_(True),
+                Producto.estado.is_(True),
+            )
+        )
+        if sucursal_id is not None:
+            base = base.where(Inventario.sucursal_id == sucursal_id)
+        inventarios = base.subquery()
+
+        def opciones(modelo, relacion):
+            statement = (
+                select(modelo.id, modelo.nombre)
+                .join(VarianteProducto, relacion)
+                .join(Inventario, Inventario.variante_producto_id == VarianteProducto.id)
+                .join(inventarios, inventarios.c.id == Inventario.id)
+                .where(modelo.estado.is_(True))
+                .distinct()
+                .order_by(modelo.nombre, modelo.id)
+            )
+            return [dict(row) for row in db.execute(statement).mappings().all()]
+
+        tallas = opciones(Talla, VarianteProducto.talla_id == Talla.id)
+        colores = opciones(Color, VarianteProducto.color_id == Color.id)
+        temporadas_stmt = (
+            select(Temporada.id, Temporada.nombre)
+            .join(Inventario, Inventario.temporada_id == Temporada.id)
+            .join(inventarios, inventarios.c.id == Inventario.id)
+            .where(
+                Temporada.empresa_id == empresa_id,
+                Temporada.estado.is_(True),
+            )
+            .distinct()
+            .order_by(Temporada.nombre, Temporada.id)
+        )
+        temporadas = [
+            dict(row) for row in db.execute(temporadas_stmt).mappings().all()
+        ]
+        return {"tallas": tallas, "colores": colores, "temporadas": temporadas}
 
 

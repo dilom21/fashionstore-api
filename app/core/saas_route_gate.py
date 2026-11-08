@@ -43,6 +43,8 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/redoc"),
         ("POST", "/auth/tenant/login"),
         ("GET", "/auth/tenant/me"),
+        ("GET", "/auth/tenant/empresas"),
+        ("POST", "/auth/tenant/clientes/registro"),
         ("GET", "/tenant/empresa/me"),
         ("GET", "/tenant/empresa/plan"),
         ("GET", "/tenant/empresa/suscripcion"),
@@ -54,6 +56,11 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         # CU04: catálogo empresarial/admin; nunca permitir /usuarios legacy.
         ("GET", "/tenant/empresa/usuarios"),
         ("GET", "/tenant/empresa/roles"),
+        ("GET", "/tenant/inventario"),
+        ("GET", "/tenant/inventario/movimientos"),
+        ("GET", "/tenant/inventario/filtros"),
+        ("GET", "/tenant/bitacora"),
+        ("GET", "/tenant/bitacora/catalogos"),
     }
 )
 
@@ -106,6 +113,7 @@ _RUTA_EMPRESA_MIEMBRO_CAMBIO = re.compile(
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
 )
+_RUTA_BITACORA_DETALLE = re.compile(r"^/tenant/bitacora/[1-9][0-9]*$")
 
 
 def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
@@ -149,6 +157,8 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     ):
         return True
     if metodo == "GET":
+        if _RUTA_BITACORA_DETALLE.fullmatch(ruta) is not None:
+            return True
         # CU15: el cliente solo puede listar sus carritos o consultar
         # uno concreto; cualquier otra subruta sigue bloqueada.
         if ruta == "/tenant/carritos" or _RUTA_CARRITO.fullmatch(ruta) is not None:

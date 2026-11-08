@@ -169,3 +169,14 @@ class MovimientoInventarioConsultaResponse(BaseModel):
     offset: int
 
 
+class InventarioFiltroItemResponse(BaseModel):
+    id: int
+    nombre: str
+
+
+class InventarioFiltrosResponse(BaseModel):
+    tallas: list[InventarioFiltroItemResponse]
+    colores: list[InventarioFiltroItemResponse]
+    temporadas: list[InventarioFiltroItemResponse]
+
+

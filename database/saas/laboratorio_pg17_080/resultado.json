@@ -1,0 +1,240 @@
+{
+  "postgres": "17.9",
+  "hash_original": "9e81968a2df8acf5ba22fd945735783064b9fe6b6ba884ce041b79141c7af7d9",
+  "copia_temporal": "080_v2_lab.sql",
+  "baseline": {
+    "baseline": "5CA validado + bootstrap_empresa_id vigente"
+  },
+  "pruebas": [
+    {
+      "codigo": "INST-01",
+      "pass": true,
+      "detalle": [
+        [
+          "bootstrap_empresas_publicas",
+          "fashionstore_bootstrap_owner",
+          true,
+          false,
+          false
+        ],
+        [
+          "bootstrap_registrar_cliente",
+          "fashionstore_bootstrap_owner",
+          true,
+          false,
+          false
+        ]
+      ]
+    },
+    {
+      "codigo": "INST-02",
+      "pass": true,
+      "detalle": [
+        false,
+        false,
+        false
+      ]
+    },
+    {
+      "codigo": "SEL-01",
+      "pass": true,
+      "detalle": [
+        [
+          "tienda-b",
+          "Tienda B"
+        ],
+        [
+          "vanter-men",
+          "Vanter Men"
+        ]
+      ]
+    },
+    {
+      "codigo": "REG-01",
+      "pass": true,
+      "detalle": {
+        "ok": true,
+        "fila": [
+          1,
+          202,
+          "tienda-b"
+        ]
+      }
+    },
+    {
+      "codigo": "REG-02",
+      "pass": true,
+      "detalle": [
+        [
+          1,
+          2,
+          2,
+          "CLIENTE"
+        ]
+      ]
+    },
+    {
+      "codigo": "REG-03",
+      "pass": true,
+      "detalle": {
+        "ok": false,
+        "sqlstate": "P2002",
+        "mensaje": "identidad ya existente\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 35 at RAISE"
+      }
+    },
+    {
+      "codigo": "REG-04",
+      "pass": true,
+      "detalle": {
+        "resultado": {
+          "ok": false,
+          "sqlstate": "P2003",
+          "mensaje": "cliente ya existente\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 49 at RAISE"
+        },
+        "restos": 0
+      }
+    },
+    {
+      "codigo": "REG-05",
+      "pass": true,
+      "detalle": {
+        "ok": true,
+        "fila": [
+          4,
+          204,
+          "vanter-men"
+        ]
+      }
+    },
+    {
+      "codigo": "REG-06",
+      "pass": true,
+      "detalle": {
+        "ok": false,
+        "sqlstate": "P2001",
+        "mensaje": "empresa no disponible\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 22 at RAISE"
+      }
+    },
+    {
+      "codigo": "REG-07",
+      "pass": true,
+      "detalle": {
+        "registro": {
+          "ok": false,
+          "sqlstate": "P2001",
+          "mensaje": "empresa no disponible\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 22 at RAISE"
+        },
+        "selector": [
+          [
+            "tienda-b"
+          ]
+        ]
+      }
+    },
+    {
+      "codigo": "REG-08",
+      "pass": true,
+      "detalle": {
+        "registro": {
+          "ok": false,
+          "sqlstate": "P2001",
+          "mensaje": "empresa no disponible\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 22 at RAISE"
+        },
+        "selector": [
+          [
+            "tienda-b"
+          ]
+        ]
+      }
+    },
+    {
+      "codigo": "CON-01",
+      "pass": true,
+      "detalle": [
+        {
+          "ok": false,
+          "sqlstate": "P2002",
+          "mensaje": "identidad ya existente\nCONTEXT:  PL/pgSQL function fashionstore_private.bootstrap_registrar_cliente(text,text,text,text,text,text,text,text,date) line 35 at RAISE"
+        },
+        {
+          "ok": true,
+          "fila": [
+            5,
+            205,
+            "tienda-b"
+          ]
+        }
+      ]
+    },
+    {
+      "codigo": "AUD-01",
+      "pass": true,
+      "detalle": {
+        "eventos_cliente": 3,
+        "muestra": [
+          [
+            "usuario",
+            null
+          ],
+          [
+            "cliente",
+            2
+          ]
+        ]
+      }
+    },
+    {
+      "codigo": "HTTP-01",
+      "pass": true,
+      "detalle": {
+        "status": 200,
+        "body": [
+          {
+            "slug": "tienda-b",
+            "nombre_comercial": "Tienda B"
+          }
+        ]
+      }
+    },
+    {
+      "codigo": "HTTP-02",
+      "pass": true,
+      "detalle": {
+        "status": 201,
+        "body": {
+          "mensaje": "Cuenta creada correctamente. Inicie sesion para continuar.",
+          "usuario_id": 7,
+          "cliente_id": 206,
+          "empresa_slug": "tienda-b",
+          "correo": "http.080@lab.test",
+          "nombre": "Cliente",
+          "apellido": "HTTP"
+        }
+      }
+    },
+    {
+      "codigo": "HTTP-03",
+      "pass": true,
+      "detalle": {
+        "status": 200
+      }
+    },
+    {
+      "codigo": "REV-01",
+      "pass": true,
+      "detalle": {
+        "preexistentes": 2,
+        "datos_conservados": 3,
+        "residuos_080": [
+          0,
+          0,
+          false,
+          false,
+          false
+        ]
+      }
+    }
+  ],
+  "pass": 17,
+  "fail": 0
+}

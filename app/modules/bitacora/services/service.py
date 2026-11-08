@@ -99,11 +99,13 @@ class BitacoraService:
         fecha_hasta: datetime | None = None,
         limit: int = LIMITE_POR_DEFECTO,
         offset: int = DESPLAZAMIENTO_POR_DEFECTO,
+        empresa_id: int | None = None,
     ) -> BitacoraListResponse:
         BitacoraService._validar_paginacion(limit, offset)
         desde, hasta = BitacoraService._validar_rango(fecha_desde, fecha_hasta)
 
         filtros = {
+            "empresa_id": empresa_id,
             "buscar": buscar,
             "usuario_id": usuario_id,
             "accion": accion,
@@ -123,23 +125,29 @@ class BitacoraService:
         )
 
     @staticmethod
-    def obtener(db: Session, bitacora_id: int) -> BitacoraDetalleResponse | None:
-        registro = BitacoraRepository.obtener_por_id(db, bitacora_id)
+    def obtener(
+        db: Session, bitacora_id: int, *, empresa_id: int | None = None
+    ) -> BitacoraDetalleResponse | None:
+        registro = BitacoraRepository.obtener_por_id(
+            db, bitacora_id, empresa_id=empresa_id
+        )
         if registro is None:
             return None
         return BitacoraService._serializar_item(registro, detalle=True)  # type: ignore[return-value]
 
     @staticmethod
-    def catalogos(db: Session) -> BitacoraCatalogosResponse:
+    def catalogos(
+        db: Session, *, empresa_id: int | None = None
+    ) -> BitacoraCatalogosResponse:
         """Catalogos reales desde BD para poblar los filtros del frontend."""
         usuarios = [
             BitacoraUsuarioFiltroResponse(id=usuario_id, correo=correo)
             for usuario_id, correo in BitacoraRepository.listar_usuarios_para_filtro(
-                db
+                db, empresa_id=empresa_id
             )
         ]
         return BitacoraCatalogosResponse(
-            acciones=BitacoraRepository.listar_acciones(db),
-            entidades=BitacoraRepository.listar_entidades(db),
+            acciones=BitacoraRepository.listar_acciones(db, empresa_id=empresa_id),
+            entidades=BitacoraRepository.listar_entidades(db, empresa_id=empresa_id),
             usuarios=usuarios,
         )

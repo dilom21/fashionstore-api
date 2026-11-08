@@ -38,6 +38,21 @@ class Usuario(Base):
     )
 
 
+class UsuarioEmpresa(Base):
+    """Membresia que define el rol valido dentro de una empresa."""
+
+    __tablename__ = "usuario_empresa"
+
+    id: Mapped[int] = mapped_column(BigInteger, primary_key=True)
+    usuario_id: Mapped[int] = mapped_column(ForeignKey("usuario.id"), nullable=False)
+    # La FK compuesta/real existe en PostgreSQL; el modelo Empresa SaaS no se
+    # duplica en este modulo legacy.
+    empresa_id: Mapped[int] = mapped_column(BigInteger, nullable=False)
+    rol_id: Mapped[int] = mapped_column(ForeignKey("rol.id"), nullable=False)
+    estado: Mapped[bool] = mapped_column(Boolean, nullable=False)
+    fecha_asignacion: Mapped[datetime]
+
+
 class Cliente(EmpresaScopedMixin, Base):
     __tablename__ = "cliente"
     __table_args__ = (

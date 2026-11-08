@@ -14,6 +14,7 @@ from app.modules.autenticacion_seguridad.api.tenant_router import router as tena
 from app.modules.catalogo.api.tenant_router import router as tenant_catalogo_router
 from app.modules.catalogo.api.tenant_write_router import router as tenant_catalogo_write_router
 from app.modules.bitacora.api.router import router as bitacora_router
+from app.modules.bitacora.api.tenant_router import router as tenant_bitacora_router
 from app.modules.carrito.api.router import router as carrito_router
 from app.modules.carrito.api.tenant_router import router as tenant_carrito_router
 from app.modules.carrito.api.tenant_read_router import router as tenant_carrito_read_router
@@ -25,6 +26,7 @@ from app.modules.catalogo.api.router import router as catalogo_router
 from app.modules.compras.api.router import router as compras_router
 from app.modules.devoluciones.api.router import router as devoluciones_router
 from app.modules.inventario.api.router import router as inventario_router
+from app.modules.inventario.api.tenant_router import router as tenant_inventario_router
 from app.modules.pagos.api.router import router as pagos_router
 from app.modules.promociones.api.router import router as promociones_router
 from app.modules.proveedores.api.router import router as proveedores_router
@@ -75,6 +77,7 @@ app.include_router(catalogo_router)
 app.include_router(asistencia_inteligente_router)
 app.include_router(sucursales_router)
 app.include_router(inventario_router)
+app.include_router(tenant_inventario_router)
 app.include_router(auth_router)
 # Modo SaaS apagado por defecto; rutas nuevas devuelven 503 hasta migrar DB.
 app.include_router(tenant_auth_router)
@@ -97,6 +100,7 @@ app.include_router(saas_superadmin_router)
 # CU04 SaaS: solo rutas empresariales con admin/JWT y membresía propia.
 app.include_router(tenant_miembros_router)
 app.include_router(bitacora_router)
+app.include_router(tenant_bitacora_router)
 app.include_router(roles_router)
 app.include_router(usuarios_router)
 app.include_router(temporadas_colecciones_router)

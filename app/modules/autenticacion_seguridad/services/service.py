@@ -1,7 +1,7 @@
 from datetime import datetime, timezone
 
 from sqlalchemy import text
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.password_policy import validar_password_segura
@@ -57,6 +57,10 @@ class RolClienteNoDisponibleError(RegistroClienteError):
 
 class RegistroInesperadoError(RegistroClienteError):
     """Fallo no atribuible a duplicados (no se expone el detalle SQL)."""
+
+
+class EmpresaRegistroNoDisponibleError(RegistroClienteError):
+    """Empresa inexistente, inactiva o sin suscripcion vigente."""
 
 
 class PerfilClienteVacioError(Exception):
@@ -314,3 +318,44 @@ class AuthService:
             raise
 
         return usuario, cliente
+
+    @staticmethod
+    def registrar_cliente_tenant(db: Session, datos, *, empresa_slug: str):
+        """Alta publica SaaS delegada al contrato bootstrap atomico."""
+        try:
+            validar_password_segura(datos.password)
+        except ValueError as exc:
+            raise PasswordInseguraError(str(exc)) from exc
+        if datos.password != datos.password_confirmacion:
+            raise PasswordsNoCoincidenError()
+
+        try:
+            resultado = TenantAuthRepository.registrar_cliente_publico(
+                db,
+                empresa_slug=empresa_slug,
+                correo=datos.correo,
+                password_hash=hash_password(datos.password),
+                nombre=datos.nombre,
+                apellido=datos.apellido,
+                ci=datos.ci,
+                telefono=datos.telefono,
+                sexo=datos.sexo.value,
+                fecha_nacimiento=datos.fecha_nacimiento,
+            )
+            db.commit()
+            return resultado
+        except SQLAlchemyError as exc:
+            db.rollback()
+            codigo = getattr(getattr(exc, "orig", None), "sqlstate", None)
+            if codigo == "P2001":
+                raise EmpresaRegistroNoDisponibleError() from exc
+            if codigo == "P2002":
+                raise CorreoClienteDuplicadoError() from exc
+            if codigo == "P2003":
+                raise CiClienteDuplicadoError() from exc
+            if isinstance(exc, IntegrityError):
+                raise _traducir_integrity_error(exc) from exc
+            raise RegistroInesperadoError() from exc
+        except Exception:
+            db.rollback()
+            raise
