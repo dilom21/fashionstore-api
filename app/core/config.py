@@ -22,6 +22,8 @@ class Settings(BaseSettings):
 
     # Segundo parcial: habilitar solo tras migracion SaaS y auditoria de seguridad.
     saas_auth_enabled: bool = False
+    # Public catalog requires an explicitly reviewed SQL projection. Closed by default.
+    saas_public_catalog_enabled: bool = False
     # CU01/CU02: administración global independiente del JWT tenant.
     # Ambas opciones deben configurarse explícitamente para abrir el módulo.
     # La clave en texto plano nunca va en el repositorio ni en Settings.

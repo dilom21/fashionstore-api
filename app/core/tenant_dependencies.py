@@ -3,9 +3,9 @@ from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-from sqlalchemy import text
+from sqlalchemy import event, text
 from sqlalchemy.exc import SQLAlchemyError
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, with_loader_criteria
 
 from app.core.config import settings
 from app.core.database import get_db
@@ -14,8 +14,33 @@ from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
     TenantAuthRepository,
 )
 from app.modules.roles.services.service import RolService
+from app.core.tenant_models import EmpresaScopedMixin
 
 _tenant_bearer = HTTPBearer(auto_error=False)
+
+
+@event.listens_for(Session, "do_orm_execute")
+def _empresa_scoped_select(orm_execute_state) -> None:
+    """Defensa ORM adicional para lecturas después de validar TenantContext.
+
+    Los repositorios legacy de CU28 ya limitan por sucursal, pero no conocían
+    empresa_id. Cuando la sesión tiene el contexto publicado, cada SELECT ORM
+    sobre entidades ``EmpresaScopedMixin`` recibe un predicado enlazado a la
+    empresa del JWT. No cambia sesiones legacy sin ``Session.info`` y no
+    reemplaza RLS.
+    """
+    if not orm_execute_state.is_select or orm_execute_state.is_relationship_load:
+        return
+    empresa_id = orm_execute_state.session.info.get("empresa_id")
+    if empresa_id is None:
+        return
+    orm_execute_state.statement = orm_execute_state.statement.options(
+        with_loader_criteria(
+            EmpresaScopedMixin,
+            lambda entidad: entidad.empresa_id == empresa_id,
+            include_aliases=True,
+        )
+    )
 
 
 def comprobar_saas_habilitado() -> None:

@@ -133,10 +133,29 @@ _RUTA_EMPRESA_MIEMBRO_CAMBIO = re.compile(
 _RUTAS_CATALOGO_DETALLE = re.compile(
     r"^/tenant/catalogo/(?:categorias/[1-9][0-9]*|productos/[1-9][0-9]*(?:/variantes)?|variantes/[1-9][0-9]*)$"
 )
+_RUTA_CATALOGO_PUBLICO = re.compile(
+    r"^/catalogo/public/[a-z0-9]+(?:-[a-z0-9]+)*/(?:filtros|productos(?:/[1-9][0-9]*)?)$"
+)
 _RUTA_BITACORA_DETALLE = re.compile(r"^/tenant/bitacora/[1-9][0-9]*$")
+
+# CU16: allowlist exacta de las lecturas SaaS y la descarga validada.
+_RUTAS_REPORTES_TENANT = frozenset({
+    "/tenant/reportes/dashboard", "/tenant/reportes/ventas",
+    "/tenant/reportes/productos", "/tenant/reportes/inventario",
+    "/tenant/reportes/reservas", "/tenant/reportes/devoluciones",
+    "/tenant/reportes/pagos", "/tenant/reportes/compras-proveedores",
+    "/tenant/reportes/clientes-carritos", "/tenant/reportes/auditoria",
+})
+_RUTA_EXPORTAR_REPORTES_TENANT = re.compile(
+    r"^/tenant/reportes/exportar/(?:RESUMEN|VENTAS|PRODUCTOS|INVENTARIO|RESERVAS|DEVOLUCIONES|PAGOS|COMPRAS_PROVEEDORES|CLIENTES_CARRITOS|AUDITORIA)$"
+)
 
 
 def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
+    # La ruta solo se publica con flag explícito y el router vuelve a verificar
+    # la proyección SQL. Nunca se abre el catálogo legacy en modo SaaS.
+    if metodo == "GET" and _RUTA_CATALOGO_PUBLICO.fullmatch(ruta):
+        return settings.saas_public_catalog_enabled
     # CU01/CU02: opt-in y rutas exactas. La dependencia del router
     # comprueba además la clave superadmin, independiente del JWT tenant.
     if settings.saas_superadmin_enabled:
@@ -193,6 +212,8 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     ):
         return True
     if metodo == "GET":
+        if ruta in _RUTAS_REPORTES_TENANT or _RUTA_EXPORTAR_REPORTES_TENANT.fullmatch(ruta):
+            return True
         if _RUTA_BITACORA_DETALLE.fullmatch(ruta) is not None:
             return True
         # CU15: el cliente solo puede listar sus carritos o consultar
