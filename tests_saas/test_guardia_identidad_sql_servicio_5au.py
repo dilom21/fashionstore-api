@@ -18,6 +18,7 @@ from app.core.tenant_context import TenantContext
 from app.modules.reservas.services import tenant_reserva_transaccional_5al as servicio
 
 OWNER = "fashionstore_actor_guard_owner"
+SP_OWNER = "fashionstore_sp_owner"
 PRINCIPAL = "fashionstore_sql_actor_101"
 
 
@@ -40,7 +41,9 @@ def _preflight():
         "empresas_visibles": 1,
         "empresa_esperada_visible": 1,
         "planes_reserva_vigentes": 1,
-        "procedimientos_autorizados": 1,
+        # 080 instala los procedimientos como SECURITY DEFINER; la consulta
+        # inicial cuenta solamente INVOKER y la metadata dedicada valida el SP.
+        "procedimientos_autorizados": 0,
     }
 
 
@@ -57,6 +60,20 @@ def _meta():
     }
 
 
+def _sp_meta():
+    return {
+        "propietario": SP_OWNER,
+        "security_definer": True,
+        "path_seguro": True,
+        "puede_ejecutar": True,
+        "propietario_restringido": True,
+        "owner_sin_ddl": True,
+        "llamador_sin_ddl": True,
+        "llamador_ajeno_al_propietario": True,
+        "publico_revocado": True,
+    }
+
+
 class Resultado:
     def __init__(self,registro):
         self.registro=registro
@@ -67,9 +84,10 @@ class Resultado:
 
 
 class FakeDB:
-    def __init__(self,*,preflight=None,meta=None,actor=True):
+    def __init__(self,*,preflight=None,meta=None,actor=True,sp_meta=None):
         self.preflight=_preflight() if preflight is None else preflight
         self.meta=_meta() if meta is None else meta
+        self.sp_meta=_sp_meta() if sp_meta is None else sp_meta
         self.actor=actor
         self.calls=[]
         self.commits=0
@@ -80,6 +98,8 @@ class FakeDB:
         self.calls.append((sql,params))
         if "FROM pg_roles r WHERE r.rolname=session_user" in sql:
             return Resultado(self.preflight)
+        if "n.nspname='public' AND p.proname" in sql:
+            return Resultado(self.sp_meta)
         if "to_regprocedure" in sql:
             return Resultado(self.meta)
         if "CALL public.sp_" in sql:
@@ -100,13 +120,18 @@ class FakeDB:
         self.commits+=1
 
 
+@pytest.fixture(autouse=True)
+def _owner_sp_real(monkeypatch):
+    monkeypatch.setattr(settings, "saas_sp_sql_owner", SP_OWNER)
+
+
 def test_5au_config_por_defecto_bloquea_antes_de_funcion(monkeypatch):
     monkeypatch.setattr(settings,"saas_actor_sql_owner",None)
     db=FakeDB()
     with pytest.raises(servicio.ReservaTenantDeshabilitada,
                        match="no configurada"):
         servicio.verificar_principal_reserva(db,_tenant())
-    assert len(db.calls)==1
+    assert len(db.calls)==2
     assert not db.commits
 
 
@@ -128,7 +153,7 @@ def test_5au_rechaza_meta_insegura(monkeypatch,cambio):
     with pytest.raises(servicio.ReservaTenantDeshabilitada,
                        match="inseguro"):
         servicio.verificar_principal_reserva(db,_tenant())
-    assert len(db.calls)==2
+    assert len(db.calls)==3
     assert not any("fs_verificar_actor_reserva(:empresa_id" in sql
                    for sql,_ in db.calls)
 
@@ -139,7 +164,7 @@ def test_5au_funcion_no_instalada_falla_cerrado(monkeypatch):
     db.meta={}
     with pytest.raises(servicio.ReservaTenantDeshabilitada):
         servicio.verificar_principal_reserva(db,_tenant())
-    assert len(db.calls)==2
+    assert len(db.calls)==3
 
 
 def test_5au_principal_rol_compartido_no_acredita_actor(monkeypatch):
@@ -148,7 +173,7 @@ def test_5au_principal_rol_compartido_no_acredita_actor(monkeypatch):
     with pytest.raises(servicio.ReservaTenantDeshabilitada,
                        match="no acredita"):
         servicio.verificar_principal_reserva(db,_tenant())
-    assert len(db.calls)==3
+    assert len(db.calls)==4
 
 
 def test_5au_actor_correspondiente_autoriza_solo_preflight(monkeypatch):

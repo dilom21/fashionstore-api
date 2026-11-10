@@ -123,6 +123,41 @@ class InventarioConsultaResponse(BaseModel):
     offset: int
 
 
+class InventarioPosItemResponse(BaseModel):
+    """Vista mínima de inventario para el POS de CAJERO (CU13 SaaS).
+
+    No expone stock_actual, stock_reservado ni fecha_actualizacion: solo los
+    datos necesarios para buscar la prenda, mostrar disponibilidad y vender.
+    """
+
+    inventario_id: int
+    sucursal_id: int
+    sucursal_nombre: str
+    producto_id: int
+    producto_nombre: str
+    precio: Decimal
+    categoria_id: int
+    categoria_nombre: str
+    variante_producto_id: int
+    sku: str
+    talla_id: int
+    talla_nombre: str
+    color_id: int
+    color_nombre: str
+    temporada_id: int
+    temporada_nombre: str
+    stock_disponible: int
+
+
+class InventarioPosConsultaResponse(BaseModel):
+    """Respuesta paginada del inventario de POS."""
+
+    items: list[InventarioPosItemResponse]
+    total: int
+    limit: int
+    offset: int
+
+
 class TipoMovimiento(str, Enum):
     """Tipos de movimiento visibles en CU14 (Kardex)."""
 

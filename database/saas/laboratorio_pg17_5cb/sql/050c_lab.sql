@@ -2,7 +2,7 @@
 -- Cambio 1: se retiró la guarda 'BLOQUEADO' de la primera línea
 -- para poder ensayarla en un clúster desechable.
 -- No se alteró nada más.
--- sha256 del original: bd4e4659c7e31c03fc038b50a67c952caa0681312de99f275fc62bd21fea7453
+-- sha256 del original: ce7bb0126c08e48e86d72c780e3d96cab4ca612190e564cbbfecb0caeb68c47f
 -- PROPUESTA LOCAL. NO EJECUTAR. ACL de corte: rompe rutas legacy deliberadamente.
 -- REVISIÓN 5CA (2026-11-06), sin ejecutar. Originales en
 -- respaldo_050_originales_5ca/. Diferencias respecto a la propuesta original:
@@ -16,6 +16,19 @@
 -- El GRANT de bitácora para fashionstore_audit_owner ya existía aquí (hueco 6 de
 -- 5CA), se mantiene tal cual.
 BEGIN;
+
+-- El ejecutor Supabase tiene CREATEROLE pero no es superusuario. La membresia
+-- creada por 050a conserva ADMIN con SET FALSE; habilitar SET solo durante la
+-- transferencia de fn_registrar_bitacora() y retirarlo antes del COMMIT.
+DO $temporary_audit_owner_membership$
+DECLARE executor name:=current_user;
+BEGIN
+ EXECUTE format(
+  'GRANT fashionstore_audit_owner TO %I WITH SET TRUE, INHERIT FALSE',executor);
+ IF NOT pg_has_role(executor,'fashionstore_audit_owner','SET') THEN
+  RAISE EXCEPTION 'No se pudo habilitar SET temporal para audit_owner';
+ END IF;
+END $temporary_audit_owner_membership$;
 
 REVOKE ALL ON ALL TABLES IN SCHEMA public FROM PUBLIC;
 REVOKE ALL ON ALL SEQUENCES IN SCHEMA public FROM PUBLIC;
@@ -104,12 +117,46 @@ BEGIN
  IF TG_OP='DELETE' THEN RETURN OLD; END IF;
  RETURN NEW;
 END $fn$;
-GRANT CREATE ON SCHEMA public TO fashionstore_audit_owner;
-ALTER FUNCTION public.fn_registrar_bitacora() OWNER TO fashionstore_audit_owner;
-REVOKE CREATE ON SCHEMA public FROM fashionstore_audit_owner;
+-- Completar atributos y ACL mientras el ejecutor todavia es owner. Despues de
+-- ALTER OWNER no se vuelve a modificar la funcion desde el rol administrativo.
 ALTER FUNCTION public.fn_registrar_bitacora() SECURITY DEFINER;
 ALTER FUNCTION public.fn_registrar_bitacora() SET search_path=public,pg_temp;
 REVOKE ALL ON FUNCTION public.fn_registrar_bitacora() FROM PUBLIC,fashionstore_api;
+GRANT CREATE ON SCHEMA public TO fashionstore_audit_owner;
+ALTER FUNCTION public.fn_registrar_bitacora() OWNER TO fashionstore_audit_owner;
+REVOKE CREATE ON SCHEMA public FROM fashionstore_audit_owner;
+
+DO $revoke_temporary_audit_owner_membership$
+DECLARE executor name:=current_user;
+BEGIN
+ -- Retira solamente la concesion temporal cuyo grantor es el ejecutor; la
+ -- membresia administrativa automatica queda intacta y con SET FALSE.
+ EXECUTE format(
+  'REVOKE fashionstore_audit_owner FROM %I GRANTED BY %I',executor,executor);
+ IF pg_has_role(executor,'fashionstore_audit_owner','SET') THEN
+  RAISE EXCEPTION 'Persistio SET temporal para audit_owner';
+ END IF;
+ IF NOT EXISTS(
+  SELECT 1 FROM pg_auth_members m
+  JOIN pg_roles granted ON granted.oid=m.roleid
+  JOIN pg_roles member ON member.oid=m.member
+  WHERE granted.rolname='fashionstore_audit_owner'
+    AND member.rolname=executor
+    AND m.admin_option AND NOT m.inherit_option AND NOT m.set_option
+ ) THEN
+  RAISE EXCEPTION 'Membresia administrativa final inesperada para audit_owner';
+ END IF;
+ IF EXISTS(
+  SELECT 1 FROM pg_auth_members m
+  JOIN pg_roles granted ON granted.oid=m.roleid
+  JOIN pg_roles member ON member.oid=m.member
+  JOIN pg_roles grantor ON grantor.oid=m.grantor
+  WHERE granted.rolname='fashionstore_audit_owner'
+    AND member.rolname=executor AND grantor.rolname=executor
+ ) THEN
+  RAISE EXCEPTION 'Persistio la concesion temporal para audit_owner';
+ END IF;
+END $revoke_temporary_audit_owner_membership$;
 
 -- Owner de los tres SP: privilegios restringidos al flujo CU16/17/18.
 GRANT SELECT ON public.usuario,public.usuario_empresa,public.empresa,public.rol,

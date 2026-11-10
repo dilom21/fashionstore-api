@@ -7,6 +7,7 @@ pero se comprueba el cliente REALMENTE enlazado en tablas del test.
 import os
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
+from unittest.mock import Mock
 
 os.environ["DATABASE_URL"] = "sqlite+pysqlite:///./saas_auth_unit_test.db"
 os.environ["SECRET_KEY"] = "clave-ficticia-exclusiva-para-test-saas"
@@ -16,6 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import BigInteger, create_engine, insert, select, func, event
 from sqlalchemy.ext.compiler import compiles
+from sqlalchemy.dialects import postgresql
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -26,8 +28,10 @@ from app.core.tenant_dependencies import get_current_tenant_context
 from app.main import app
 from app.modules.autenticacion_seguridad.models.models import Cliente
 from app.modules.carrito.models.models import Carrito, DetalleCarrito
+from app.modules.carrito.repositories.tenant_repository import CarritoTenantRepository
 from app.modules.catalogo.models.models import (
-    Categoria, Color, Producto, Talla, Temporada, VarianteProducto,
+    Categoria, Color, Producto, RecursoProducto, Talla, Temporada,
+    VarianteProducto,
 )
 from app.modules.inventario.models.models import Inventario
 from app.modules.reservas.models.models import Reserva
@@ -59,7 +63,8 @@ def escenario_carrito(monkeypatch):
         Ciudad.__table__, Sucursal.__table__, Cliente.__table__,
         Categoria.__table__, Producto.__table__, Talla.__table__,
         Color.__table__, Temporada.__table__, VarianteProducto.__table__,
-        Inventario.__table__, Carrito.__table__, DetalleCarrito.__table__,
+        RecursoProducto.__table__, Inventario.__table__, Carrito.__table__,
+        DetalleCarrito.__table__,
         Reserva.__table__,
     ])
     ahora = datetime.now(timezone.utc).replace(microsecond=0)
@@ -106,6 +111,16 @@ def escenario_carrito(monkeypatch):
              "talla_id": 1, "color_id": 1, "sku": "A-111", "estado": True},
             {"id": 222, "empresa_id": 20, "producto_id": 222,
              "talla_id": 1, "color_id": 1, "sku": "B-222", "estado": True},
+        ])
+        c.execute(insert(RecursoProducto.__table__), [
+            {"id": 111, "empresa_id": 10, "producto_id": 111,
+             "color_id": 1, "tipo": "IMAGEN",
+             "url": "https://img.test/tenant-a-camisa.webp",
+             "es_principal": True, "estado": True},
+            {"id": 222, "empresa_id": 20, "producto_id": 222,
+             "color_id": 1, "tipo": "IMAGEN",
+             "url": "https://img.test/tenant-b-camisa.webp",
+             "es_principal": True, "estado": True},
         ])
         c.execute(insert(Inventario.__table__), [
             {"id": 1111, "empresa_id": 10, "sucursal_id": 1101,
@@ -154,6 +169,57 @@ def _agregar(client, sucursal=1101, inventario=1111, cantidad=2):
     })
 
 
+def _agregar_desde_catalogo(
+    client, sucursal=1101, variante=111, temporada=111, cantidad=2,
+):
+    return client.post("/tenant/carritos/items", json={
+        "sucursal_id": sucursal,
+        "variante_producto_id": variante,
+        "temporada_id": temporada,
+        "cantidad": cantidad,
+    })
+
+
+def test_postgresql_serializa_cliente_sin_exigir_update_sobre_cliente():
+    db = Mock()
+    db.get_bind.return_value.dialect.name = "postgresql"
+    db.scalar.return_value = 1001
+
+    assert CarritoTenantRepository._cliente_id(
+        db, empresa_id=10, usuario_id=99,
+    ) == 1001
+
+    lock_sql = str(
+        db.execute.call_args.args[0].compile(dialect=postgresql.dialect())
+    ).upper()
+    cliente_sql = str(
+        db.scalar.call_args.args[0].compile(dialect=postgresql.dialect())
+    ).upper()
+    assert "PG_ADVISORY_XACT_LOCK" in lock_sql
+    assert "FOR UPDATE" not in cliente_sql
+
+
+def test_postgresql_consulta_stock_sin_bloqueo_de_tabla_solo_lectura():
+    db = Mock()
+    db.execute.return_value.mappings.return_value.all.return_value = [{
+        "id": 1111, "stock_actual": 10, "stock_reservado": 2,
+    }]
+
+    inventario_id, disponible = CarritoTenantRepository._resolver_inventario_stock(
+        db, empresa_id=10, sucursal_id=1101,
+        variante_producto_id=111, temporada_id=111,
+    )
+
+    consulta = db.execute.call_args.args[0]
+    sql = str(consulta.compile(dialect=postgresql.dialect())).upper()
+    assert (inventario_id, disponible) == (1111, 8)
+    assert "FOR UPDATE" not in sql
+    assert "INVENTARIO.EMPRESA_ID" in sql
+    assert "INVENTARIO.SUCURSAL_ID" in sql
+    assert "INVENTARIO.VARIANTE_PRODUCTO_ID" in sql
+    assert "INVENTARIO.TEMPORADA_ID" in sql
+
+
 def test_crea_carrito_cliente_y_detalle_en_empresa_propia(escenario_carrito):
     client, _, factory = escenario_carrito
     res = _agregar(client)
@@ -167,6 +233,96 @@ def test_crea_carrito_cliente_y_detalle_en_empresa_propia(escenario_carrito):
             select(Carrito.empresa_id, Carrito.cliente_id, Carrito.sucursal_id)
         ).one()
     assert registro == (10, 1001, 1101)
+
+
+def test_resuelve_inventario_desde_seleccion_publica_sin_exponer_id(
+    escenario_carrito,
+):
+    client, _, factory = escenario_carrito
+    res = _agregar_desde_catalogo(client, cantidad=3)
+    assert res.status_code == 200, res.text
+    assert res.json()["inventario_id"] == 1111
+    assert res.json()["cantidad"] == 3
+    with factory() as db:
+        linea = db.execute(select(
+            DetalleCarrito.empresa_id,
+            DetalleCarrito.inventario_id,
+            DetalleCarrito.cantidad,
+        )).one()
+    assert linea == (10, 1111, 3)
+
+
+@pytest.mark.parametrize("datos", [
+    {"sucursal_id": 1101, "cantidad": 1},
+    {"sucursal_id": 1101, "variante_producto_id": 111, "cantidad": 1},
+    {"sucursal_id": 1101, "temporada_id": 111, "cantidad": 1},
+    {
+        "sucursal_id": 1101, "inventario_id": 1111,
+        "variante_producto_id": 111, "temporada_id": 111, "cantidad": 1,
+    },
+])
+def test_seleccion_de_inventario_parcial_o_mixta_se_rechaza(
+    escenario_carrito, datos,
+):
+    client, _, factory = escenario_carrito
+    res = client.post("/tenant/carritos/items", json=datos)
+    assert res.status_code == 422
+    assert _total(factory, Carrito.__table__) == 0
+    assert _total(factory, DetalleCarrito.__table__) == 0
+
+
+@pytest.mark.parametrize("sucursal,variante,temporada", [
+    (1101, 222, 222),  # variante y temporada ajenas
+    (2202, 111, 111),  # sucursal ajena
+    (1101, 9999, 111),  # variante inexistente
+    (1101, 111, 9999),  # temporada inexistente
+])
+def test_resolucion_publica_no_cruza_empresa_y_revierte_carrito(
+    escenario_carrito, sucursal, variante, temporada,
+):
+    client, _, factory = escenario_carrito
+    res = _agregar_desde_catalogo(
+        client, sucursal=sucursal, variante=variante, temporada=temporada,
+    )
+    assert res.status_code == 404
+    assert _total(factory, Carrito.__table__) == 0
+    assert _total(factory, DetalleCarrito.__table__) == 0
+
+
+def test_temporada_es_obligatoria_y_resuelve_fila_exacta(escenario_carrito):
+    client, _, factory = escenario_carrito
+    ahora = datetime.now(timezone.utc)
+    with factory.begin() as db:
+        db.execute(insert(Temporada.__table__).values(
+            id=112, empresa_id=10, nombre="Temporada A2",
+            fecha_inicio=ahora.date(), fecha_fin=ahora.date(), estado=True,
+        ))
+        db.execute(insert(Inventario.__table__).values(
+            id=1112, empresa_id=10, sucursal_id=1101,
+            variante_producto_id=111, temporada_id=112,
+            stock_actual=4, stock_reservado=0,
+            fecha_actualizacion=ahora,
+        ))
+    incompleta = client.post("/tenant/carritos/items", json={
+        "sucursal_id": 1101, "variante_producto_id": 111, "cantidad": 1,
+    })
+    assert incompleta.status_code == 422
+    res = _agregar_desde_catalogo(client, temporada=112, cantidad=2)
+    assert res.status_code == 200, res.text
+    assert res.json()["inventario_id"] == 1112
+
+
+def test_temporada_inactiva_no_es_comprable(escenario_carrito):
+    client, _, factory = escenario_carrito
+    with factory.begin() as db:
+        db.execute(
+            Temporada.__table__.update()
+            .where(Temporada.id == 111)
+            .values(estado=False)
+        )
+    assert _agregar_desde_catalogo(client).status_code == 404
+    assert _agregar(client).status_code == 404
+    assert _total(factory, Carrito.__table__) == 0
 
 
 def test_reutiliza_carrito_y_acumula_cantidad(escenario_carrito):
@@ -627,6 +783,9 @@ def test_listar_y_detallar_carrito_propio_con_totales_correctos(escenario_carrit
     linea = body["items"][0]
     assert linea["detalle_id"] == alta.json()["detalle_id"]
     assert linea["producto_nombre"] == "Camisa A"
+    assert linea["imagen_principal_url"] == (
+        "https://img.test/tenant-a-camisa.webp"
+    )
     assert linea["sku"] == "A-111"
     assert linea["temporada_nombre"] == "Temporada A"
     assert linea["talla_nombre"] == "M"
@@ -637,6 +796,36 @@ def test_listar_y_detallar_carrito_propio_con_totales_correctos(escenario_carrit
     assert "cliente_id" not in str(body)
     assert "empresa_id" not in str(body)
     assert _total(factory, DetalleCarrito.__table__, empresa_id=10) == 1
+
+
+def test_detalle_carrito_sin_imagen_devuelve_null(escenario_carrito):
+    client, _, factory = escenario_carrito
+    with factory.begin() as db:
+        db.execute(
+            RecursoProducto.__table__.update()
+            .where(RecursoProducto.empresa_id == 10)
+            .values(estado=False)
+        )
+    alta = _agregar(client).json()
+    detalle = client.get(f'/tenant/carritos/{alta["carrito_id"]}')
+    assert detalle.status_code == 200, detalle.text
+    assert detalle.json()["items"][0]["imagen_principal_url"] is None
+
+
+def test_imagen_carrito_no_cruza_empresas(escenario_carrito):
+    client, identidad, _ = escenario_carrito
+    carrito_a = _agregar(client).json()
+    imagen_a = client.get(
+        f'/tenant/carritos/{carrito_a["carrito_id"]}'
+    ).json()["items"][0]["imagen_principal_url"]
+    identidad["empresa_id"], identidad["usuario_id"] = 20, 88
+    carrito_b = _agregar(client, sucursal=2202, inventario=2222).json()
+    imagen_b = client.get(
+        f'/tenant/carritos/{carrito_b["carrito_id"]}'
+    ).json()["items"][0]["imagen_principal_url"]
+    assert imagen_a == "https://img.test/tenant-a-camisa.webp"
+    assert imagen_b == "https://img.test/tenant-b-camisa.webp"
+    assert imagen_a != imagen_b
 
 
 def test_listado_inicial_vacio_para_cliente_valido(escenario_carrito):
@@ -1028,7 +1217,8 @@ def test_prevalidacion_stock_actual_y_reservado(
 
 
 @pytest.mark.parametrize("entidad", [
-    "sucursal", "variante", "producto", "categoria", "talla", "color",
+    "sucursal", "variante", "producto", "categoria", "temporada",
+    "talla", "color",
 ])
 def test_prevalidacion_prenda_o_sucursal_inactiva_409(escenario_carrito, entidad):
     client, _, factory = escenario_carrito
@@ -1038,6 +1228,7 @@ def test_prevalidacion_prenda_o_sucursal_inactiva_409(escenario_carrito, entidad
         "variante": (VarianteProducto.__table__, 111),
         "producto": (Producto.__table__, 111),
         "categoria": (Categoria.__table__, 111),
+        "temporada": (Temporada.__table__, 111),
         "talla": (Talla.__table__, 1),
         "color": (Color.__table__, 1),
     }
@@ -1131,8 +1322,8 @@ def test_sigue_bloqueada_la_creacion_y_cancelacion_real(escenario_carrito):
     assert _total(factory, Reserva.__table__) == 0
 
 
-# B3/P5H: orden CU15: carrito antes de inventario.
-# SQLite ignora FOR UPDATE: estos tests SOLO comprueban el orden SQL emitido.
+# B3/P5H: orden CU15: carrito antes de consultar inventario.
+# SQLite comprueba el orden SQL; PostgreSQL usa además el lock asesor por cliente.
 
 def _registrar_sql(engine, ejecutar):
     sentencias = []

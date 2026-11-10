@@ -44,7 +44,9 @@ def principal(**patch):
         restringido=True,
         rls_empresas=True,rls_reservas=True,rls_inventario=True,
         empresas_visibles=1,empresa_esperada_visible=1,planes_reserva_vigentes=1,
-        procedimientos_autorizados=1,
+        # El contrato definitivo usa SP SECURITY DEFINER. La consulta inicial
+        # cuenta exclusivamente procedimientos INVOKER, por eso debe ser cero.
+        procedimientos_autorizados=0,
     )
     return {**r,**patch}
 
@@ -77,6 +79,31 @@ class FakeDB:
         self.params.append(dict(args) if args is not None else None)
         if "SELECT session_user AS principal" in query:
             return QueryResult(self.row)
+        if "p.prokind='p'" in query:
+            from app.core.config import settings
+            return QueryResult({
+                "propietario": settings.saas_sp_sql_owner,
+                "security_definer": True,
+                "path_seguro": True,
+                "puede_ejecutar": True,
+                "propietario_restringido": True,
+                "owner_sin_ddl": True,
+                "llamador_ajeno_al_propietario": True,
+                "llamador_sin_ddl": True,
+                "publico_revocado": True,
+            })
+        if "fs_verificar_actor_reserva(bigint,bigint)" in query:
+            from app.core.config import settings
+            return QueryResult({
+                "propietario": settings.saas_actor_sql_owner,
+                "security_definer": True,
+                "path_seguro": True,
+                "puede_ejecutar": True,
+                "propietario_restringido": True,
+                "llamador_sin_ddl": True,
+                "llamador_ajeno_al_propietario": True,
+                "publico_revocado": True,
+            })
         if "CALL public.sp_crear_reserva_tenant" in query:
             if self.error is not None:
                 raise self.error
@@ -84,8 +111,11 @@ class FakeDB:
         raise AssertionError("Sentencia inesperada")
 
     def scalar(self,sql,args=None):
-        self.queries.append(str(sql))
+        query=str(sql)
+        self.queries.append(query)
         self.params.append(dict(args))
+        if "SELECT public.fs_verificar_actor_reserva" in query:
+            return True
         return self.coincide
 
     def commit(self):
@@ -105,13 +135,13 @@ def test_cu16_adaptador_exito_atomico_y_ids_del_tenant():
     db=FakeDB()
     assert run(db)==404
     assert db.commits==1 and db.rollbacks==0
-    assert len(db.queries)==3
-    args=db.params[1]
+    assert len(db.queries)==6
+    args=db.params[4]
     assert args["empresa_id"]==15 and args["usuario_id"]==42
     assert args["carrito_id"]==17 and args["reserva_id"] is None
-    assert db.params[2]["empresa_id"]==15
-    assert db.params[2]["usuario_id"]==42
-    assert db.params[2]["reserva_id"]==404
+    assert db.params[5]["empresa_id"]==15
+    assert db.params[5]["usuario_id"]==42
+    assert db.params[5]["reserva_id"]==404
 
 
 @pytest.mark.parametrize("change",[
@@ -119,7 +149,7 @@ def test_cu16_adaptador_exito_atomico_y_ids_del_tenant():
     {"rls_empresas":False},{"rls_reservas":False},{"rls_inventario":False},
     {"empresas_visibles":2},{"empresa_esperada_visible":0},
     {"planes_reserva_vigentes":0},{"planes_reserva_vigentes":2},
-    {"procedimientos_autorizados":0},{"procedimientos_autorizados":2},
+    {"procedimientos_autorizados":1},{"procedimientos_autorizados":2},
     {"principal":""},
 ])
 def test_cu16_falla_cerrado_sin_principal_aislado(change):
@@ -179,9 +209,11 @@ def test_cu16_contrato_no_permite_usuario_personal():
 def test_cu16_uso_de_contexto_sql_no_sustituye_jwt_y_membresia():
     assert "preparar_creacion_reserva(" in CODE
     assert "get_current_tenant_cliente" in CODE
-    assert "JWT+membresía" in CODE
+    assert "JWT" in CODE and "membres" in CODE
     assert "NOT r.rolsuper AND NOT r.rolbypassrls" in CODE
-    assert "NOT r.rolinherit" in CODE
+    assert "AND r.rolinherit" in CODE
+    assert "pg_has_role(r.rolname,'fashionstore_api','USAGE')" in CODE
+    assert "heredado.rolname<>'fashionstore_api'" in CODE
 
 
 def test_cu16_rutas_de_escritura_no_se_abren():
@@ -230,6 +262,10 @@ class CambioDB(FakeDB):
         self.params.append(dict(args) if args is not None else None)
         if "SELECT session_user AS principal" in query:
             return QueryResult(self.row)
+        if "p.prokind='p'" in query:
+            return super().execute(sql,args)
+        if "fs_verificar_actor_reserva(bigint,bigint)" in query:
+            return super().execute(sql,args)
         if "CALL public.sp_cancelar_reserva_tenant" in query or (
             "CALL public.sp_finalizar_reserva_sin_compra_tenant" in query
         ):
@@ -239,7 +275,10 @@ class CambioDB(FakeDB):
         raise AssertionError("Sentencia inesperada")
 
     def scalar(self,sql,args=None):
-        self.queries.append(str(sql))
+        query=str(sql)
+        if "SELECT public.fs_verificar_actor_reserva" in query:
+            return super().scalar(sql,args)
+        self.queries.append(query)
         self.params.append(dict(args))
         return self.estado
 
@@ -251,9 +290,12 @@ def test_cancelacion_atomica_con_principal_y_tenant():
     )
     assert estado=="CANCELADA" and db.commits==1 and db.rollbacks==0
     assert db.params[0]["procedimiento"]=="sp_cancelar_reserva_tenant"
-    assert db.params[1]["empresa_id"]==15 and db.params[1]["usuario_id"]==42
-    assert db.params[2]["reserva_id"]==77
-    assert db.params[2]["cliente"] is True
+    llamada=next(p for p in db.params if p and p.get("reserva_id")==77
+                 and "cliente" not in p)
+    confirmacion=next(p for p in db.params if p and "cliente" in p)
+    assert llamada["empresa_id"]==15 and llamada["usuario_id"]==42
+    assert confirmacion["reserva_id"]==77
+    assert confirmacion["cliente"] is True
 
 
 def test_finalizacion_atomica_personal():
@@ -265,7 +307,8 @@ def test_finalizacion_atomica_personal():
     )
     assert estado=="ATENDIDA" and db.commits==1 and db.rollbacks==0
     assert db.params[0]["procedimiento"]=="sp_finalizar_reserva_sin_compra_tenant"
-    assert db.params[2]["cliente"] is False
+    confirmacion=next(p for p in db.params if p and "cliente" in p)
+    assert confirmacion["cliente"] is False
 
 
 @pytest.mark.parametrize("accion,estado",[

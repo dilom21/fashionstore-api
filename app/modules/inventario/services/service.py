@@ -14,6 +14,8 @@ from app.modules.inventario.schemas.schemas import (
     InventarioConsultaResponse,
     InventarioFiltrosResponse,
     InventarioItemResponse,
+    InventarioPosConsultaResponse,
+    InventarioPosItemResponse,
     MovimientoInventarioConsultaResponse,
     MovimientoInventarioItemResponse,
     TipoMovimiento,
@@ -21,7 +23,12 @@ from app.modules.inventario.schemas.schemas import (
 
 ROL_ADMINISTRADOR = "ADMINISTRADOR"
 ROL_ENCARGADO_SUCURSAL = "ENCARGADO_SUCURSAL"
+ROL_CAJERO = "CAJERO"
 ROLES_INVENTARIO_SAAS = frozenset({ROL_ADMINISTRADOR, ROL_ENCARGADO_SUCURSAL})
+# CU13 POS: el cajero solo consulta, nunca movimientos ni escrituras.
+ROLES_INVENTARIO_POS = frozenset(
+    {ROL_ADMINISTRADOR, ROL_ENCARGADO_SUCURSAL, ROL_CAJERO}
+)
 
 DISPONIBILIDADES_VALIDAS = frozenset(
     {
@@ -78,10 +85,14 @@ def _sucursal_scope(usuario: Usuario) -> int | None:
     return empleado.sucursal_id
 
 
-def _sucursal_scope_tenant(db: Session, tenant: TenantContext) -> int | None:
-    """Alcance CU08 basado solamente en membresia/rol empresarial vigentes."""
+def _sucursal_scope_tenant(
+    db: Session,
+    tenant: TenantContext,
+    roles: frozenset[str] = ROLES_INVENTARIO_SAAS,
+) -> int | None:
+    """Alcance basado en membresia/rol empresarial vigentes."""
     rol = tenant.rol_nombre.strip().upper()
-    if tenant.contexto != "personal" or rol not in ROLES_INVENTARIO_SAAS:
+    if tenant.contexto != "personal" or rol not in roles:
         raise RolInventarioTenantError()
     if rol == ROL_ADMINISTRADOR:
         return None
@@ -94,9 +105,12 @@ def _sucursal_scope_tenant(db: Session, tenant: TenantContext) -> int | None:
 
 
 def _resolver_sucursal_tenant(
-    db: Session, tenant: TenantContext, sucursal_id: int | None
+    db: Session,
+    tenant: TenantContext,
+    sucursal_id: int | None,
+    roles: frozenset[str] = ROLES_INVENTARIO_SAAS,
 ) -> int | None:
-    scope = _sucursal_scope_tenant(db, tenant)
+    scope = _sucursal_scope_tenant(db, tenant, roles)
     if scope is not None:
         if sucursal_id is not None and sucursal_id != scope:
             raise SucursalScopeError()
@@ -133,6 +147,31 @@ def _construir_item(inventario: Inventario) -> InventarioItemResponse:
         stock_reservado=inventario.stock_reservado,
         stock_disponible=inventario.stock_actual - inventario.stock_reservado,
         fecha_actualizacion=inventario.fecha_actualizacion,
+    )
+
+
+def _construir_item_pos(inventario: Inventario) -> InventarioPosItemResponse:
+    variante = inventario.variante_producto
+    producto = variante.producto
+    categoria = producto.categoria
+    return InventarioPosItemResponse(
+        inventario_id=inventario.id,
+        sucursal_id=inventario.sucursal_id,
+        sucursal_nombre=inventario.sucursal.nombre,
+        producto_id=producto.id,
+        producto_nombre=producto.nombre,
+        precio=producto.precio,
+        categoria_id=categoria.id,
+        categoria_nombre=categoria.nombre,
+        variante_producto_id=variante.id,
+        sku=variante.sku,
+        talla_id=variante.talla.id,
+        talla_nombre=variante.talla.nombre,
+        color_id=variante.color.id,
+        color_nombre=variante.color.nombre,
+        temporada_id=inventario.temporada_id,
+        temporada_nombre=inventario.temporada.nombre,
+        stock_disponible=inventario.stock_actual - inventario.stock_reservado,
     )
 
 
@@ -433,6 +472,42 @@ class InventarioService:
         )
         return InventarioConsultaResponse(
             items=[_construir_item(item) for item in inventarios],
+            total=total,
+            limit=limit,
+            offset=offset,
+        )
+
+    @staticmethod
+    def consultar_inventario_pos_tenant(
+        db: Session,
+        tenant: TenantContext,
+        **filtros,
+    ) -> InventarioPosConsultaResponse:
+        """Consulta mínima de inventario para el POS de CAJERO.
+
+        Solo ADMINISTRADOR, ENCARGADO_SUCURSAL y CAJERO. El cajero queda
+        limitado a la sucursal de su empleado. No expone Kardex ni escrituras.
+        """
+        disponibilidad = InventarioService._normalizar_disponibilidad(
+            filtros.pop("disponibilidad", None)
+        )
+        sucursal_id = _resolver_sucursal_tenant(
+            db, tenant, filtros.pop("sucursal_id", None),
+            roles=ROLES_INVENTARIO_POS,
+        )
+        limit = filtros.pop("limit", 50)
+        offset = filtros.pop("offset", 0)
+        inventarios, total = InventarioRepository.consultar_pos(
+            db,
+            empresa_id=tenant.empresa_id,
+            sucursal_id=sucursal_id,
+            disponibilidad=disponibilidad,
+            limit=limit,
+            offset=offset,
+            **filtros,
+        )
+        return InventarioPosConsultaResponse(
+            items=[_construir_item_pos(item) for item in inventarios],
             total=total,
             limit=limit,
             offset=offset,

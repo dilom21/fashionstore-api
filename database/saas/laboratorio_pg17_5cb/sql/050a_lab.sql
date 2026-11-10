@@ -4,7 +4,7 @@
 -- No se alteró nada más.
 -- Las 1 corrección(es) 5CB de este archivo ya están
 -- incorporadas en la propuesta original: no se duplican aquí.
--- sha256 del original: 5981810d14aede018342062f6e041ee31ed3e4490a98c9d59ed46305614679bc
+-- sha256 del original: 1c08b0e0e06533c72e8ab93e201bb13ef0be70de06dfcd52ff6e3c0650217628
 -- PROPUESTA LOCAL. NO EJECUTAR hasta retirar deliberadamente esta guarda
 -- en una copia de laboratorio y cargar el secreto en Vault fuera del SQL.
 -- REVISIÓN 5CA (2026-11-06). Sigue sin ejecutarse: la guarda anterior es
@@ -17,6 +17,10 @@
 --            toda verificación JWT (en Supabase tampoco se concede a PUBLIC).
 --   HUECO 5: audit_owner sin USAGE en fashionstore_private => el trigger de
 --            bitácora rompe toda escritura de la API.
+--   HUECO 6: context_owner sin USAGE en vault ni EXECUTE de la función que
+--            descifra los secretos => actor_claims() no puede materializar
+--            jwt_keys y todo login tenant responde 401 (detectado en el smoke
+--            de Supabase del 2026-11-06; sin SELECT sobre vault.* ni PUBLIC).
 --   HUECO 7: el login por empresa_slug no puede ejecutarse con el pool api
 --            restringido (toda policy exige actor_claims()). Se añade una
 --            proyección estrecha de bootstrap, igual que bootstrap_credencial.
@@ -67,6 +71,22 @@ BEGIN
  END IF;
 END $roles$;
 
+-- PostgreSQL 17/Supabase: CREATEROLE conserva ADMIN sobre los roles creados,
+-- pero no concede SET. ALTER ... OWNER exige poder hacer SET ROLE al nuevo
+-- owner. Se habilita SET temporalmente, sin herencia, y se retira antes del
+-- COMMIT conservando la membresia administrativa automatica con SET FALSE.
+DO $temporary_owner_membership$
+DECLARE executor name:=current_user; target name;
+BEGIN
+ FOREACH target IN ARRAY ARRAY[
+  'fashionstore_context_owner','fashionstore_bootstrap_owner']::name[] LOOP
+  EXECUTE format('GRANT %I TO %I WITH SET TRUE, INHERIT FALSE',target,executor);
+  IF NOT pg_has_role(executor,target,'SET') THEN
+   RAISE EXCEPTION 'No se pudo habilitar SET temporal para %',target;
+  END IF;
+ END LOOP;
+END $temporary_owner_membership$;
+
 CREATE SCHEMA IF NOT EXISTS fashionstore_private;
 REVOKE ALL ON SCHEMA fashionstore_private FROM PUBLIC;
 DO $optional_supabase_roles$
@@ -91,6 +111,21 @@ GRANT USAGE ON SCHEMA fashionstore_private TO fashionstore_api,
 -- que no concede extensions a PUBLIC).
 GRANT USAGE ON SCHEMA extensions TO fashionstore_context_owner;
 GRANT EXECUTE ON FUNCTION extensions.hmac(bytea,bytea,text)
+ TO fashionstore_context_owner;
+-- 5CA HUECO 6: fashionstore_private.jwt_keys proyecta vault.decrypted_secrets y
+-- esa vista descifra llamando a vault._crypto_aead_det_decrypt(). actor_claims()
+-- corre como context_owner, así que sin USAGE del esquema vault y EXECUTE de la
+-- función toda petición tenant aborta con 42501 «permission denied for function
+-- _crypto_aead_det_decrypt» y el login responde 401. Se concede el mínimo: NO se
+-- otorga SELECT sobre vault.secrets ni vault.decrypted_secrets (el único camino
+-- de lectura sigue siendo la vista filtrada jwt_keys) y nada va a PUBLIC.
+-- Se coloca aquí, con los demás privilegios de actor_claims() y antes de crear
+-- la vista que los consume: los ALTER ... OWNER posteriores no tocan estas ACL y
+-- el REVOKE CREATE ON SCHEMA fashionstore_private tampoco las afecta.
+-- Firma exacta de la instancia (PG 17.6); el GRANT equivalente ya se ejecutó
+-- con éxito como postgres en esa misma base y desbloqueó actor_claims().
+GRANT USAGE ON SCHEMA vault TO fashionstore_context_owner;
+GRANT EXECUTE ON FUNCTION vault._crypto_aead_det_decrypt(bytea,bytea,bigint,bytea,bytea)
  TO fashionstore_context_owner;
 -- PostgreSQL exige CREATE para transferir ownership. Es temporal y se revoca
 -- dentro de esta misma transacción después de crear las funciones.
@@ -230,17 +265,19 @@ $fn$;
 DO $owner_and_acl$
 DECLARE f record;
 BEGIN
- FOR f IN SELECT p.oid::regprocedure sig FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
+ FOR f IN SELECT p.oid::regprocedure sig,p.proname FROM pg_proc p JOIN pg_namespace n ON n.oid=p.pronamespace
   WHERE n.nspname='fashionstore_private' AND p.proname LIKE 'actor_%'
     AND p.proname<>'actor_claims'
  LOOP
   EXECUTE format('REVOKE ALL ON FUNCTION %s FROM PUBLIC,fashionstore_bootstrap',f.sig);
-  EXECUTE format('ALTER FUNCTION %s OWNER TO fashionstore_context_owner',f.sig);
   EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO fashionstore_api,fashionstore_sp_owner',f.sig);
+  IF f.proname='actor_usuario_id' THEN
+   EXECUTE format('GRANT EXECUTE ON FUNCTION %s TO fashionstore_audit_owner',f.sig);
+  END IF;
+  -- Ninguna ACL de esta funcion se modifica despues de perder su ownership.
+  EXECUTE format('ALTER FUNCTION %s OWNER TO fashionstore_context_owner',f.sig);
  END LOOP;
 END $owner_and_acl$;
-GRANT EXECUTE ON FUNCTION fashionstore_private.actor_usuario_id()
- TO fashionstore_audit_owner;
 
 -- Bootstrap aislado: sólo una proyección id/hash y sin acceso directo a usuario.
 CREATE OR REPLACE FUNCTION fashionstore_private.bootstrap_credencial(p_correo text)
@@ -250,8 +287,8 @@ SET search_path=pg_catalog,pg_temp AS $fn$
  WHERE u.correo=lower(btrim(p_correo)) AND u.estado LIMIT 2;
 $fn$;
 REVOKE ALL ON FUNCTION fashionstore_private.bootstrap_credencial(text) FROM PUBLIC,fashionstore_api;
-ALTER FUNCTION fashionstore_private.bootstrap_credencial(text) OWNER TO fashionstore_bootstrap_owner;
 GRANT EXECUTE ON FUNCTION fashionstore_private.bootstrap_credencial(text) TO fashionstore_bootstrap;
+ALTER FUNCTION fashionstore_private.bootstrap_credencial(text) OWNER TO fashionstore_bootstrap_owner;
 
 -- 5CA HUECO 7 (nuevo, no estaba en la propuesta): el login del API recibe
 -- empresa_slug, pero la consulta de membresía corre en el pool api y TODA
@@ -267,8 +304,8 @@ SET search_path=pg_catalog,pg_temp AS $fn$
  WHERE e.slug=lower(btrim(p_slug)) AND e.estado LIMIT 2;
 $fn$;
 REVOKE ALL ON FUNCTION fashionstore_private.bootstrap_empresa_id(text) FROM PUBLIC,fashionstore_api;
-ALTER FUNCTION fashionstore_private.bootstrap_empresa_id(text) OWNER TO fashionstore_bootstrap_owner;
 GRANT EXECUTE ON FUNCTION fashionstore_private.bootstrap_empresa_id(text) TO fashionstore_bootstrap;
+ALTER FUNCTION fashionstore_private.bootstrap_empresa_id(text) OWNER TO fashionstore_bootstrap_owner;
 
 -- Privilegios de lectura mínimos de los owners NOLOGIN. Las policies internas
 -- para estos owners se crean en 050b antes de FORCE RLS.
@@ -287,6 +324,39 @@ GRANT SELECT(id,slug,estado) ON public.empresa TO fashionstore_bootstrap_owner;
 
 REVOKE CREATE ON SCHEMA fashionstore_private FROM fashionstore_context_owner,
  fashionstore_bootstrap_owner;
+
+DO $revoke_temporary_owner_membership$
+DECLARE executor name:=current_user; target name;
+BEGIN
+ FOREACH target IN ARRAY ARRAY[
+  'fashionstore_context_owner','fashionstore_bootstrap_owner']::name[] LOOP
+  -- Retira la concesion temporal creada por este ejecutor sin tocar la
+  -- membresia administrativa automatica (grantor distinto) de PostgreSQL 17.
+  EXECUTE format('REVOKE %I FROM %I GRANTED BY %I',target,executor,executor);
+  IF pg_has_role(executor,target,'SET') THEN
+   RAISE EXCEPTION 'Persistio SET temporal para %',target;
+  END IF;
+  IF NOT EXISTS(
+   SELECT 1 FROM pg_auth_members m
+   JOIN pg_roles granted ON granted.oid=m.roleid
+   JOIN pg_roles member ON member.oid=m.member
+   WHERE granted.rolname=target AND member.rolname=executor
+     AND m.admin_option AND NOT m.inherit_option AND NOT m.set_option
+  ) THEN
+   RAISE EXCEPTION 'Membresia administrativa final inesperada para %',target;
+  END IF;
+  IF EXISTS(
+   SELECT 1 FROM pg_auth_members m
+   JOIN pg_roles granted ON granted.oid=m.roleid
+   JOIN pg_roles member ON member.oid=m.member
+   JOIN pg_roles grantor ON grantor.oid=m.grantor
+   WHERE granted.rolname=target AND member.rolname=executor
+     AND grantor.rolname=executor
+  ) THEN
+   RAISE EXCEPTION 'Persistio la concesion temporal de % para %',target,executor;
+  END IF;
+ END LOOP;
+END $revoke_temporary_owner_membership$;
 
 COMMIT;
 

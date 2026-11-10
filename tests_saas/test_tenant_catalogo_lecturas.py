@@ -171,8 +171,13 @@ def test_paginacion_controlada(cliente_tenant):
 
 def test_modo_saas_bloquea_urls_legacy_y_metodos_no_migrados(cliente_tenant):
     client, _ = cliente_tenant
-    for ruta in ("/productos", "/categorias", "/productos/2002", "/openapi.json"):
+    for ruta in ("/productos", "/categorias", "/productos/2002"):
         assert client.get(ruta).status_code == 503
+    # Swagger/OpenAPI fue habilitado expresamente en modo SaaS; no constituye
+    # una ruta comercial legacy ni evita el guard de sus operaciones.
+    respuesta_openapi = client.get("/openapi.json")
+    assert respuesta_openapi.status_code == 200
+    assert respuesta_openapi.json()["openapi"].startswith("3.")
     assert client.put("/tenant/catalogo/productos", json={}).status_code == 503
     assert client.get("/tenant/catalogo/productos/2002/extra").status_code == 503
 

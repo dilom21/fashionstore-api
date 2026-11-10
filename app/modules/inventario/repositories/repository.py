@@ -223,6 +223,71 @@ class InventarioRepository:
         return list(db.scalars(statement).all()), total
 
     @staticmethod
+    def consultar_pos(
+        db: Session,
+        *,
+        empresa_id: int,
+        sucursal_id: int | None,
+        producto: str | None = None,
+        producto_id: int | None = None,
+        categoria_id: int | None = None,
+        talla_id: int | None = None,
+        color_id: int | None = None,
+        temporada_id: int | None = None,
+        disponibilidad: str | None = None,
+        limit: int = 50,
+        offset: int = 0,
+    ) -> tuple[list[Inventario], int]:
+        """Inventario vendible para POS: tenant, sucursal y entidades activas.
+
+        Reutiliza ``_condiciones_consulta`` y agrega únicamente los filtros de
+        estado que un cajero necesita para no ofrecer prendas deshabilitadas.
+        """
+        condiciones = InventarioRepository._condiciones_consulta(
+            empresa_id=empresa_id,
+            sucursal_id=sucursal_id,
+            producto=producto,
+            producto_id=producto_id,
+            categoria_id=categoria_id,
+            talla_id=talla_id,
+            color_id=color_id,
+            temporada_id=temporada_id,
+            disponibilidad=disponibilidad,
+        )
+        condiciones.extend((
+            Temporada.empresa_id == empresa_id,
+            Sucursal.empresa_id == empresa_id,
+            Producto.estado.is_(True),
+            VarianteProducto.estado.is_(True),
+            Temporada.estado.is_(True),
+            Sucursal.estado.is_(True),
+        ))
+
+        conteo = (
+            select(func.count())
+            .select_from(Inventario)
+            .join(Inventario.variante_producto)
+            .join(VarianteProducto.producto)
+            .join(Inventario.sucursal)
+            .join(Inventario.temporada)
+            .where(*condiciones)
+        )
+        total = int(db.scalar(conteo) or 0)
+
+        statement = (
+            InventarioRepository._consulta_base()
+            .join(Inventario.variante_producto)
+            .join(VarianteProducto.producto)
+            .join(Inventario.sucursal)
+            .join(Inventario.temporada)
+            .where(*condiciones)
+            .order_by(Inventario.sucursal_id, Inventario.id)
+            .limit(limit)
+            .offset(offset)
+        )
+        return list(db.scalars(statement).all()), total
+
+    @staticmethod
     def obtener_sucursal_activa(
         db: Session, sucursal_id: int, *, empresa_id: int | None = None
     ) -> Sucursal | None:

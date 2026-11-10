@@ -76,6 +76,7 @@ class TenantReservaPrevalidacionRepository:
             .join(temporada, and_(
                 temporada.c.id == i.c.temporada_id,
                 temporada.c.empresa_id == empresa_id,
+                temporada.c.estado.is_(True),
             ))
             .join(t, and_(
                 t.c.id == v.c.talla_id, t.c.estado.is_(True),

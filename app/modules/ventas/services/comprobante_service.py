@@ -23,13 +23,19 @@ from decimal import ROUND_HALF_UP, Decimal
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.tenant_context import TenantContext
 from app.modules.autenticacion_seguridad.models.models import (
     Cliente,
     Empleado,
     Usuario,
 )
+from app.modules.autenticacion_seguridad.repositories.tenant_repository import (
+    TenantAuthRepository,
+)
 from app.modules.pagos.repositories.repository import PagoRepository
+from app.modules.pagos.repositories.tenant_repository import PagoTenantRepository
 from app.modules.ventas.repositories.repository import VentaRepository
+from app.modules.ventas.repositories.tenant_repository import VentaTenantRepository
 from app.modules.ventas.schemas.comprobante import (
     ComprobanteClienteResponse,
     ComprobanteEmpleadoResponse,
@@ -88,12 +94,15 @@ class PagoAprobadoNoEncontradoError(ComprobanteVentaError):
 
 
 def _cliente_response(
-    db: Session, venta
+    db: Session, venta, *, empresa_id: int | None = None
 ) -> ComprobanteClienteResponse | None:
     """Cliente real de la venta; ``None`` en ventas anonimas (sin inventar)."""
     if venta.cliente_id is None:
         return None
-    cliente = db.get(Cliente, int(venta.cliente_id))
+    statement = select(Cliente).where(Cliente.id == int(venta.cliente_id))
+    if empresa_id is not None:
+        statement = statement.where(Cliente.empresa_id == empresa_id)
+    cliente = db.scalars(statement).first()
     if cliente is None:
         return None
     return ComprobanteClienteResponse(
@@ -106,12 +115,15 @@ def _cliente_response(
 
 
 def _empleado_response(
-    db: Session, venta
+    db: Session, venta, *, empresa_id: int | None = None
 ) -> ComprobanteEmpleadoResponse | None:
     """Empleado que registro la venta; ``None`` en ventas WEB/MOVIL."""
     if venta.empleado_id is None:
         return None
-    empleado = db.get(Empleado, int(venta.empleado_id))
+    statement = select(Empleado).where(Empleado.id == int(venta.empleado_id))
+    if empresa_id is not None:
+        statement = statement.where(Empleado.empresa_id == empresa_id)
+    empleado = db.scalars(statement).first()
     if empleado is None:
         return None
     return ComprobanteEmpleadoResponse(
@@ -170,6 +182,32 @@ def _construir_items(venta) -> list[ComprobanteVentaItemResponse]:
             )
         )
     return items
+
+
+def _comprobante_response(
+    db: Session, venta, pago, *, empresa_id: int | None = None
+) -> ComprobanteVentaResponse:
+    """Ensambla el DTO reutilizado por CU23 legacy y por el tenant SaaS."""
+    items = _construir_items(venta)
+    return ComprobanteVentaResponse(
+        venta_id=int(venta.id),
+        fecha_hora=venta.fecha_hora,
+        canal=venta.canal,
+        estado_venta=venta.estado,
+        total=Decimal(venta.total),
+        carrito_id=(
+            int(venta.carrito_id) if venta.carrito_id is not None else None
+        ),
+        reserva_id=(
+            int(venta.reserva_id) if venta.reserva_id is not None else None
+        ),
+        cliente=_cliente_response(db, venta, empresa_id=empresa_id),
+        empleado=_empleado_response(db, venta, empresa_id=empresa_id),
+        sucursal=_sucursal_response(venta),
+        pago=_pago_response(pago),
+        items=items,
+        cantidad_total_unidades=sum(item.cantidad for item in items),
+    )
 
 
 class ComprobanteVentaService:
@@ -246,23 +284,92 @@ class ComprobanteVentaService:
         if pago is None:
             raise PagoAprobadoNoEncontradoError()
 
-        items = _construir_items(venta)
-        return ComprobanteVentaResponse(
-            venta_id=int(venta.id),
-            fecha_hora=venta.fecha_hora,
-            canal=venta.canal,
-            estado_venta=venta.estado,
-            total=Decimal(venta.total),
-            carrito_id=(
-                int(venta.carrito_id) if venta.carrito_id is not None else None
-            ),
-            reserva_id=(
-                int(venta.reserva_id) if venta.reserva_id is not None else None
-            ),
-            cliente=_cliente_response(db, venta),
-            empleado=_empleado_response(db, venta),
-            sucursal=_sucursal_response(venta),
-            pago=_pago_response(pago),
-            items=items,
-            cantidad_total_unidades=sum(item.cantidad for item in items),
+        return _comprobante_response(db, venta, pago)
+
+    # ------------------------------------------------------------------
+    # CU23 SaaS - personal empresarial
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _validar_personal_tenant(
+        db: Session, tenant: TenantContext, venta
+    ) -> None:
+        """ADMIN global; ENCARGADO/CAJERO solo la sucursal de su empleado."""
+        if tenant.contexto != CONTEXTO_PERSONAL:
+            raise ComprobanteNoAutorizadoError()
+        rol = str(tenant.rol_nombre).strip().upper()
+        if rol not in ROLES_COMPROBANTE_PERSONAL:
+            raise ComprobanteNoAutorizadoError()
+        if rol == ROL_ADMINISTRADOR:
+            return
+
+        perfil = TenantAuthRepository.obtener_perfil_personal(
+            db, usuario_id=tenant.usuario_id, empresa_id=tenant.empresa_id
         )
+        if perfil is None:
+            raise ComprobanteNoAutorizadoError()
+        if int(venta.sucursal_id) != int(perfil.sucursal_id):
+            raise ComprobanteNoAutorizadoError()
+
+    @staticmethod
+    def generar_comprobante_tenant(
+        db: Session,
+        tenant: TenantContext,
+        venta_id: int,
+    ) -> ComprobanteVentaResponse:
+        """Comprobante de una venta del tenant, solo lectura y con RLS."""
+        if int(venta_id) <= 0:
+            raise VentaComprobanteNoEncontradaError()
+
+        venta = VentaTenantRepository.obtener_por_id(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta_id)
+        )
+        if venta is None:
+            raise VentaComprobanteNoEncontradaError()
+
+        ComprobanteVentaService._validar_personal_tenant(db, tenant, venta)
+
+        if venta.estado != ESTADO_VENTA_COMPLETADA:
+            raise VentaNoCompletadaError()
+
+        pago = PagoTenantRepository.obtener_pago_aprobado(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta.id)
+        )
+        if pago is None:
+            raise PagoAprobadoNoEncontradoError()
+
+        return _comprobante_response(
+            db, venta, pago, empresa_id=tenant.empresa_id
+        )
+
+    @staticmethod
+    def generar_comprobante_cliente_tenant(
+        db: Session, tenant: TenantContext, venta_id: int
+    ) -> ComprobanteVentaResponse:
+        """CU23 SaaS cliente: solo su venta dentro de la empresa del JWT."""
+        if tenant.contexto != CONTEXTO_CLIENTE or int(venta_id) <= 0:
+            raise ComprobanteNoAutorizadoError()
+        cliente = db.scalars(
+            select(Cliente).where(
+                Cliente.empresa_id == tenant.empresa_id,
+                Cliente.usuario_id == tenant.usuario_id,
+                Cliente.estado.is_(True),
+            )
+        ).first()
+        if cliente is None:
+            raise ComprobanteNoAutorizadoError()
+        venta = VentaTenantRepository.obtener_por_id(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta_id)
+        )
+        if venta is None:
+            raise VentaComprobanteNoEncontradaError()
+        if venta.cliente_id is None or int(venta.cliente_id) != int(cliente.id):
+            raise ComprobanteNoAutorizadoError()
+        if venta.estado != ESTADO_VENTA_COMPLETADA:
+            raise VentaNoCompletadaError()
+        pago = PagoTenantRepository.obtener_pago_aprobado(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta.id)
+        )
+        if pago is None:
+            raise PagoAprobadoNoEncontradoError()
+        return _comprobante_response(db, venta, pago, empresa_id=tenant.empresa_id)

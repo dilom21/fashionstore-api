@@ -7,13 +7,14 @@ UPDATE ni expiraciones: un GET nunca debe cambiar datos ni tomar row locks.
 from datetime import datetime, timedelta, timezone
 from decimal import Decimal
 
-from sqlalchemy import and_, func, select
+from sqlalchemy import and_, case, func, select
 from sqlalchemy.orm import Session
 
 from app.modules.autenticacion_seguridad.models.models import Cliente
 from app.modules.carrito.models.models import Carrito, DetalleCarrito
 from app.modules.catalogo.models.models import (
-    Categoria, Color, Producto, Talla, Temporada, VarianteProducto,
+    Categoria, Color, Producto, RecursoProducto, Talla, Temporada,
+    VarianteProducto,
 )
 from app.modules.inventario.models.models import Inventario
 from app.modules.sucursales.models.models import Sucursal
@@ -81,6 +82,42 @@ class CarritoTenantReadRepository:
         det, inv = DetalleCarrito.__table__, Inventario.__table__
         var, pro, cat = VarianteProducto.__table__, Producto.__table__, Categoria.__table__
         talla, color, tem = Talla.__table__, Color.__table__, Temporada.__table__
+        recurso = RecursoProducto.__table__
+        # Una subconsulta correlacionada evita N+1 y aplica la misma preferencia
+        # visual del catalogo: principal del color, principal general y luego
+        # otra imagen activa del producto. RLS y empresa_id impiden cruces.
+        imagen_principal = (
+            select(recurso.c.url)
+            .where(
+                recurso.c.empresa_id == empresa_id,
+                recurso.c.producto_id == pro.c.id,
+                recurso.c.estado.is_(True),
+                recurso.c.tipo == "IMAGEN",
+            )
+            .order_by(
+                case(
+                    (
+                        and_(
+                            recurso.c.es_principal.is_(True),
+                            recurso.c.color_id == var.c.color_id,
+                        ),
+                        0,
+                    ),
+                    (
+                        and_(
+                            recurso.c.es_principal.is_(True),
+                            recurso.c.color_id.is_(None),
+                        ),
+                        1,
+                    ),
+                    else_=2,
+                ),
+                recurso.c.id.asc(),
+            )
+            .limit(1)
+            .correlate(pro, var)
+            .scalar_subquery()
+        )
         sentencia = (
             select(
                 det.c.id.label("detalle_id"),
@@ -97,6 +134,7 @@ class CarritoTenantReadRepository:
                 color.c.nombre.label("color_nombre"),
                 tem.c.id.label("temporada_id"),
                 tem.c.nombre.label("temporada_nombre"),
+                imagen_principal.label("imagen_principal_url"),
                 (inv.c.stock_actual - inv.c.stock_reservado).label("stock_disponible"),
             )
             .select_from(det)

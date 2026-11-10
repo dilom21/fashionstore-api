@@ -42,6 +42,7 @@ def _motor_auxiliar(url: str | None, tamano: int = 2):
 # bootstrap; /saas/superadmin es el único consumidor del pool platform_admin.
 bootstrap_engine = _motor_auxiliar(settings.database_bootstrap_url)
 platform_engine = _motor_auxiliar(settings.database_platform_url)
+webhook_engine = _motor_auxiliar(settings.database_webhook_url)
 
 BootstrapSession = sessionmaker(
     bind=bootstrap_engine,
@@ -51,6 +52,11 @@ BootstrapSession = sessionmaker(
 
 PlatformSession = sessionmaker(
     bind=platform_engine,
+    autoflush=False,
+    autocommit=False,
+)
+WebhookSession = sessionmaker(
+    bind=webhook_engine,
     autoflush=False,
     autocommit=False,
 )
@@ -140,6 +146,15 @@ def get_bootstrap_db():
 def get_platform_db():
     """Pool exclusivo de /saas/superadmin (administración global deliberada)."""
     db = PlatformSession()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def get_webhook_db():
+    """Pool CU14 sin JWT: solo EXECUTE del procedimiento Stripe privado."""
+    db = WebhookSession()
     try:
         yield db
     finally:

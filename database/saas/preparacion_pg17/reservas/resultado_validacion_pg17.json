@@ -1,0 +1,52 @@
+{
+  "pruebas": [
+    "preflight negativo: policy RLS ausente bloqueada",
+    "preflight negativo: permiso INSERT ausente bloqueado",
+    "preflight negativo: owner LOGIN inseguro bloqueado",
+    "membresías externas SET FALSE preservadas por 080",
+    "postflight negativo: imprime FAIL y psql termina distinto de cero",
+    "concurrencia: 1 PASS / 1 rechazo 23514",
+    "cancelación: libera exactamente una vez",
+    "idempotencia cancelación: rechazo 23514, stock intacto",
+    "rollback: sin reserva parcial ni cambio de carrito/stock",
+    "finalización sin compra: ATENDIDA y stock liberado",
+    "actor cruzado: rechazo 42501",
+    "reversión con actividad: bloqueada sin cambios parciales",
+    "reversión negativa: marcador de integridad alterado bloqueado",
+    "reversión limpia: 4 rutinas fuera; tablas, datos, policies, marcador y membresías intactos"
+  ],
+  "clusters_efimeros": 2,
+  "membresias_externas_set_false": [
+    {
+      "rol": "fashionstore_context_owner",
+      "grantor": "postgres",
+      "admin": true,
+      "inherit": false,
+      "set": false
+    },
+    {
+      "rol": "fashionstore_sp_owner",
+      "grantor": "postgres",
+      "admin": true,
+      "inherit": false,
+      "set": false
+    }
+  ],
+  "negativas": {
+    "080_sin_policy_movimiento": "BLOQUEADO",
+    "080_sin_insert_movimiento": "BLOQUEADO",
+    "080_owner_login": "BLOQUEADO",
+    "081_policy_ausente": "FAIL_CON_EXIT_NO_CERO",
+    "082_con_actividad": "BLOQUEADO",
+    "082_integridad_alterada": "BLOQUEADO"
+  },
+  "version": "17.9",
+  "postflight": "CU11_POSTFLIGHT=PASS",
+  "metadata": {
+    "procedimientos": 3,
+    "owner_bypass": false,
+    "public_execute": 0,
+    "set_temporal": 0
+  },
+  "estado": "PASS"
+}
