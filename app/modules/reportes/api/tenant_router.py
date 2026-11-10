@@ -39,6 +39,13 @@ from app.modules.reportes.schemas.operaciones import (
 )
 from app.modules.reportes.schemas.productos import ReporteProductosResponse
 from app.modules.reportes.schemas.ventas import ReporteVentasResponse
+from app.modules.reportes.schemas.generativos import (
+    ReporteGenerativoRequest, ReporteGenerativoResponse,
+)
+from app.modules.reportes.services.generativos_service import (
+    ReporteGenerativoError, ReporteGenerativoIntencionError,
+    ReporteGenerativoProveedorError, generar_reporte,
+)
 from app.modules.reportes.services.reportes_service import (
     AGRUPACION_POR_DEFECTO,
     FORMATOS,
@@ -55,6 +62,15 @@ from app.modules.reportes.services.reportes_service import (
     ReportesService,
 )
 from app.modules.sucursales.models.models import Sucursal
+from app.modules.predicciones.repositories import (
+    obtener_historico, obtener_producto, obtener_sucursal,
+)
+from app.modules.predicciones.schemas import PrediccionRequest, PrediccionResponse
+from app.modules.predicciones.services.demand_model import (
+    HORIZONS, PredictionArtifactError, predict, load_verified_artifact,
+)
+from app.modules.analitica_no_supervisada.schemas import PatronesRequest, PatronesResponse
+from app.modules.analitica_no_supervisada.services import PatternArtifactError, analizar
 
 router = APIRouter(prefix="/tenant/reportes", tags=["CU16 Dashboard y reportes SaaS"])
 TenantConsulta = Annotated[
@@ -225,3 +241,116 @@ def exportar(
         "Content-Disposition": f'attachment; filename="{nombre}"',
         "Content-Length": str(len(contenido)),
     })
+
+
+@router.post("/generativo", response_model=ReporteGenerativoResponse)
+def generativo(
+    datos: ReporteGenerativoRequest,
+    tenant: TenantConsulta = None,
+    db: Session = Depends(get_db),
+):
+    """Interpreta una solicitud con IA y ejecuta solo reportes allowlist."""
+    if not tenant.permite_reportes_ia:
+        raise HTTPException(status_code=403,
+                            detail="El plan de esta empresa no habilita reportes con IA")
+    try:
+        actor = _actor(db, tenant, None)
+        return generar_reporte(
+            db, actor, datos,
+            actor_factory=lambda sucursal_id: _actor(db, tenant, sucursal_id),
+        )
+    except ReporteGenerativoIntencionError as exc:
+        raise HTTPException(status_code=422,
+                            detail="La solicitud no corresponde a un reporte soportado") from exc
+    except ReporteGenerativoProveedorError as exc:
+        raise HTTPException(status_code=502,
+                            detail="El proveedor de IA no pudo interpretar la solicitud") from exc
+    except ReportesError as exc:
+        raise _map_error(exc) from exc
+    except ReporteGenerativoError as exc:
+        raise HTTPException(status_code=502,
+                            detail="No fue posible generar el reporte") from exc
+
+
+@router.post("/predicciones", response_model=PrediccionResponse)
+def prediccion_demanda(
+    datos: PrediccionRequest,
+    tenant: TenantConsulta = None,
+    db: Session = Depends(get_db),
+):
+    """Predice unidades futuras sin aceptar empresa_id del cliente.
+
+    La autorización ocurre antes de cargar el artefacto o consultar el
+    histórico. El histórico se agrega por día y solo incluye COMPLETADAS.
+    """
+    if not tenant.permite_reportes_ia:
+        raise HTTPException(status_code=403,
+                            detail="El plan de esta empresa no habilita predicciones")
+    try:
+        producto = obtener_producto(db, empresa_id=tenant.empresa_id,
+                                    producto_id=datos.producto_id)
+        if producto is None:
+            raise HTTPException(status_code=404, detail="Producto no encontrado")
+        actor = _actor(db, tenant, datos.sucursal_id)
+        sucursal_id = datos.sucursal_id
+        if tenant.rol_nombre == "ENCARGADO_SUCURSAL":
+            sucursal_id = actor.empleado.sucursal_id
+        sucursal = (obtener_sucursal(db, empresa_id=tenant.empresa_id,
+                                      sucursal_id=sucursal_id)
+                    if sucursal_id is not None else None)
+        if datos.sucursal_id is not None and sucursal is None:
+            raise HTTPException(status_code=404, detail="Sucursal no encontrada")
+        _, metadata = load_verified_artifact()
+        filas = obtener_historico(db, empresa_id=tenant.empresa_id,
+                                  producto_id=producto.id, sucursal_id=sucursal_id,
+                                  hasta=date.today())
+        if not filas:
+            raise HTTPException(status_code=422,
+                                detail={"estado": "SIN_DATOS",
+                                        "mensaje": "No hay ventas COMPLETADAS para este filtro"})
+        valores = {fecha: float(unidades or 0) for fecha, unidades in filas}
+        fecha_corte = max(fecha for fecha, _ in filas)
+        historico = [valores.get(fecha_corte.fromordinal(fecha_corte.toordinal() - offset), 0)
+                     for offset in range(89, -1, -1)]
+        if sum(1 for value in historico if value > 0) < 28:
+            raise HTTPException(status_code=422,
+                                detail={"estado": "NO_DISPONIBLE",
+                                        "mensaje": "Se requieren 28 días observables de histórico"})
+        valor = predict(historico, fecha_corte, datos.horizonte_dias)
+        return PrediccionResponse(
+            tipo="DEMANDA_UNIDADES", horizonte_dias=datos.horizonte_dias,
+            unidad="UNIDADES_VENDIDAS", producto_id=producto.id,
+            producto_nombre=producto.nombre, sucursal_id=sucursal_id,
+            sucursal_nombre=sucursal.nombre if sucursal else None,
+            fecha_corte_datos=fecha_corte, valor_predicho=round(valor, 2),
+            historico_dias=len(historico), modelo=metadata["algorithm"],
+            version_modelo=metadata["version"], procedencia_entrenamiento="SINTETICO",
+            metricas_validacion=metadata["metrics_validation"],
+            baseline_metricas_test=metadata["baseline_metrics_test"],
+            aviso="Estimación entrenada con datos sintéticos; no garantiza precisión comercial.",
+        )
+    except HTTPException:
+        raise
+    except (PredictionArtifactError, ValueError) as exc:
+        raise HTTPException(status_code=503,
+            detail="Predicción no disponible: artefacto o datos inválidos") from exc
+
+
+@router.post("/patrones", response_model=PatronesResponse)
+def patrones_no_supervisados(
+    datos: PatronesRequest,
+    tenant: TenantConsulta = None,
+    db: Session = Depends(get_db),
+):
+    """Agrupa productos únicamente con agregados autorizados del tenant."""
+    if not tenant.permite_reportes_ia:
+        raise HTTPException(status_code=403, detail="El plan de esta empresa no habilita analítica avanzada")
+    try:
+        actor = _actor(db, tenant, datos.sucursal_id)
+        if tenant.rol_nombre == "ENCARGADO_SUCURSAL" and datos.sucursal_id is None and actor.empleado:
+            datos = datos.model_copy(update={"sucursal_id": actor.empleado.sucursal_id})
+        return analizar(db, tenant, datos)
+    except HTTPException:
+        raise
+    except (PatternArtifactError, ValueError, TypeError) as exc:
+        raise HTTPException(status_code=503, detail="Patrones no disponibles: artefacto o datos inválidos") from exc

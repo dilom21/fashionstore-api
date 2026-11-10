@@ -146,6 +146,8 @@ _RUTAS_REPORTES_TENANT = frozenset({
     "/tenant/reportes/pagos", "/tenant/reportes/compras-proveedores",
     "/tenant/reportes/clientes-carritos", "/tenant/reportes/auditoria",
 })
+_RUTA_REPORTE_GENERATIVO = "/tenant/reportes/generativo"
+_RUTA_REPORTE_PATRONES = "/tenant/reportes/patrones"
 _RUTA_EXPORTAR_REPORTES_TENANT = re.compile(
     r"^/tenant/reportes/exportar/(?:RESUMEN|VENTAS|PRODUCTOS|INVENTARIO|RESERVAS|DEVOLUCIONES|PAGOS|COMPRAS_PROVEEDORES|CLIENTES_CARRITOS|AUDITORIA)$"
 )
@@ -169,6 +171,10 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
         if metodo == "POST" and _RUTA_SAAS_SUPERADMIN_BOOTSTRAP.fullmatch(ruta):
             return True
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
+        return True
+    if metodo == "POST" and ruta == _RUTA_REPORTE_GENERATIVO:
+        return True
+    if metodo == "POST" and ruta == _RUTA_REPORTE_PATRONES:
         return True
     if metodo == "GET" and (
         ruta in _RUTAS_MERCHANDISING_COLECCION

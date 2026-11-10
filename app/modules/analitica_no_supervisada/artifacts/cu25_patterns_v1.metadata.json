@@ -1,0 +1,22 @@
+{
+  "version": "cu25-patterns-v1",
+  "algorithm": "StandardScaler+KMeans",
+  "seed": 25025,
+  "features": [
+    "unidades_vendidas",
+    "ingresos",
+    "dias_con_ventas",
+    "stock_disponible"
+  ],
+  "training_provenance": "SINTETICO",
+  "dataset_rows": 90,
+  "n_clusters": 3,
+  "cluster_sizes": [
+    30,
+    30,
+    30
+  ],
+  "silhouette": 0.835423,
+  "inertia": 11.215654,
+  "warning": "La evaluaci\u00f3n sint\u00e9tica no valida patrones comerciales reales."
+}

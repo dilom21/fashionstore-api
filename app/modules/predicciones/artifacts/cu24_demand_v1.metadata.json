@@ -1,0 +1,47 @@
+{
+  "version": "cu24-demand-v1",
+  "algorithm": "StandardScaler+Ridge",
+  "seed": 24024,
+  "target": "unidades_vendidas_en_horizonte",
+  "horizons": [
+    7,
+    30
+  ],
+  "features": [
+    "lag_1",
+    "lag_7",
+    "lag_14",
+    "rolling_7",
+    "rolling_28",
+    "dow_sin",
+    "dow_cos",
+    "month_sin",
+    "month_cos",
+    "horizon"
+  ],
+  "training_provenance": "SINTETICO",
+  "synthetic_series": 8,
+  "dataset_rows": 16592,
+  "split": {
+    "train": 11614,
+    "validation": 2489,
+    "test": 2489
+  },
+  "metrics_validation": {
+    "MAE": 24.444505,
+    "RMSE": 30.668811,
+    "R2": 0.920707
+  },
+  "metrics_test": {
+    "MAE": 21.543081,
+    "RMSE": 26.189593,
+    "R2": 0.916269
+  },
+  "baseline_metrics_test": {
+    "MAE": 17.721058,
+    "RMSE": 25.274095,
+    "R2": 0.92202
+  },
+  "non_negative_clamp": true,
+  "warning": "Estas métricas no demuestran precisión sobre datos comerciales reales."
+}
