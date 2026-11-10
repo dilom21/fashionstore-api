@@ -4,14 +4,14 @@ Una sola transaccion para caducar carritos vencidos, crear/reusar carrito
 y agregar/sumar su linea. Se valida propietario, empresa, sucursal y
 cadena inventario->variante->producto->categoria dentro de SQL.
 
-El bloque FOR UPDATE sobre cliente serializa altas del mismo comprador en PG.
-El POST toma el carrito ANTES de inventario, siguiendo el orden de CU16;
-el bloque de inventario protege la lectura de disponibilidad. Las FK tenant
-de PostgreSQL y la UNIQUE parcial siguen siendo defensas obligatorias.
+Un advisory lock transaccional serializa altas del mismo comprador en PG.
+El POST toma el carrito antes de consultar inventario, siguiendo el orden de
+CU16. El stock se valida de forma informativa: agregar al carrito no reserva ni
+descuenta unidades. Las FK tenant y la UNIQUE parcial siguen siendo defensas.
 """
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import and_, delete, func, insert, select, update
+from sqlalchemy import and_, delete, func, insert, select, text, update
 from sqlalchemy.orm import Session
 
 from app.modules.autenticacion_seguridad.models.models import Cliente
@@ -39,28 +39,50 @@ class CarritoTenantRepository:
                for v in (empresa_id, usuario_id)):
             raise CarritoTenantError(403, "Identidad de cliente invalida")
         c = Cliente.__table__
-        # Bloquear al cliente permite serializar dos altas simultaneas.
+        # El rol API tiene SELECT, pero deliberadamente no UPDATE sobre
+        # cliente. PostgreSQL exige UPDATE para SELECT ... FOR UPDATE, por lo
+        # que ese bloqueo producia SQLSTATE 42501 en Supabase. Serializamos
+        # las altas del mismo comprador con un advisory lock transaccional:
+        # los IDs proceden del JWT validado y el lock se libera en commit o
+        # rollback, incluso cuando la conexion vuelve al pool.
+        if db.get_bind().dialect.name == "postgresql":
+            db.execute(
+                text(
+                    "SELECT pg_catalog.pg_advisory_xact_lock("
+                    "pg_catalog.hashtextextended(:lock_key, 0))"
+                ),
+                {"lock_key": f"fashionstore:carrito:{empresa_id}:{usuario_id}"},
+            )
         stmt = select(c.c.id).where(
             c.c.empresa_id == empresa_id,
             c.c.usuario_id == usuario_id,
             c.c.estado.is_(True),
-        ).with_for_update(of=c)
+        )
         id_ = db.scalar(stmt)
         if id_ is None:
             raise CarritoTenantError(403, "No existe cliente activo en esta empresa")
         return int(id_)
 
     @staticmethod
-    def _stock_valido(
-        db: Session, *, empresa_id: int, sucursal_id: int, inventario_id: int,
-    ) -> int:
+    def _resolver_inventario_stock(
+        db: Session, *, empresa_id: int, sucursal_id: int,
+        inventario_id: int | None = None,
+        variante_producto_id: int | None = None,
+        temporada_id: int | None = None,
+    ) -> tuple[int, int]:
+        por_inventario = inventario_id is not None
+        por_catalogo = variante_producto_id is not None and temporada_id is not None
+        seleccion_parcial = (variante_producto_id is None) != (temporada_id is None)
+        if seleccion_parcial or por_inventario == por_catalogo:
+            raise CarritoTenantError(422, "Seleccion de inventario invalida")
+
         i, v = Inventario.__table__, VarianteProducto.__table__
         p, c = Producto.__table__, Categoria.__table__
         s = Sucursal.__table__
         t, co = Talla.__table__, Color.__table__
         temporada = Temporada.__table__
         stmt = (
-            select(i.c.stock_actual, i.c.stock_reservado)
+            select(i.c.id, i.c.stock_actual, i.c.stock_reservado)
             .join(s, and_(
                 s.c.id == i.c.sucursal_id,
                 s.c.empresa_id == empresa_id,
@@ -85,30 +107,54 @@ class CarritoTenantRepository:
             .join(temporada, and_(
                 temporada.c.id == i.c.temporada_id,
                 temporada.c.empresa_id == empresa_id,
+                temporada.c.estado.is_(True),
             ))
             .join(t, and_(t.c.id == v.c.talla_id, t.c.estado.is_(True)))
             .join(co, and_(co.c.id == v.c.color_id, co.c.estado.is_(True)))
             .where(
-                i.c.id == inventario_id,
                 i.c.empresa_id == empresa_id,
                 i.c.sucursal_id == sucursal_id,
             )
-            .with_for_update(of=i)
         )
-        fila = db.execute(stmt).mappings().one_or_none()
-        if fila is None:
+        if por_inventario:
+            stmt = stmt.where(i.c.id == inventario_id)
+        else:
+            stmt = stmt.where(
+                i.c.variante_producto_id == variante_producto_id,
+                i.c.temporada_id == temporada_id,
+            )
+        filas = db.execute(stmt).mappings().all()
+        if not filas:
             raise CarritoTenantError(404, "Inventario no disponible")
-        return int(fila["stock_actual"]) - int(fila["stock_reservado"])
+        if len(filas) != 1:
+            raise CarritoTenantError(409, "Seleccion de inventario ambigua")
+        fila = filas[0]
+        return (
+            int(fila["id"]),
+            int(fila["stock_actual"]) - int(fila["stock_reservado"]),
+        )
+
+    @classmethod
+    def _stock_valido(
+        cls, db: Session, *, empresa_id: int, sucursal_id: int,
+        inventario_id: int,
+    ) -> int:
+        return cls._resolver_inventario_stock(
+            db, empresa_id=empresa_id, sucursal_id=sucursal_id,
+            inventario_id=inventario_id,
+        )[1]
 
     @classmethod
     def agregar_item(
         cls,
         db: Session, *,
         empresa_id: int, usuario_id: int,
-        sucursal_id: int, inventario_id: int, cantidad: int,
+        sucursal_id: int, inventario_id: int | None, cantidad: int,
+        variante_producto_id: int | None = None,
+        temporada_id: int | None = None,
     ) -> dict:
         if any(isinstance(v, bool) or not isinstance(v, int) or v <= 0
-               for v in (sucursal_id, inventario_id, cantidad)):
+               for v in (sucursal_id, cantidad)):
             raise CarritoTenantError(422, "Cantidad o identificador invalido")
 
         cliente_id = cls._cliente_id(
@@ -127,12 +173,10 @@ class CarritoTenantRepository:
                 carrito.c.fecha_actualizacion <= limite,
             ).values(estado="EXPIRADO")
         )
-        # Orden global de bloqueos para CU15 -> CU16:
-        # cliente -> carrito -> inventario -> linea.
-        # El borrador de reserva bloquea carrito antes de inventario.
-        # Nunca tomar inventario antes del carrito en este POST: un
-        # PATCH/DELETE de la misma sesion puede mantener el carrito
-        # bloqueado y esperar el inventario, creando un ciclo.
+        # Orden global para CU15 -> CU16: lock asesor del cliente -> carrito ->
+        # consulta de inventario -> linea. Este POST no bloquea inventario:
+        # agregar al carrito no reserva stock y el rol API es deliberadamente
+        # de solo lectura sobre esa tabla.
         actual = db.scalar(
             select(carrito.c.id).where(
                 carrito.c.empresa_id == empresa_id,
@@ -154,16 +198,18 @@ class CarritoTenantRepository:
 
         # En altas fallidas (inventario ajeno, inexistente, stock) el
         # router revierte tambien el carrito recien creado y expiraciones.
-        disponible = cls._stock_valido(
+        inventario_resuelto, disponible = cls._resolver_inventario_stock(
             db, empresa_id=empresa_id,
             sucursal_id=sucursal_id, inventario_id=inventario_id,
+            variante_producto_id=variante_producto_id,
+            temporada_id=temporada_id,
         )
 
         detalle = db.execute(
             select(linea.c.id, linea.c.cantidad).where(
                 linea.c.empresa_id == empresa_id,
                 linea.c.carrito_id == actual,
-                linea.c.inventario_id == inventario_id,
+                linea.c.inventario_id == inventario_resuelto,
             ).with_for_update(of=linea)
         ).mappings().one_or_none()
         cantidad_final = int(detalle["cantidad"]) + cantidad if detalle else cantidad
@@ -182,7 +228,7 @@ class CarritoTenantRepository:
                 insert(linea).values(
                     empresa_id=empresa_id,
                     carrito_id=actual,
-                    inventario_id=inventario_id, cantidad=cantidad_final,
+                    inventario_id=inventario_resuelto, cantidad=cantidad_final,
                 ).returning(linea.c.id)
             )
         # El trigger CU15 actualiza actividad al modificar detalle; reforzamos
@@ -198,7 +244,7 @@ class CarritoTenantRepository:
         return {
             "carrito_id": int(actual),
             "detalle_id": int(detalle_id),
-            "inventario_id": inventario_id,
+            "inventario_id": inventario_resuelto,
             "cantidad": cantidad_final,
             "estado": "ACTIVO",
         }

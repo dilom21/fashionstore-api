@@ -57,6 +57,7 @@ _RUTAS_PERMITIDAS_SAAS = frozenset(
         ("GET", "/tenant/empresa/usuarios"),
         ("GET", "/tenant/empresa/roles"),
         ("GET", "/tenant/inventario"),
+        ("GET", "/tenant/inventario/pos"),
         ("GET", "/tenant/inventario/movimientos"),
         ("GET", "/tenant/inventario/filtros"),
         ("GET", "/tenant/bitacora"),
@@ -122,6 +123,40 @@ _RUTA_CARRITO_LINEA = re.compile(
 _RUTA_CARRITO = re.compile(r"^/tenant/carritos/[1-9][0-9]*$")
 _RUTA_RESERVA_CU16_CU18 = re.compile(
     r"^/tenant/reservas/[1-9][0-9]*/(?:cancelar|finalizar-sin-compra)$"
+)
+# CU12: gestion y atencion de reservas de sucursal.
+_RUTAS_GESTION_RESERVAS = frozenset({
+    "/tenant/reservas-sucursal",
+    "/tenant/reservas-sucursal/estadisticas",
+    "/tenant/atencion-reservas",
+})
+_RUTA_GESTION_RESERVAS_ITEM = re.compile(
+    r"^/tenant/reservas-sucursal/[1-9][0-9]*$"
+)
+_RUTA_GESTION_RESERVAS_ACCION = re.compile(
+    r"^/tenant/reservas-sucursal/[1-9][0-9]*/(?:confirmar|cancelar)$"
+)
+_RUTA_ATENCION_RESERVAS_ITEM = re.compile(
+    r"^/tenant/atencion-reservas/[1-9][0-9]*$"
+)
+_RUTA_ATENCION_RESERVAS_ACCION = re.compile(
+    r"^/tenant/atencion-reservas/[1-9][0-9]*/(?:preparar-venta|finalizar-sin-compra)$"
+)
+# CU13: venta presencial y pago tenant.
+_RUTA_VENTA_PRESENCIAL_TENANT = "/tenant/ventas/presencial"
+_RUTA_VENTA_DIGITAL_TENANT = "/tenant/ventas/digital"
+_RUTA_VENTA_TENANT_ITEM = re.compile(r"^/tenant/ventas/[1-9][0-9]*$")
+_RUTA_VENTA_COMPROBANTE_TENANT = re.compile(
+    r"^/tenant/ventas/[1-9][0-9]*/comprobante$"
+)
+_RUTA_PAGO_PRESENCIAL_TENANT = "/tenant/pagos/presencial"
+_RUTA_PAGO_STRIPE_INTENCION_TENANT = "/tenant/pagos/stripe/intencion"
+_RUTA_PAGO_STRIPE_WEBHOOK_TENANT = "/tenant/pagos/stripe/webhook"
+_RUTA_PAGO_STRIPE_ESTADO_TENANT = re.compile(
+    r"^/tenant/pagos/stripe/ventas/[1-9][0-9]*/estado$"
+)
+_RUTA_HISTORIAL_VENTAS_TENANT = re.compile(
+    r"^/tenant/ventas/historial(?:/[1-9][0-9]*(?:/comprobante)?)?$"
 )
 _RUTA_EMPRESA_SUCURSAL_ESTADO = re.compile(
     r"^/tenant/empresa/sucursales/[1-9][0-9]*/estado$"
@@ -196,6 +231,48 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     # Un endpoint con fallas de principal SQL/RLS igualmente falla cerrado.
     if metodo == "POST" and ruta == "/tenant/reservas":
         return settings.saas_reservas_enabled
+    if metodo == "GET" and (
+        ruta == "/tenant/reservas"
+        or re.fullmatch(r"/tenant/reservas/[1-9][0-9]*", ruta) is not None
+    ):
+        return settings.saas_reservas_enabled
+    # CU12 SaaS: gestion/atencion con empresa y alcance de sucursal.
+    if metodo == "GET" and (
+        ruta in _RUTAS_GESTION_RESERVAS
+        or _RUTA_GESTION_RESERVAS_ITEM.fullmatch(ruta) is not None
+        or _RUTA_ATENCION_RESERVAS_ITEM.fullmatch(ruta) is not None
+    ):
+        return settings.saas_reservas_enabled
+    if metodo == "PATCH" and (
+        _RUTA_GESTION_RESERVAS_ACCION.fullmatch(ruta) is not None
+    ):
+        return settings.saas_reservas_enabled
+    if metodo == "POST" and (
+        _RUTA_ATENCION_RESERVAS_ACCION.fullmatch(ruta) is not None
+    ):
+        return settings.saas_reservas_enabled
+    # CU13 SaaS: venta y pago presencial con flag propio.
+    if metodo == "POST" and ruta == _RUTA_VENTA_PRESENCIAL_TENANT:
+        return settings.saas_ventas_enabled
+    if metodo == "POST" and ruta == _RUTA_VENTA_DIGITAL_TENANT:
+        return settings.saas_ventas_enabled
+    if metodo == "GET" and _RUTA_VENTA_TENANT_ITEM.fullmatch(ruta) is not None:
+        return settings.saas_ventas_enabled
+    if metodo == "GET" and (
+        _RUTA_VENTA_COMPROBANTE_TENANT.fullmatch(ruta) is not None
+    ):
+        return settings.saas_ventas_enabled
+    if metodo == "POST" and ruta == _RUTA_PAGO_PRESENCIAL_TENANT:
+        return settings.saas_ventas_enabled
+    if metodo == "POST" and ruta in (
+        _RUTA_PAGO_STRIPE_INTENCION_TENANT,
+        _RUTA_PAGO_STRIPE_WEBHOOK_TENANT,
+    ):
+        return settings.saas_ventas_enabled
+    if metodo == "GET" and _RUTA_PAGO_STRIPE_ESTADO_TENANT.fullmatch(ruta):
+        return settings.saas_ventas_enabled
+    if metodo == "GET" and _RUTA_HISTORIAL_VENTAS_TENANT.fullmatch(ruta):
+        return settings.saas_ventas_enabled
     # CU16: SOLO prevalidacion sin DML; crear/cancelar reserva siguen 503.
     if (metodo, ruta) == ("POST", "/tenant/reservas/prevalidar"):
         return True

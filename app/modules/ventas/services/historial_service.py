@@ -19,9 +19,12 @@ from datetime import date, datetime, time, timedelta
 from decimal import ROUND_HALF_UP, Decimal
 
 from sqlalchemy.orm import Session
+from sqlalchemy import select
 
+from app.core.tenant_context import TenantContext
 from app.modules.autenticacion_seguridad.models.models import Cliente
 from app.modules.ventas.repositories.repository import VentaRepository
+from app.modules.ventas.repositories.tenant_repository import VentaTenantRepository
 from app.modules.ventas.schemas.historial import (
     HistorialCompraDetalleResponse,
     HistorialCompraItemResponse,
@@ -259,4 +262,78 @@ class HistorialComprasService:
             pago=_pago_response(pago),
             items=items,
             cantidad_total_unidades=sum(item.cantidad for item in items),
+        )
+
+    @staticmethod
+    def _cliente_tenant(db: Session, tenant: TenantContext) -> Cliente:
+        cliente = db.scalars(
+            select(Cliente).where(
+                Cliente.empresa_id == tenant.empresa_id,
+                Cliente.usuario_id == tenant.usuario_id,
+                Cliente.estado.is_(True),
+            )
+        ).first()
+        if cliente is None:
+            raise CompraHistorialNoAutorizadaError()
+        return cliente
+
+    @staticmethod
+    def consultar_historial_tenant(
+        db: Session, tenant: TenantContext, *, estado: str | None = None,
+        canal: str | None = None, fecha_desde: date | None = None,
+        fecha_hasta: date | None = None, pagina: int = PAGINA_POR_DEFECTO,
+        tamano_pagina: int = TAMANO_PAGINA_POR_DEFECTO,
+    ) -> HistorialComprasResponse:
+        cliente = HistorialComprasService._cliente_tenant(db, tenant)
+        estados = (estado,) if estado is not None else ESTADOS_HISTORIAL
+        desde, hasta = _rango_fechas(fecha_desde, fecha_hasta)
+        offset = (int(pagina) - 1) * int(tamano_pagina)
+        parametros = dict(
+            empresa_id=tenant.empresa_id, cliente_id=int(cliente.id),
+            estados=estados, canal=canal, desde=desde, hasta=hasta,
+        )
+        filas = VentaTenantRepository.listar_historial_cliente(
+            db, **parametros, limit=int(tamano_pagina), offset=offset
+        )
+        total = VentaTenantRepository.contar_historial_cliente(db, **parametros)
+        items = [
+            HistorialCompraResumenResponse(
+                venta_id=int(f.venta_id), fecha_hora=f.fecha_hora,
+                canal=f.canal, estado=f.estado, total=Decimal(f.total),
+                sucursal_id=int(f.sucursal_id), sucursal_nombre=f.sucursal_nombre,
+                cantidad_total_unidades=int(f.cantidad_total_unidades),
+                cantidad_lineas=int(f.cantidad_lineas),
+            ) for f in filas
+        ]
+        return HistorialComprasResponse(
+            items=items, pagina=int(pagina), tamano_pagina=int(tamano_pagina),
+            total_registros=total,
+            total_paginas=(total + int(tamano_pagina) - 1) // int(tamano_pagina) if total else 0,
+        )
+
+    @staticmethod
+    def obtener_detalle_compra_tenant(
+        db: Session, tenant: TenantContext, venta_id: int
+    ) -> HistorialCompraDetalleResponse:
+        cliente = HistorialComprasService._cliente_tenant(db, tenant)
+        venta = VentaTenantRepository.obtener_por_id(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta_id)
+        )
+        if venta is None:
+            raise CompraHistorialNoEncontradaError()
+        if venta.cliente_id is None or int(venta.cliente_id) != int(cliente.id):
+            raise CompraHistorialNoAutorizadaError()
+        if venta.estado not in ESTADOS_HISTORIAL:
+            raise CompraAunNoHistoricaError()
+        pago = VentaTenantRepository.obtener_ultimo_pago(
+            db, empresa_id=tenant.empresa_id, venta_id=int(venta.id)
+        )
+        items = _construir_items(venta)
+        return HistorialCompraDetalleResponse(
+            venta_id=int(venta.id), fecha_hora=venta.fecha_hora,
+            canal=venta.canal, estado=venta.estado, total=Decimal(venta.total),
+            carrito_id=int(venta.carrito_id) if venta.carrito_id is not None else None,
+            reserva_id=int(venta.reserva_id) if venta.reserva_id is not None else None,
+            sucursal=_sucursal_response(venta), pago=_pago_response(pago),
+            items=items, cantidad_total_unidades=sum(item.cantidad for item in items),
         )

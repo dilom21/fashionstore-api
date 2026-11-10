@@ -5,7 +5,7 @@ No descuenta ni reserva inventario. El SP de reservas/ventas sigue bloqueado.
 from typing import Annotated, Callable, TypeVar
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
@@ -24,8 +24,27 @@ ClienteTenant = Annotated[TenantContext, Depends(get_current_tenant_cliente)]
 class AgregarItemTenantRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
     sucursal_id: int = Field(gt=0)
-    inventario_id: int = Field(gt=0)
+    inventario_id: int | None = Field(default=None, gt=0)
+    variante_producto_id: int | None = Field(default=None, gt=0)
+    temporada_id: int | None = Field(default=None, gt=0)
     cantidad: int = Field(gt=0, le=1000)
+
+    @model_validator(mode="after")
+    def validar_seleccion_inventario(self):
+        por_inventario = self.inventario_id is not None
+        por_catalogo = (
+            self.variante_producto_id is not None
+            and self.temporada_id is not None
+        )
+        seleccion_parcial = (
+            self.variante_producto_id is None
+        ) != (self.temporada_id is None)
+        if seleccion_parcial or por_inventario == por_catalogo:
+            raise ValueError(
+                "Envie inventario_id o variante_producto_id y temporada_id, "
+                "pero no ambas formas"
+            )
+        return self
 
 
 class CarritoItemTenantResponse(BaseModel):
@@ -49,6 +68,8 @@ def agregar_item_carrito_empresa(
             empresa_id=tenant.empresa_id, usuario_id=tenant.usuario_id,
             sucursal_id=datos.sucursal_id,
             inventario_id=datos.inventario_id,
+            variante_producto_id=datos.variante_producto_id,
+            temporada_id=datos.temporada_id,
             cantidad=datos.cantidad,
         )
         db.commit()

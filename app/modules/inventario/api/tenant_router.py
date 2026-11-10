@@ -12,6 +12,7 @@ from app.modules.inventario.schemas.schemas import (
     DisponibilidadFiltro,
     InventarioConsultaResponse,
     InventarioFiltrosResponse,
+    InventarioPosConsultaResponse,
     MovimientoInventarioConsultaResponse,
     TipoMovimiento,
 )
@@ -79,6 +80,36 @@ def consultar_inventario_tenant(
 ):
     try:
         return InventarioService.consultar_inventario_tenant(
+            db, tenant,
+            sucursal_id=sucursal_id, producto=producto,
+            producto_id=producto_id, categoria_id=categoria_id,
+            talla_id=talla_id, color_id=color_id,
+            temporada_id=temporada_id,
+            disponibilidad=disponibilidad, limit=limit, offset=offset,
+        )
+    except (RolInventarioTenantError, SucursalScopeError,
+            SucursalNoEncontradaError, DisponibilidadInvalidaError) as exc:
+        raise _traducir_error(exc) from exc
+
+
+@router.get("/pos", response_model=InventarioPosConsultaResponse)
+def consultar_inventario_pos_tenant(
+    tenant: TenantActual,
+    db: Session = Depends(get_db),
+    sucursal_id: int | None = Query(default=None, gt=0),
+    producto: str | None = Query(default=None, min_length=1),
+    producto_id: int | None = Query(default=None, gt=0),
+    categoria_id: int | None = Query(default=None, gt=0),
+    talla_id: int | None = Query(default=None, gt=0),
+    color_id: int | None = Query(default=None, gt=0),
+    temporada_id: int | None = Query(default=None, gt=0),
+    disponibilidad: DisponibilidadFiltro | None = Query(default=None),
+    limit: int = Query(default=50, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+):
+    """CU13 POS - inventario vendible, mínimo y limitado por sucursal."""
+    try:
+        return InventarioService.consultar_inventario_pos_tenant(
             db, tenant,
             sucursal_id=sucursal_id, producto=producto,
             producto_id=producto_id, categoria_id=categoria_id,

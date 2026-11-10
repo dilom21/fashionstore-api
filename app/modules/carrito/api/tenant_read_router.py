@@ -42,6 +42,7 @@ class ItemCarritoSaaS(BaseModel):
     inventario_id: int
     producto_id: int
     producto_nombre: str
+    imagen_principal_url: str | None = None
     precio_unitario: Decimal
     variante_producto_id: int
     sku: str

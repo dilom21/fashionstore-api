@@ -22,6 +22,10 @@ from app.modules.carrito.api.tenant_router import router as tenant_carrito_route
 from app.modules.carrito.api.tenant_read_router import router as tenant_carrito_read_router
 from app.modules.reservas.api.tenant_prevalidacion_router import router as tenant_reserva_prevalidacion_router
 from app.modules.reservas.api.tenant_reserva_write_router import router as tenant_reserva_write_router
+from app.modules.reservas.api.tenant_gestion_router import router as tenant_reserva_gestion_router
+from app.modules.reservas.api.tenant_atencion_router import router as tenant_reserva_atencion_router
+from app.modules.ventas.api.tenant_presencial_router import router as tenant_ventas_presencial_router
+from app.modules.pagos.api.tenant_router import router as tenant_pagos_router
 from app.modules.sucursales.api.tenant_saas_admin_router import router as tenant_empresa_admin_router
 from app.modules.sucursales.api.saas_superadmin_router import router as saas_superadmin_router
 from app.modules.catalogo.api.router import router as catalogo_router
@@ -99,6 +103,12 @@ app.include_router(tenant_carrito_read_router)
 app.include_router(tenant_reserva_prevalidacion_router)
 # CU16: creación registrada pero denegada por segundo flag hasta SP y RLS real.
 app.include_router(tenant_reserva_write_router)
+# CU12 SaaS: gestion/atencion de reservas con empresa y sucursal efectiva.
+app.include_router(tenant_reserva_gestion_router)
+app.include_router(tenant_reserva_atencion_router)
+# CU13 SaaS: venta presencial (PENDIENTE) y pago/confirmacion transaccional.
+app.include_router(tenant_ventas_presencial_router)
+app.include_router(tenant_pagos_router)
 # Empresa SaaS: administracion de plan y sucursales con aislamiento tenant.
 app.include_router(tenant_empresa_admin_router)
 # CU01/CU02: superadministración global, propia credencial y flags OFF.

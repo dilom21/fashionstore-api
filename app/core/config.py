@@ -15,6 +15,9 @@ class Settings(BaseSettings):
     # siempre llegan por entorno; nunca se escriben aquí ni en SQL.
     database_bootstrap_url: str | None = None
     database_platform_url: str | None = None
+    # CU14: login exclusivo que solo hereda fashionstore_webhook y EXECUTE
+    # sobre el procedimiento privado de eventos Stripe.
+    database_webhook_url: str | None = None
 
     secret_key: str
     jwt_algorithm: str = "HS256"
@@ -31,6 +34,8 @@ class Settings(BaseSettings):
     saas_superadmin_key_sha256: str | None = None
     # CU16: habilitar solo tras validar SP definitivo, principal SQL y RLS.
     saas_reservas_enabled: bool = False
+    # CU13: venta presencial y pago tenant; requiere paquete SQL CU12/CU13.
+    saas_ventas_enabled: bool = False
     # 5CA: con RLS+ACL aplicados (050a-c) la auditoría la escribe el trigger
     # fn_registrar_bitacora() con owner NOLOGIN y fashionstore_api NO tiene
     # INSERT sobre bitacora. Activar sólo cuando la migración esté aplicada:

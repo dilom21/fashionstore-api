@@ -79,6 +79,27 @@ def preparar_creacion_reserva(
     )
 
 
+def preparar_confirmacion_reserva(
+    *, tenant: TenantContext, reserva_id: int,
+) -> LlamadaSPTenant:
+    """Contrato CU12: PENDIENTE -> CONFIRMADA sin tocar inventario."""
+    empresa_id, usuario_id = _identidad_validada(tenant)
+    if tenant.contexto != "personal" or tenant.rol_nombre not in (
+        "ADMINISTRADOR", "ENCARGADO_SUCURSAL"
+    ):
+        raise PermissionError("El contrato CU12 requiere gestion de reservas")
+    _id_positivo(reserva_id, "reserva_id")
+    return _preparar(
+        "CALL public.sp_confirmar_reserva_tenant("
+        ":empresa_id, :reserva_id, :usuario_id)",
+        {
+            "empresa_id": empresa_id,
+            "reserva_id": reserva_id,
+            "usuario_id": usuario_id,
+        },
+    )
+
+
 def preparar_cancelacion_reserva(
     *, tenant: TenantContext, reserva_id: int, observacion: str | None = None,
 ) -> LlamadaSPTenant:

@@ -20,6 +20,7 @@ from app.core.tenant_context import TenantContext
 from app.modules.reservas.services.tenant_sp_calls_5o import (
     preparar_creacion_reserva,
     preparar_cancelacion_reserva,
+    preparar_confirmacion_reserva,
     preparar_finalizacion_sin_compra,
 )
 
@@ -36,7 +37,15 @@ _PRINCIPAL_SQL = text("""
     SELECT session_user AS principal,
            r.rolcanlogin AND NOT r.rolsuper AND NOT r.rolbypassrls
              AND NOT r.rolcreaterole AND NOT r.rolcreatedb
-             AND NOT r.rolinherit AS restringido,
+             AND r.rolinherit
+             AND pg_has_role(r.rolname,'fashionstore_api','USAGE')
+             AND NOT EXISTS (
+               SELECT 1
+               FROM pg_auth_members m
+               JOIN pg_roles heredado ON heredado.oid=m.roleid
+               WHERE m.member=r.oid
+                 AND heredado.rolname<>'fashionstore_api'
+             ) AS restringido,
            row_security_active('public.empresa'::regclass) AS rls_empresas,
            row_security_active('public.reserva'::regclass) AS rls_reservas,
            row_security_active('public.inventario'::regclass) AS rls_inventario,
@@ -153,7 +162,10 @@ def verificar_principal_reserva(
     """Fail-closed: SQL principal real debe estar restringido al MISMO tenant.
 
     Se requiere exactamente una empresa visible con RLS vigente. Eso descarta
-    conexiones superusuario/BYPASSRLS y servicios con visibilidad global.
+    conexiones superusuario/BYPASSRLS y servicios con visibilidad global. El
+    login de aplicacion debe heredar exclusivamente ``fashionstore_api``: la
+    herencia es la que hace efectivos sus ACL y no equivale a privilegio
+    administrativo.
     Ademas exige una funcion SQL auditada cuyo propietario NOLOGIN
     predeterminado es verificado y que vincula session_user al usuario
     firmado del JWT. Si aun no esta instalada, devuelve 503 (fail-closed).
@@ -161,6 +173,7 @@ def verificar_principal_reserva(
     if procedimiento not in {
         "sp_crear_reserva_tenant",
         "sp_cancelar_reserva_tenant",
+        "sp_confirmar_reserva_tenant",
         "sp_finalizar_reserva_sin_compra_tenant",
     }:
         raise ValueError("Procedimiento tenant no permitido")
@@ -325,7 +338,13 @@ def _ejecutar_cambio_reserva(
     accion: str,
 ) -> str:
     """No se expone como SQL directo: requiere JWT + SP invoker y RLS."""
-    if accion == "cancelar":
+    if accion == "confirmar":
+        llamada = preparar_confirmacion_reserva(
+            tenant=tenant, reserva_id=reserva_id
+        )
+        sp = "sp_confirmar_reserva_tenant"
+        estado_esperado = "CONFIRMADA"
+    elif accion == "cancelar":
         llamada = preparar_cancelacion_reserva(
             tenant=tenant, reserva_id=reserva_id, observacion=observacion
         )
@@ -357,6 +376,16 @@ def _ejecutar_cambio_reserva(
     except Exception:
         db.rollback()
         raise
+
+
+def confirmar_reserva_transaccional_tenant(
+    db: Session, *, tenant: TenantContext, reserva_id: int,
+) -> str:
+    """CU12: confirma una reserva PENDIENTE mediante SP tenant auditado."""
+    return _ejecutar_cambio_reserva(
+        db, tenant=tenant, reserva_id=reserva_id,
+        observacion=None, accion="confirmar"
+    )
 
 
 def cancelar_reserva_transaccional_tenant(

@@ -2,7 +2,7 @@ from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 
 class CanalVenta(str, Enum):
@@ -24,6 +24,7 @@ class RealizarCompraDigitalRequest(BaseModel):
 
     carrito_id: int = Field(gt=0)
     canal: CanalVenta
+    model_config = ConfigDict(extra="forbid")
 
 
 class VentaItemResponse(BaseModel):
