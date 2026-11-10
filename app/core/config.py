@@ -18,6 +18,9 @@ class Settings(BaseSettings):
     # CU14: login exclusivo que solo hereda fashionstore_webhook y EXECUTE
     # sobre el procedimiento privado de eventos Stripe.
     database_webhook_url: str | None = None
+    # CU19/CU20: sincronizacion offline. Solo habilitar cuando la migracion
+    # 106 (ledger + carrito OFFLINE) este instalada y validada.
+    saas_offline_enabled: bool = False
 
     secret_key: str
     jwt_algorithm: str = "HS256"

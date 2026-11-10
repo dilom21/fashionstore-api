@@ -181,6 +181,15 @@ _RUTAS_REPORTES_TENANT = frozenset({
     "/tenant/reportes/pagos", "/tenant/reportes/compras-proveedores",
     "/tenant/reportes/clientes-carritos", "/tenant/reportes/auditoria",
 })
+_RUTA_REPORTE_GENERATIVO = "/tenant/reportes/generativo"
+_RUTA_REPORTE_PREDICCIONES = "/tenant/reportes/predicciones"
+_RUTA_REPORTE_PATRONES = "/tenant/reportes/patrones"
+_RUTA_OFFLINE_OPERACIONES = "/tenant/offline/operaciones"
+_RUTA_OFFLINE_OPERACION = re.compile(
+    r"^/tenant/offline/operaciones/"
+    r"[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-"
+    r"[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+)
 _RUTA_EXPORTAR_REPORTES_TENANT = re.compile(
     r"^/tenant/reportes/exportar/(?:RESUMEN|VENTAS|PRODUCTOS|INVENTARIO|RESERVAS|DEVOLUCIONES|PAGOS|COMPRAS_PROVEEDORES|CLIENTES_CARRITOS|AUDITORIA)$"
 )
@@ -205,6 +214,16 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
             return True
     if (metodo, ruta) in _RUTAS_PERMITIDAS_SAAS:
         return True
+    if metodo == "POST" and ruta == _RUTA_REPORTE_GENERATIVO:
+        return True
+    if metodo == "POST" and ruta == _RUTA_REPORTE_PREDICCIONES:
+        return True
+    if metodo == "POST" and ruta == _RUTA_REPORTE_PATRONES:
+        return True
+    if metodo == "POST" and ruta == _RUTA_OFFLINE_OPERACIONES:
+        return settings.saas_offline_enabled
+    if metodo == "GET" and _RUTA_OFFLINE_OPERACION.fullmatch(ruta):
+        return settings.saas_offline_enabled
     if metodo == "GET" and (
         ruta in _RUTAS_MERCHANDISING_COLECCION
         or _RUTA_MERCHANDISING_ITEM.fullmatch(ruta) is not None

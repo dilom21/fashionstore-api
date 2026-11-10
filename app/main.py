@@ -55,6 +55,7 @@ from app.modules.usuarios.api.router import router as usuarios_router
 from app.modules.usuarios.api.tenant_membership_router import router as tenant_miembros_router
 from app.modules.ventas.api.router import router as ventas_router
 from app.modules.ventas.api.tenant_commercial_router import router as tenant_commercial_router
+from app.modules.offline.router import router as tenant_offline_router
 
 app = FastAPI(title="FashionStore API", version="1.0.0")
 
@@ -133,6 +134,8 @@ app.include_router(tenant_cu15_devoluciones_router)
 app.include_router(pagos_router)
 app.include_router(reportes_router)
 app.include_router(tenant_reportes_router)
+# CU19/CU20: ledger offline; flag independiente y migracion 106 previa.
+app.include_router(tenant_offline_router)
 app.include_router(vestidor_virtual_router)
 
 
