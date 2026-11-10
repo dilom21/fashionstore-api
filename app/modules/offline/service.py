@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from decimal import Decimal
+from types import SimpleNamespace
 from typing import Iterable
 from uuid import UUID
 
@@ -125,6 +126,27 @@ def _sucursal(db: Session, empresa_id: int, sucursal_id: int) -> None:
     ))
     if existe is None:
         raise OfflineConflicto("SUCURSAL_NO_DISPONIBLE", "Sucursal no disponible")
+
+
+def _resolver_lineas_reserva(db: Session, *, empresa_id: int, sucursal_id: int, lineas: Iterable):
+    """Resuelve variante→inventario dentro del tenant y sucursal autorizados."""
+    resueltas = []
+    for linea in lineas:
+        inventario_id = db.scalar(select(Inventario.id).where(
+            Inventario.empresa_id == empresa_id,
+            Inventario.sucursal_id == sucursal_id,
+            Inventario.variante_producto_id == linea.variante_id,
+            (Inventario.stock_actual - Inventario.stock_reservado) >= linea.cantidad,
+        ))
+        if inventario_id is None:
+            raise OfflineConflicto(
+                "VARIANTE_O_STOCK_NO_DISPONIBLE",
+                "La variante no está disponible en la sucursal solicitada",
+            )
+        resueltas.append(SimpleNamespace(
+            inventario_id=int(inventario_id), cantidad=linea.cantidad,
+        ))
+    return resueltas
 
 
 def _validar_lineas(
@@ -250,13 +272,17 @@ def _crear_o_reutilizar_carrito_offline(
 
 def _reservar(db: Session, tenant: TenantContext, datos: OperacionOfflineRequest, cliente_id: int) -> dict:
     _sucursal(db, tenant.empresa_id, datos.sucursal_id)
-    _validar_lineas(
+    lineas = _resolver_lineas_reserva(
         db, empresa_id=tenant.empresa_id, sucursal_id=datos.sucursal_id,
         lineas=datos.lineas,
     )
+    _validar_lineas(
+        db, empresa_id=tenant.empresa_id, sucursal_id=datos.sucursal_id,
+        lineas=lineas,
+    )
     carrito_id = _crear_o_reutilizar_carrito_offline(
         db, empresa_id=tenant.empresa_id, cliente_id=cliente_id,
-        sucursal_id=datos.sucursal_id, lineas=datos.lineas,
+        sucursal_id=datos.sucursal_id, lineas=lineas,
     )
     llamada = preparar_creacion_reserva(
         tenant=tenant, carrito_id=carrito_id,

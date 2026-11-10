@@ -27,7 +27,10 @@ EstadoTransporte = Literal[
 class LineaOffline(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    inventario_id: int = Field(gt=0)
+    # RESERVA identifica la variante comercial; VENTA_CONTADO identifica el
+    # inventario POS. Nunca se acepta la autoridad de empresa del cliente.
+    inventario_id: int | None = Field(default=None, gt=0)
+    variante_id: int | None = Field(default=None, gt=0)
     cantidad: int = Field(gt=0, le=1000)
 
 
@@ -54,14 +57,19 @@ class OperacionOfflineRequest(BaseModel):
     def lineas_sin_duplicados(cls, lineas: list[LineaOffline]) -> list[LineaOffline]:
         vistos = set()
         for linea in lineas:
-            if linea.inventario_id in vistos:
-                raise ValueError("inventario_id duplicado en la operacion")
-            vistos.add(linea.inventario_id)
+            identificador = linea.inventario_id or linea.variante_id
+            if identificador is None:
+                raise ValueError("la linea requiere inventario_id o variante_id")
+            if identificador in vistos:
+                raise ValueError("identificador duplicado en la operacion")
+            vistos.add(identificador)
         return lineas
 
     @model_validator(mode="after")
     def reglas_por_tipo(self) -> "OperacionOfflineRequest":
         if self.tipo == "RESERVA":
+            if any(linea.variante_id is None or linea.inventario_id is not None for linea in self.lineas):
+                raise ValueError("RESERVA requiere variante_id y no acepta inventario_id")
             if self.fecha_atencion is None:
                 raise ValueError("RESERVA requiere fecha_atencion")
             if self.fecha_atencion.tzinfo is None or self.fecha_atencion.utcoffset() is None:
@@ -71,6 +79,8 @@ class OperacionOfflineRequest(BaseModel):
             if self.efectivo_recibido is not None or self.cliente_id is not None:
                 raise ValueError("RESERVA no acepta efectivo_recibido ni cliente_id")
         else:
+            if any(linea.inventario_id is None or linea.variante_id is not None for linea in self.lineas):
+                raise ValueError("VENTA_CONTADO requiere inventario_id y no acepta variante_id")
             if self.fecha_atencion is not None:
                 raise ValueError("VENTA_CONTADO no acepta fecha_atencion")
         return self

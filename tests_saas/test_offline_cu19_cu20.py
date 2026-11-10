@@ -40,7 +40,7 @@ def _tenant(**changes):
 def _reserva(**changes):
     values = dict(
         operacion_uuid=uuid4(), tipo="RESERVA", sucursal_id=1,
-        lineas=[{"inventario_id": 5, "cantidad": 1}],
+        lineas=[{"variante_id": 5, "cantidad": 1}],
         fecha_atencion=datetime.now(timezone.utc) + timedelta(days=2),
         observacion="offline",
     )
@@ -93,17 +93,17 @@ def test_contrato_rechaza_empresa_id_y_campos_cruzados():
 def test_hash_canonico_ignora_orden_de_lineas():
     fecha = datetime.now(timezone.utc) + timedelta(days=2)
     a = _reserva(fecha_atencion=fecha, lineas=[
-        {"inventario_id": 5, "cantidad": 1},
-        {"inventario_id": 3, "cantidad": 2},
+        {"variante_id": 5, "cantidad": 1},
+        {"variante_id": 3, "cantidad": 2},
     ])
     b = _reserva(fecha_atencion=fecha, lineas=[
-        {"inventario_id": 3, "cantidad": 2},
-        {"inventario_id": 5, "cantidad": 1},
+        {"variante_id": 3, "cantidad": 2},
+        {"variante_id": 5, "cantidad": 1},
     ])
     assert hash_payload(a) == hash_payload(b)
     c = _reserva(fecha_atencion=fecha, lineas=[
-        {"inventario_id": 5, "cantidad": 2},
-        {"inventario_id": 3, "cantidad": 2},
+        {"variante_id": 5, "cantidad": 2},
+        {"variante_id": 3, "cantidad": 2},
     ])
     assert hash_payload(a) != hash_payload(c)
 
