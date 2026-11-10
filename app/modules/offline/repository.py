@@ -20,11 +20,12 @@ def hash_payload(datos: OperacionOfflineRequest) -> str:
     """Huella canonica estable: mismo contenido -> mismo hash."""
     lineas = sorted(
         (
-            {"inventario_id": int(linea.inventario_id),
-             "cantidad": int(linea.cantidad)}
+            ({"variante_id": int(linea.variante_id)} if linea.variante_id is not None
+             else {"inventario_id": int(linea.inventario_id)})
+            | {"cantidad": int(linea.cantidad)}
             for linea in datos.lineas
         ),
-        key=lambda item: item["inventario_id"],
+        key=lambda item: (item.get("variante_id", 0), item.get("inventario_id", 0)),
     )
     canonico: dict = {
         "tipo": datos.tipo,

@@ -9,6 +9,7 @@ from __future__ import annotations
 from datetime import datetime, timezone
 from decimal import Decimal
 from typing import Iterable
+from types import SimpleNamespace
 from uuid import UUID
 
 from sqlalchemy import select, text
@@ -166,6 +167,37 @@ def _validar_lineas(
             )
 
 
+def _resolver_variantes_reserva(db: Session, *, empresa_id: int, sucursal_id: int,
+                                lineas: Iterable) -> list:
+    """Resuelve variante+sucursal a inventario bajo lock, sin exponer stock."""
+    resueltas = []
+    for linea in lineas:
+        if linea.variante_id is None:
+            resueltas.append(linea)
+            continue
+        fila = db.execute(
+            select(Inventario.id).select_from(Inventario)
+            .join(VarianteProducto, VarianteProducto.id == Inventario.variante_producto_id)
+            .join(Producto, Producto.id == VarianteProducto.producto_id)
+            .join(Categoria, Categoria.id == Producto.categoria_id)
+            .join(Temporada, Temporada.id == Inventario.temporada_id)
+            .where(
+                Inventario.empresa_id == empresa_id,
+                Inventario.sucursal_id == sucursal_id,
+                Inventario.variante_producto_id == linea.variante_id,
+                VarianteProducto.empresa_id == empresa_id, VarianteProducto.estado.is_(True),
+                Producto.empresa_id == empresa_id, Producto.estado.is_(True),
+                Categoria.empresa_id == empresa_id, Categoria.estado.is_(True),
+                Temporada.empresa_id == empresa_id, Temporada.estado.is_(True),
+                (Inventario.stock_actual - Inventario.stock_reservado) >= linea.cantidad,
+            ).with_for_update()
+        ).first()
+        if fila is None:
+            raise OfflineConflicto("STOCK_O_INVENTARIO", "La variante no esta disponible en la sucursal")
+        resueltas.append(SimpleNamespace(inventario_id=int(fila[0]), cantidad=linea.cantidad))
+    return resueltas
+
+
 def _validar_actor(tenant: TenantContext, datos: OperacionOfflineRequest, db: Session):
     if datos.tipo == "RESERVA":
         if tenant.contexto != "cliente" or str(tenant.rol_nombre).upper() != "CLIENTE":
@@ -250,13 +282,17 @@ def _crear_o_reutilizar_carrito_offline(
 
 def _reservar(db: Session, tenant: TenantContext, datos: OperacionOfflineRequest, cliente_id: int) -> dict:
     _sucursal(db, tenant.empresa_id, datos.sucursal_id)
-    _validar_lineas(
+    lineas = _resolver_variantes_reserva(
         db, empresa_id=tenant.empresa_id, sucursal_id=datos.sucursal_id,
         lineas=datos.lineas,
     )
+    _validar_lineas(
+        db, empresa_id=tenant.empresa_id, sucursal_id=datos.sucursal_id,
+        lineas=lineas,
+    )
     carrito_id = _crear_o_reutilizar_carrito_offline(
         db, empresa_id=tenant.empresa_id, cliente_id=cliente_id,
-        sucursal_id=datos.sucursal_id, lineas=datos.lineas,
+        sucursal_id=datos.sucursal_id, lineas=lineas,
     )
     llamada = preparar_creacion_reserva(
         tenant=tenant, carrito_id=carrito_id,

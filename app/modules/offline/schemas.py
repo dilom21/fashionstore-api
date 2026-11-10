@@ -27,8 +27,19 @@ EstadoTransporte = Literal[
 class LineaOffline(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    inventario_id: int = Field(gt=0)
+    # CU19 (CLIENTE) identifica la variante descargada offline. El backend
+    # resuelve el inventario de la sucursal dentro de la transaccion.
+    variante_id: int | None = Field(default=None, gt=0)
+    # CU20 conserva el identificador POS; tambien se acepta para compatibilidad
+    # con snapshots antiguos de reservas.
+    inventario_id: int | None = Field(default=None, gt=0)
     cantidad: int = Field(gt=0, le=1000)
+
+    @model_validator(mode="after")
+    def exactamente_un_identificador(self):
+        if (self.variante_id is None) == (self.inventario_id is None):
+            raise ValueError("la linea requiere exactamente un variante_id o inventario_id")
+        return self
 
 
 class OperacionOfflineRequest(BaseModel):
@@ -54,9 +65,10 @@ class OperacionOfflineRequest(BaseModel):
     def lineas_sin_duplicados(cls, lineas: list[LineaOffline]) -> list[LineaOffline]:
         vistos = set()
         for linea in lineas:
-            if linea.inventario_id in vistos:
-                raise ValueError("inventario_id duplicado en la operacion")
-            vistos.add(linea.inventario_id)
+            clave = ("v", linea.variante_id) if linea.variante_id is not None else ("i", linea.inventario_id)
+            if clave in vistos:
+                raise ValueError("identificador duplicado en la operacion")
+            vistos.add(clave)
         return lineas
 
     @model_validator(mode="after")
@@ -73,6 +85,8 @@ class OperacionOfflineRequest(BaseModel):
         else:
             if self.fecha_atencion is not None:
                 raise ValueError("VENTA_CONTADO no acepta fecha_atencion")
+            if any(linea.inventario_id is None for linea in self.lineas):
+                raise ValueError("VENTA_CONTADO requiere inventario_id en cada linea")
         return self
 
 
