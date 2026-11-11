@@ -1,7 +1,7 @@
 -- COPIA DE DESPLIEGUE generada por generar_despliegue.py — NO EDITAR A MANO.
 -- Propuesta: 050c
 -- Original protegido: 050c_acl_procedimientos_PROPUESTA_NO_EJECUTAR.sql
--- sha256 del original: ce7bb0126c08e48e86d72c780e3d96cab4ca612190e564cbbfecb0caeb68c47f
+-- sha256 del original: ff59a6843881f84554d51dd29333db0f1d6ced4d6b45d39369c20bd4b5276a66
 -- Cambio aplicado: retirada de la guarda 'BLOQUEADO: propuesta ... no aprobada'
 --   (una sola sentencia DO del encabezado). El resto del archivo es idéntico
 --   byte a byte; el sha256 de esta copia queda en MANIFIESTO.sha256.
@@ -137,12 +137,24 @@ REVOKE CREATE ON SCHEMA public FROM fashionstore_audit_owner;
 DO $revoke_temporary_audit_owner_membership$
 DECLARE executor name:=current_user;
 BEGIN
- -- Retira solamente la concesion temporal cuyo grantor es el ejecutor; la
- -- membresia administrativa automatica queda intacta y con SET FALSE.
- EXECUTE format(
-  'REVOKE fashionstore_audit_owner FROM %I GRANTED BY %I',executor,executor);
- IF pg_has_role(executor,'fashionstore_audit_owner','SET') THEN
-  RAISE EXCEPTION 'Persistio SET temporal para audit_owner';
+  -- PostgreSQL 17 puede coalescer el GRANT temporal con la membresía
+  -- administrativa del mismo ejecutor. Se revoca y reconstruye explícitamente
+  -- la membresía administrativa con SET FALSE para no dejar SET TRUE.
+  EXECUTE format(
+    'REVOKE fashionstore_audit_owner FROM %I GRANTED BY %I',executor,executor);
+  EXECUTE format(
+    'GRANT fashionstore_audit_owner TO %I WITH ADMIN OPTION, INHERIT FALSE, SET FALSE',
+    executor);
+ -- pg_has_role(...,'SET') es TRUE para un SUPERUSER por privilegio implícito;
+ -- la prueba correcta es la columna set_option de pg_auth_members.
+ IF EXISTS(
+  SELECT 1 FROM pg_auth_members m
+  JOIN pg_roles granted ON granted.oid=m.roleid
+  JOIN pg_roles member ON member.oid=m.member
+  WHERE granted.rolname='fashionstore_audit_owner'
+    AND member.rolname=executor AND m.set_option
+ ) THEN
+  RAISE EXCEPTION 'Persistio SET TRUE para audit_owner';
  END IF;
  IF NOT EXISTS(
   SELECT 1 FROM pg_auth_members m
@@ -154,16 +166,15 @@ BEGIN
  ) THEN
   RAISE EXCEPTION 'Membresia administrativa final inesperada para audit_owner';
  END IF;
- IF EXISTS(
-  SELECT 1 FROM pg_auth_members m
-  JOIN pg_roles granted ON granted.oid=m.roleid
-  JOIN pg_roles member ON member.oid=m.member
-  JOIN pg_roles grantor ON grantor.oid=m.grantor
-  WHERE granted.rolname='fashionstore_audit_owner'
-    AND member.rolname=executor AND grantor.rolname=executor
- ) THEN
-  RAISE EXCEPTION 'Persistio la concesion temporal para audit_owner';
- END IF;
+  IF EXISTS(
+    SELECT 1 FROM pg_auth_members m
+    JOIN pg_roles granted ON granted.oid=m.roleid
+    JOIN pg_roles member ON member.oid=m.member
+    WHERE granted.rolname='fashionstore_audit_owner'
+     AND member.rolname=executor AND m.set_option
+  ) THEN
+   RAISE EXCEPTION 'Persistio SET TRUE para audit_owner';
+  END IF;
 END $revoke_temporary_audit_owner_membership$;
 
 -- Owner de los tres SP: privilegios restringidos al flujo CU16/17/18.

@@ -1,7 +1,7 @@
 -- COPIA DE DESPLIEGUE generada por generar_despliegue.py — NO EDITAR A MANO.
 -- Propuesta: 050a
 -- Original protegido: 050a_identidad_jwt_roles_PROPUESTA_NO_EJECUTAR.sql
--- sha256 del original: 1c08b0e0e06533c72e8ab93e201bb13ef0be70de06dfcd52ff6e3c0650217628
+-- sha256 del original: e5f67456faa492efdb4ca3433bcd6cc9657e8d247d45659a505eba0ec05b29c1
 -- Cambio aplicado: retirada de la guarda 'BLOQUEADO: propuesta ... no aprobada'
 --   (una sola sentencia DO del encabezado). El resto del archivo es idéntico
 --   byte a byte; el sha256 de esta copia queda en MANIFIESTO.sha256.
@@ -336,12 +336,26 @@ DECLARE executor name:=current_user; target name;
 BEGIN
  FOREACH target IN ARRAY ARRAY[
   'fashionstore_context_owner','fashionstore_bootstrap_owner']::name[] LOOP
-  -- Retira la concesion temporal creada por este ejecutor sin tocar la
-  -- membresia administrativa automatica (grantor distinto) de PostgreSQL 17.
-  EXECUTE format('REVOKE %I FROM %I GRANTED BY %I',target,executor,executor);
-  IF pg_has_role(executor,target,'SET') THEN
-   RAISE EXCEPTION 'Persistio SET temporal para %',target;
-  END IF;
+   -- En PostgreSQL 17 el GRANT temporal puede coalescerse con la membresía
+   -- administrativa que CREATEROLE otorgó al mismo ejecutor. Por eso no basta
+   -- con REVOKE GRANTED BY: la fila resultante debe reconstruirse explícitamente
+   -- con ADMIN, INHERIT FALSE y SET FALSE. Así se conserva la capacidad
+   -- administrativa necesaria para futuras migraciones, pero nunca SET TRUE.
+   EXECUTE format('REVOKE %I FROM %I GRANTED BY %I',target,executor,executor);
+   EXECUTE format(
+    'GRANT %I TO %I WITH ADMIN OPTION, INHERIT FALSE, SET FALSE',
+    target,executor);
+   -- pg_has_role(...,'SET') también devuelve TRUE para un SUPERUSER aunque
+   -- no exista una membresía SET TRUE. La evidencia de persistencia debe
+   -- provenir de la fila efectiva de pg_auth_members.
+   IF EXISTS(
+    SELECT 1 FROM pg_auth_members m
+    JOIN pg_roles granted ON granted.oid=m.roleid
+    JOIN pg_roles member ON member.oid=m.member
+    WHERE granted.rolname=target AND member.rolname=executor AND m.set_option
+   ) THEN
+    RAISE EXCEPTION 'Persistio SET TRUE para %',target;
+   END IF;
   IF NOT EXISTS(
    SELECT 1 FROM pg_auth_members m
    JOIN pg_roles granted ON granted.oid=m.roleid
@@ -351,16 +365,17 @@ BEGIN
   ) THEN
    RAISE EXCEPTION 'Membresia administrativa final inesperada para %',target;
   END IF;
-  IF EXISTS(
-   SELECT 1 FROM pg_auth_members m
-   JOIN pg_roles granted ON granted.oid=m.roleid
-   JOIN pg_roles member ON member.oid=m.member
-   JOIN pg_roles grantor ON grantor.oid=m.grantor
-   WHERE granted.rolname=target AND member.rolname=executor
-     AND grantor.rolname=executor
-  ) THEN
-   RAISE EXCEPTION 'Persistio la concesion temporal de % para %',target,executor;
-  END IF;
+   -- El grantor puede ser el propio ejecutor tras la reconstrucción. La
+   -- propiedad de seguridad que se debe probar es SET FALSE, no el grantor.
+   IF EXISTS(
+    SELECT 1 FROM pg_auth_members m
+    JOIN pg_roles granted ON granted.oid=m.roleid
+    JOIN pg_roles member ON member.oid=m.member
+    WHERE granted.rolname=target AND member.rolname=executor
+      AND m.set_option
+   ) THEN
+    RAISE EXCEPTION 'Persistio SET TRUE para % concedido a %',target,executor;
+   END IF;
  END LOOP;
 END $revoke_temporary_owner_membership$;
 
