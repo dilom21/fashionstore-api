@@ -128,27 +128,6 @@ def _sucursal(db: Session, empresa_id: int, sucursal_id: int) -> None:
         raise OfflineConflicto("SUCURSAL_NO_DISPONIBLE", "Sucursal no disponible")
 
 
-def _resolver_lineas_reserva(db: Session, *, empresa_id: int, sucursal_id: int, lineas: Iterable):
-    """Resuelve variante→inventario dentro del tenant y sucursal autorizados."""
-    resueltas = []
-    for linea in lineas:
-        inventario_id = db.scalar(select(Inventario.id).where(
-            Inventario.empresa_id == empresa_id,
-            Inventario.sucursal_id == sucursal_id,
-            Inventario.variante_producto_id == linea.variante_id,
-            (Inventario.stock_actual - Inventario.stock_reservado) >= linea.cantidad,
-        ))
-        if inventario_id is None:
-            raise OfflineConflicto(
-                "VARIANTE_O_STOCK_NO_DISPONIBLE",
-                "La variante no está disponible en la sucursal solicitada",
-            )
-        resueltas.append(SimpleNamespace(
-            inventario_id=int(inventario_id), cantidad=linea.cantidad,
-        ))
-    return resueltas
-
-
 def _validar_lineas(
     db: Session, *, empresa_id: int, sucursal_id: int,
     lineas: Iterable,
@@ -186,6 +165,37 @@ def _validar_lineas(
                 "STOCK_O_INVENTARIO",
                 "Una linea no existe, no pertenece a la sucursal o no tiene stock",
             )
+
+
+def _resolver_variantes_reserva(db: Session, *, empresa_id: int, sucursal_id: int,
+                                lineas: Iterable) -> list:
+    """Resuelve variante+sucursal a inventario bajo lock, sin exponer stock."""
+    resueltas = []
+    for linea in lineas:
+        if linea.variante_id is None:
+            resueltas.append(linea)
+            continue
+        fila = db.execute(
+            select(Inventario.id).select_from(Inventario)
+            .join(VarianteProducto, VarianteProducto.id == Inventario.variante_producto_id)
+            .join(Producto, Producto.id == VarianteProducto.producto_id)
+            .join(Categoria, Categoria.id == Producto.categoria_id)
+            .join(Temporada, Temporada.id == Inventario.temporada_id)
+            .where(
+                Inventario.empresa_id == empresa_id,
+                Inventario.sucursal_id == sucursal_id,
+                Inventario.variante_producto_id == linea.variante_id,
+                VarianteProducto.empresa_id == empresa_id, VarianteProducto.estado.is_(True),
+                Producto.empresa_id == empresa_id, Producto.estado.is_(True),
+                Categoria.empresa_id == empresa_id, Categoria.estado.is_(True),
+                Temporada.empresa_id == empresa_id, Temporada.estado.is_(True),
+                (Inventario.stock_actual - Inventario.stock_reservado) >= linea.cantidad,
+            ).with_for_update()
+        ).first()
+        if fila is None:
+            raise OfflineConflicto("STOCK_O_INVENTARIO", "La variante no esta disponible en la sucursal")
+        resueltas.append(SimpleNamespace(inventario_id=int(fila[0]), cantidad=linea.cantidad))
+    return resueltas
 
 
 def _validar_actor(tenant: TenantContext, datos: OperacionOfflineRequest, db: Session):
@@ -272,7 +282,9 @@ def _crear_o_reutilizar_carrito_offline(
 
 def _reservar(db: Session, tenant: TenantContext, datos: OperacionOfflineRequest, cliente_id: int) -> dict:
     _sucursal(db, tenant.empresa_id, datos.sucursal_id)
-    lineas = _resolver_lineas_reserva(
+    # Resolver variante→inventario con joins tenant y FOR UPDATE antes de
+    # construir el carrito; la validacion posterior conserva el contrato comun.
+    lineas = _resolver_variantes_reserva(
         db, empresa_id=tenant.empresa_id, sucursal_id=datos.sucursal_id,
         lineas=datos.lineas,
     )

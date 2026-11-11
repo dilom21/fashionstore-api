@@ -81,13 +81,43 @@ def test_contrato_rechaza_empresa_id_y_campos_cruzados():
         _reserva(cliente_id=1)
     with pytest.raises(ValidationError):
         _reserva(lineas=[
-            {"inventario_id": 5, "cantidad": 1},
-            {"inventario_id": 5, "cantidad": 2},
+            {"variante_id": 5, "cantidad": 1},
+            {"variante_id": 5, "cantidad": 2},
         ])
     with pytest.raises(ValidationError):
         _reserva(fecha_atencion=datetime.now(timezone.utc) - timedelta(days=1))
     with pytest.raises(ValidationError):
         _reserva(fecha_atencion=datetime.now())
+    with pytest.raises(ValidationError):
+        _reserva(lineas=[{"cantidad": 1}])
+    with pytest.raises(ValidationError):
+        _reserva(lineas=[{"variante_id": 9, "inventario_id": 5, "cantidad": 1}])
+
+
+def test_cu19_cliente_guarda_variante_y_hash_distingue_identificador():
+    datos = _reserva(lineas=[{"variante_id": 456, "cantidad": 2}])
+    assert datos.lineas[0].variante_id == 456
+    assert datos.lineas[0].inventario_id is None
+    assert hash_payload(datos) != hash_payload(
+        _reserva(lineas=[{"variante_id": 457, "cantidad": 2}])
+    )
+
+
+def test_resolucion_variante_rechaza_sucursal_o_stock_inexistente():
+    class _Result:
+        def first(self):
+            return None
+
+    class _DB:
+        def execute(self, *args, **kwargs):
+            return _Result()
+
+    with pytest.raises(OfflineConflicto) as exc:
+        offline_service._resolver_variantes_reserva(
+            _DB(), empresa_id=1, sucursal_id=999,
+            lineas=[SimpleNamespace(variante_id=456, cantidad=1)],
+        )
+    assert exc.value.codigo == "STOCK_O_INVENTARIO"
 
 
 def test_hash_canonico_ignora_orden_de_lineas():

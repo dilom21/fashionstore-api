@@ -62,8 +62,8 @@ Rechazos:
   "tipo": "RESERVA",
   "sucursal_id": 1,
   "lineas": [
-    {"inventario_id": 5, "cantidad": 1},
-    {"inventario_id": 7, "cantidad": 2}
+    {"variante_id": 456, "cantidad": 1},
+    {"variante_id": 789, "cantidad": 2}
   ],
   "fecha_atencion": "2026-11-15T15:30:00-04:00",
   "observacion": "Reserva creada sin conexion"
@@ -75,7 +75,7 @@ Reglas:
 - `operacion_uuid`: UUID; se recomienda v4. Inmutable para todos los reintentos.
 - `tipo`: `RESERVA` o `VENTA_CONTADO`.
 - `sucursal_id`: entero positivo, activo y de la empresa del JWT.
-- `lineas`: 1–100; `inventario_id` único por operación; `cantidad` 1–1000.
+- `lineas`: 1–100; identificador único por operación; `cantidad` 1–1000.
 - No se envían precios ni totales. El backend obtiene precios del servidor y
   PostgreSQL recalcula el total oficial.
 - `observacion`: máximo 500 caracteres.
@@ -90,7 +90,7 @@ Requiere `fecha_atencion` con zona horaria y futura. No acepta
   "operacion_uuid": "9f4c1e8e-7a2b-4f6c-9d2e-3a1b5c7d9e01",
   "tipo": "RESERVA",
   "sucursal_id": 1,
-  "lineas": [{"inventario_id": 5, "cantidad": 1}],
+    "lineas": [{"variante_id": 456, "cantidad": 1}],
   "fecha_atencion": "2026-11-15T15:30:00-04:00",
   "observacion": "Reserva offline"
 }
@@ -256,3 +256,12 @@ producto, variante, sucursal y reglas dentro de la transacción.
   offline.
 - La migración 106 no está ejecutada en Supabase. La sincronización no debe
   declararse operativa hasta instalarla y repetir el laboratorio.
+### Regla definitiva de identificadores para Angular (CU19)
+
+Las reservas offline de `CLIENTE` deben guardar `variante_id` y `cantidad`.
+El backend deriva `inventario_id` usando la empresa del JWT y `sucursal_id`,
+con comprobación de pertenencia, autorización, estado y stock dentro de la
+misma transacción y con bloqueo de fila. No se requiere ni se expone
+`inventario_id` administrativo al cliente. `VENTA_CONTADO` mantiene
+`inventario_id` porque es una operación POS autorizada para CAJERO o
+ADMINISTRADOR.

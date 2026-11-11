@@ -18,11 +18,14 @@ from app.modules.offline.schemas import OperacionOfflineRequest
 
 def hash_payload(datos: OperacionOfflineRequest) -> str:
     """Huella canonica estable: mismo contenido -> mismo hash."""
-    campo = "variante_id" if datos.tipo == "RESERVA" else "inventario_id"
     lineas = sorted(
-        ({campo: int(getattr(linea, campo)), "cantidad": int(linea.cantidad)}
-         for linea in datos.lineas),
-        key=lambda item: item[campo],
+        (
+            ({"variante_id": int(linea.variante_id)} if linea.variante_id is not None
+             else {"inventario_id": int(linea.inventario_id)})
+            | {"cantidad": int(linea.cantidad)}
+            for linea in datos.lineas
+        ),
+        key=lambda item: (item.get("variante_id", 0), item.get("inventario_id", 0)),
     )
     canonico: dict = {
         "tipo": datos.tipo,
