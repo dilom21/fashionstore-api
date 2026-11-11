@@ -194,24 +194,21 @@ def test_basico_limite_2_backend_y_sin_comit_de_exceso(caso):
 
 
 def test_upgrade_y_downgrade_respeta_sucursales(caso):
-    client,_,factory,_=caso
+    client,_,_,_=caso
+    # CU02: el cambio de plan no se expone al tenant; sólo SUPERADMIN global
+    # puede mutar suscripciones en modo SaaS.
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":" profesional "}).status_code==200
-    assert crear(client,"Tres").status_code==201
-    assert crear(client,"Cuatro").status_code==201
-    assert contar(factory,2)==3
-    downgrade=client.patch("/tenant/empresa/plan",json={"codigo":"BASICO"})
-    assert downgrade.status_code==409
-    assert client.get("/tenant/empresa/plan").json()["codigo"]=="PROFESIONAL"
+        "codigo":" profesional "}).status_code==503
+    assert client.get("/tenant/empresa/plan").json()["codigo"]=="BASICO"
 
 
 def test_downgrade_permitido_hasta_dos_sucursales(caso):
     client,estado,_,_=caso
     estado["empresa_id"]=2
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"PROFESIONAL"}).status_code==200
+        "codigo":"PROFESIONAL"}).status_code==503
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"BASICO"}).status_code==200
+        "codigo":"BASICO"}).status_code==503
 
 
 @pytest.mark.parametrize("ruta",["/tenant/empresa/plan",
@@ -229,7 +226,7 @@ def test_contexto_cliente_no_puede_administrar(caso):
     estado["rol"]="CLIENTE"
     assert crear(client,"X").status_code==403
     assert client.patch("/tenant/empresa/plan",json={
-        "codigo":"PROFESIONAL"}).status_code==403
+        "codigo":"PROFESIONAL"}).status_code==503
     assert contar(factory,2)==1
 
 
