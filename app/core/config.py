@@ -35,6 +35,15 @@ class Settings(BaseSettings):
     # La clave en texto plano nunca va en el repositorio ni en Settings.
     saas_superadmin_enabled: bool = False
     saas_superadmin_key_sha256: str | None = None
+    # Sesión web de plataforma: nunca se expone al navegador como secreto.
+    saas_superadmin_email: str | None = None
+    saas_superadmin_password_hash: str | None = None
+    saas_superadmin_session_secret: str | None = None
+    saas_superadmin_cookie_secure: bool = False
+    saas_superadmin_allowed_origins: str = "http://localhost:4200,http://127.0.0.1:4200"
+    saas_superadmin_rate_limit_per_minute: int = 8
+    saas_superadmin_idle_minutes: int = 30
+    saas_superadmin_absolute_hours: int = 8
     # CU16: habilitar solo tras validar SP definitivo, principal SQL y RLS.
     saas_reservas_enabled: bool = False
     # CU13: venta presencial y pago tenant; requiere paquete SQL CU12/CU13.

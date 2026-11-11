@@ -173,6 +173,12 @@ _RUTA_CATALOGO_PUBLICO = re.compile(
 )
 _RUTA_BITACORA_DETALLE = re.compile(r"^/tenant/bitacora/[1-9][0-9]*$")
 
+_RUTAS_SAAS_SUPERADMIN_AUTH = frozenset({
+    ("POST", "/saas/superadmin/auth/login"),
+    ("GET", "/saas/superadmin/auth/me"),
+    ("POST", "/saas/superadmin/auth/logout"),
+})
+
 # CU16: allowlist exacta de las lecturas SaaS y la descarga validada.
 _RUTAS_REPORTES_TENANT = frozenset({
     "/tenant/reportes/dashboard", "/tenant/reportes/ventas",
@@ -203,6 +209,8 @@ def _ruta_saas_permitida(metodo: str, ruta: str) -> bool:
     # CU01/CU02: opt-in y rutas exactas. La dependencia del router
     # comprueba además la clave superadmin, independiente del JWT tenant.
     if settings.saas_superadmin_enabled:
+        if (metodo, ruta) in _RUTAS_SAAS_SUPERADMIN_AUTH:
+            return True
         if (metodo,ruta) in _RUTAS_SAAS_SUPERADMIN:
             return True
         if metodo=="PATCH" and _RUTA_SAAS_SUPERADMIN_CAMBIO.fullmatch(ruta):

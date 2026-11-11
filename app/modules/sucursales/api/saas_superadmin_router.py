@@ -10,13 +10,16 @@ from __future__ import annotations
 from datetime import date
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.core.database import get_platform_db
-from app.core.saas_superadmin_auth import get_superadmin_saas
+from app.core.saas_superadmin_auth import (
+    get_superadmin_saas, get_platform_session, login_platform, revoke_platform_session,
+    SuperadminLogin,
+)
 from app.modules.sucursales.repositories.saas_superadmin_repository import (
     SuperadminSaaSError, SuperadminSaaSRepository as Repo,
 )
@@ -26,6 +29,21 @@ from app.modules.sucursales.repositories.saas_initial_admin_repository import (
 
 router=APIRouter(prefix="/saas/superadmin",tags=["Superadministrador SaaS"],
                  dependencies=[Depends(get_superadmin_saas)])
+
+auth_router = APIRouter(prefix="/saas/superadmin/auth", tags=["Autenticación plataforma"])
+
+@auth_router.post("/login")
+def login(datos: SuperadminLogin, request: Request, response: Response, db: Session = Depends(get_platform_db)):
+    return login_platform(datos, request, response, db)
+
+@auth_router.get("/me")
+def me(session: dict = Depends(get_platform_session)):
+    return {"correo": session.get("sub"), "scope": session.get("scope")}
+
+@auth_router.post("/logout")
+def logout(response: Response, session: dict = Depends(get_platform_session), db: Session = Depends(get_platform_db)):
+    revoke_platform_session(session, response, db)
+    return {"ok": True}
 
 
 class EntradaSegura(BaseModel):
